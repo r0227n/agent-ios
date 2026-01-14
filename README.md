@@ -1,4 +1,4 @@
-# agent-ios
+# agent-mobile
 
 A Rust-based iOS device management tool that replaces Python components of idb with Rust, implementing gRPC client & CLI interface.
 

@@ -1,5 +1,5 @@
 fn main() {
-    println!("agent-ios - Rust-based iOS Development Bridge");
+    println!("agent-mobile - Rust-based iOS Development Bridge");
     println!("A Rust reimplementation of Facebook's idb");
 }
 

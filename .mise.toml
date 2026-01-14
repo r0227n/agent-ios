@@ -1,10 +1,10 @@
 [tools]
 # Rust toolchain
-rust = "1.75.0"
+rust = "1.92.0"
 
 # Build tools
-"cargo:cargo-watch" = "latest"
-"cargo:cargo-edit" = "latest"
+"cargo:cargo-watch" = "8.5.3"
+"cargo:cargo-edit" = "0.13.8"
 
 [tasks]
 build = "cargo build"

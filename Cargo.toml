@@ -1,12 +1,12 @@
 [package]
-name = "agent-ios"
+name = "agent-mobile"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-tonic = "0.12"
-prost = "0.13"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tonic = "0.14.2"
+prost = "0.14.3"
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
 
 [build-dependencies]
-tonic-build = "0.12"
+tonic-build = "0.14.2"
