@@ -1,0 +1,14 @@
+[tools]
+# Rust toolchain
+rust = "1.92.0"
+
+# Build tools
+"cargo:cargo-watch" = "8.5.3"
+"cargo:cargo-edit" = "0.13.8"
+
+[tasks]
+build = "cargo build"
+test = "cargo test"
+lint = "cargo clippy -- -D warnings"
+format = "cargo fmt --all"
+format-check = "cargo fmt --all -- --check"
