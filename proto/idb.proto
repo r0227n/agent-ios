@@ -16,6 +16,7 @@ service CompanionService {
   rpc describe(TargetDescriptionRequest) returns (TargetDescriptionResponse) {}
   rpc launch(stream LaunchRequest) returns (stream LaunchResponse) {}
   rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
+  rpc focus(FocusRequest) returns (FocusResponse) {}
 }
 
 message CompanionInfo {
@@ -93,3 +94,7 @@ message ScreenshotResponse {
   bytes image_data = 1;
   string image_format = 2;
 }
+
+message FocusRequest {}
+
+message FocusResponse {}

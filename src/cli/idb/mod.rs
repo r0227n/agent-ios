@@ -1,3 +1,4 @@
+pub mod focus;
 pub mod kill;
 pub mod launch;
 pub mod list_targets;
@@ -56,6 +57,13 @@ pub enum IdbCommands {
         /// Destination path for the screenshot or "-" for stdout
         dest_path: String,
 
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Bring simulator window to front
+    Focus {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,

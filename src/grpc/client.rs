@@ -248,4 +248,12 @@ impl IdbClient {
         let inner = response.into_inner();
         Ok(inner.image_data)
     }
+
+    /// Bring simulator window to front
+    pub async fn focus(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::FocusRequest {});
+        let response = self.client.focus(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
 }
