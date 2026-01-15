@@ -1,5 +1,5 @@
 use crate::companion::CompanionState;
-use crate::grpc::IdbClient;
+use crate::grpc::{IdbClient, LaunchConfig};
 use crate::types::Address;
 use std::collections::HashMap;
 use tokio::sync::watch;
@@ -15,16 +15,17 @@ pub async fn run(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // 1. Resolve companion by UDID
     let state = CompanionState::default();
-    let companion = match &udid {
-        Some(u) => state
+    let companion = match udid.as_deref() {
+        std::option::Option::Some(u) => state
             .find_by_udid(u)
             .ok_or_else(|| format!("No companion found for UDID: {}", u))?,
-        None => state
+        std::option::Option::None => state
             .get_companions()
             .into_iter()
             .next()
             .ok_or("No companions available. Run 'idb_companion' first.")?,
     };
+    // ... existing code ...
 
     // 2. Connect to companion
     let address = companion
@@ -50,17 +51,14 @@ pub async fn run(
     let env = collect_idb_env();
 
     // 5. Launch
-    let pid = client
-        .launch(
-            bundle_id,
-            app_arguments,
-            env,
-            foreground_if_running,
-            wait_for,
-            wait_for_debugger,
-            stop_rx,
-        )
-        .await?;
+    let config = LaunchConfig {
+        bundle_id,
+        app_args: app_arguments,
+        env,
+        foreground_if_running,
+        wait_for_debugger,
+    };
+    let pid = client.launch(config, wait_for, stop_rx).await?;
 
     // 6. Write PID file if specified
     if let (Some(p), Some(ref path)) = (pid, &pid_file) {
@@ -74,7 +72,10 @@ pub async fn run(
 fn collect_idb_env() -> HashMap<String, String> {
     std::env::vars()
         .filter(|(k, _)| k.starts_with("IDB_"))
-        .filter_map(|(k, v)| k.strip_prefix("IDB_").map(|stripped| (stripped.to_string(), v)))
+        .filter_map(|(k, v)| {
+            k.strip_prefix("IDB_")
+                .map(|stripped| (stripped.to_string(), v))
+        })
         .collect()
 }
 

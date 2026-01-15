@@ -77,9 +77,7 @@ impl CompanionState {
 
     /// Find a companion by UDID
     pub fn find_by_udid(&self, udid: &str) -> Option<StoredCompanion> {
-        self.get_companions()
-            .into_iter()
-            .find(|c| c.udid == udid)
+        self.get_companions().into_iter().find(|c| c.udid == udid)
     }
 }
 

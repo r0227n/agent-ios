@@ -1,14 +1,20 @@
 use crate::companion::CompanionState;
 use crate::grpc::IdbClient;
 use crate::simctl;
-use crate::types::{human_format_target, json_format_target, Address, TargetDescription, TargetType};
+use crate::types::{
+    human_format_target, json_format_target, Address, TargetDescription, TargetType,
+};
 use std::collections::HashMap;
 
-pub async fn run(only: Option<String>, human_output: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run(
+    only: Option<String>,
+    human_output: bool,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Parse filter
     let filter: Option<TargetType> = only.map(|s| {
-        s.parse()
-            .unwrap_or_else(|_| panic!("Invalid filter value: {}. Use device, simulator, or mac", s))
+        s.parse().unwrap_or_else(|_| {
+            panic!("Invalid filter value: {}. Use device, simulator, or mac", s)
+        })
     });
 
     let mut targets: Vec<TargetDescription> = Vec::new();

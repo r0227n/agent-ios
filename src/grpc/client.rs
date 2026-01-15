@@ -13,6 +13,15 @@ use super::idb::launch_request::{self, Control};
 use super::idb::process_output::Interface;
 use super::idb::{LaunchRequest, TargetDescriptionRequest};
 
+/// Configuration for launching an application
+pub struct LaunchConfig {
+    pub bundle_id: String,
+    pub app_args: Vec<String>,
+    pub env: HashMap<String, String>,
+    pub foreground_if_running: bool,
+    pub wait_for_debugger: bool,
+}
+
 pub struct IdbClient {
     client: CompanionServiceClient<Channel>,
     address: Address,
@@ -20,7 +29,9 @@ pub struct IdbClient {
 
 impl IdbClient {
     /// Connect to idb_companion via Unix Domain Socket
-    pub async fn connect_uds(socket_path: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn connect_uds(
+        socket_path: &str,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let socket_path_owned = socket_path.to_string();
 
         // For Unix Domain Sockets, we need a dummy URI but real socket connection
@@ -118,23 +129,19 @@ impl IdbClient {
     /// Launch an application via bidirectional streaming gRPC
     pub async fn launch(
         &mut self,
-        bundle_id: String,
-        app_args: Vec<String>,
-        env: HashMap<String, String>,
-        foreground_if_running: bool,
+        config: LaunchConfig,
         wait_for: bool,
-        wait_for_debugger: bool,
         mut stop_rx: watch::Receiver<bool>,
     ) -> Result<Option<u64>, Box<dyn std::error::Error + Send + Sync>> {
         // Create the initial Start request
         let start_request = LaunchRequest {
             control: Some(Control::Start(launch_request::Start {
-                bundle_id,
-                env,
-                app_args,
-                foreground_if_running,
+                bundle_id: config.bundle_id,
+                env: config.env,
+                app_args: config.app_args,
+                foreground_if_running: config.foreground_if_running,
                 wait_for,
-                wait_for_debugger,
+                wait_for_debugger: config.wait_for_debugger,
             })),
         };
 
@@ -144,8 +151,7 @@ impl IdbClient {
         // Create a stream that starts with the initial request, then chains additional requests
         let initial_stream = tokio_stream::once(start_request);
         let additional_stream = ReceiverStream::new(rx);
-        let request_stream =
-            tokio_stream::StreamExt::chain(initial_stream, additional_stream);
+        let request_stream = tokio_stream::StreamExt::chain(initial_stream, additional_stream);
 
         // Start the bidirectional stream
         let response = self.client.launch(request_stream).await?;
@@ -205,32 +211,27 @@ impl IdbClient {
             drop(tx);
 
             // Drain responses without waiting for stop signal
-            loop {
-                match response_stream.message().await? {
-                    Some(launch_response) => {
-                        // Handle ProcessOutput
-                        if let Some(output) = launch_response.output {
-                            let data = &output.data;
-                            match output.interface() {
-                                Interface::Stdout => {
-                                    std::io::stdout().write_all(data)?;
-                                    std::io::stdout().flush()?;
-                                }
-                                Interface::Stderr => {
-                                    std::io::stderr().write_all(data)?;
-                                    std::io::stderr().flush()?;
-                                }
-                            }
+            while let Some(launch_response) = response_stream.message().await? {
+                // Handle ProcessOutput
+                if let Some(output) = launch_response.output {
+                    let data = &output.data;
+                    match output.interface() {
+                        Interface::Stdout => {
+                            std::io::stdout().write_all(data)?;
+                            std::io::stdout().flush()?;
                         }
-
-                        // Handle DebuggerInfo
-                        if let Some(debugger) = launch_response.debugger {
-                            // Output PID as JSON (matching Python idb behavior)
-                            println!("{{\"pid\": {}}}", debugger.pid);
-                            pid = Some(debugger.pid);
+                        Interface::Stderr => {
+                            std::io::stderr().write_all(data)?;
+                            std::io::stderr().flush()?;
                         }
                     }
-                    None => break, // Stream ended
+                }
+
+                // Handle DebuggerInfo
+                if let Some(debugger) = launch_response.debugger {
+                    // Output PID as JSON (matching Python idb behavior)
+                    println!("{{\"pid\": {}}}", debugger.pid);
+                    pid = Some(debugger.pid);
                 }
             }
         }
