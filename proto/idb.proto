@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Minimal proto file for agent-mobile list-targets functionality.
+ */
+
+syntax = "proto3";
+
+package idb;
+
+// Minimal CompanionService definition for list-targets
+service CompanionService {
+  rpc describe(TargetDescriptionRequest) returns (TargetDescriptionResponse) {}
+}
+
+message CompanionInfo {
+  string udid = 1;
+  bool is_local = 4;
+  bytes metadata = 6;
+}
+
+message ScreenDimensions {
+  uint64 width = 1;
+  uint64 height = 2;
+  double density = 3;
+  uint64 width_points = 4;
+  uint64 height_points = 5;
+}
+
+message TargetDescription {
+  string udid = 1;
+  string name = 2;
+  ScreenDimensions screen_dimensions = 3;
+  string state = 4;
+  string target_type = 5;
+  string os_version = 6;
+  string architecture = 7;
+  bytes extended = 9;
+  bytes diagnostics = 10;
+}
+
+message TargetDescriptionRequest {
+  bool fetch_diagnostics = 1;
+}
+
+message TargetDescriptionResponse {
+  TargetDescription target_description = 1;
+  CompanionInfo companion = 2;
+}
