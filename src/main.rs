@@ -9,13 +9,33 @@ use cli::idb::IdbCommands;
 use cli::{Cli, Commands};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::Idb { command } => match command {
             IdbCommands::ListTargets { only, human } => {
                 cli::idb::list_targets::run(only, human).await?;
+            }
+            IdbCommands::Launch {
+                bundle_id,
+                app_arguments,
+                udid,
+                wait_for_debugger,
+                foreground_if_running,
+                wait_for,
+                pid_file,
+            } => {
+                cli::idb::launch::run(
+                    bundle_id,
+                    app_arguments,
+                    udid,
+                    wait_for_debugger,
+                    foreground_if_running,
+                    wait_for,
+                    pid_file,
+                )
+                .await?;
             }
         },
     }

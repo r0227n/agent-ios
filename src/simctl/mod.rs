@@ -43,11 +43,7 @@ pub fn list_simulators() -> Result<Vec<TargetDescription>, Box<dyn std::error::E
         .output()?;
 
     if !output.status.success() {
-        return Err(format!(
-            "simctl failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
+        return Err(format!("simctl failed: {}", String::from_utf8_lossy(&output.stderr)).into());
     }
 
     let simctl_output: SimctlOutput = serde_json::from_slice(&output.stdout)?;

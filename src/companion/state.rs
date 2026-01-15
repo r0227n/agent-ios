@@ -74,6 +74,11 @@ impl CompanionState {
             Err(_) => Vec::new(),
         }
     }
+
+    /// Find a companion by UDID
+    pub fn find_by_udid(&self, udid: &str) -> Option<StoredCompanion> {
+        self.get_companions().into_iter().find(|c| c.udid == udid)
+    }
 }
 
 #[cfg(test)]
@@ -145,5 +150,34 @@ mod tests {
         let companions = state.get_companions();
 
         assert!(companions.is_empty());
+    }
+
+    #[test]
+    fn test_find_by_udid() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(
+            file,
+            r#"[
+                {{"udid": "ABC123", "is_local": true, "path": "/tmp/idb/abc.sock"}},
+                {{"udid": "XYZ789", "is_local": false, "host": "localhost", "port": 9888}}
+            ]"#
+        )
+        .unwrap();
+
+        let state = CompanionState::new(file.path().to_str().unwrap());
+
+        // Found
+        let found = state.find_by_udid("ABC123");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().udid, "ABC123");
+
+        // Found second one
+        let found2 = state.find_by_udid("XYZ789");
+        assert!(found2.is_some());
+        assert_eq!(found2.unwrap().udid, "XYZ789");
+
+        // Not found
+        let not_found = state.find_by_udid("NOTEXIST");
+        assert!(not_found.is_none());
     }
 }

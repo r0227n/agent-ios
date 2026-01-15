@@ -1,10 +1,7 @@
 use std::process::Command;
 
 fn get_idb_output() -> Option<String> {
-    let output = Command::new("idb")
-        .args(["list-targets"])
-        .output()
-        .ok()?;
+    let output = Command::new("idb").args(["list-targets"]).output().ok()?;
 
     if output.status.success() {
         Some(String::from_utf8_lossy(&output.stdout).to_string())

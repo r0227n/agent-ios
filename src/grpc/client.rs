@@ -1,11 +1,26 @@
 use crate::types::{Address, CompanionInfo, TargetDescription, TargetType};
 use hyper_util::rt::TokioIo;
+use std::collections::HashMap;
+use std::io::Write;
 use tokio::net::UnixStream;
+use tokio::sync::{mpsc, watch};
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::{Channel, Endpoint, Uri};
 use tower::service_fn;
 
 use super::idb::companion_service_client::CompanionServiceClient;
-use super::idb::TargetDescriptionRequest;
+use super::idb::launch_request::{self, Control};
+use super::idb::process_output::Interface;
+use super::idb::{LaunchRequest, TargetDescriptionRequest};
+
+/// Configuration for launching an application
+pub struct LaunchConfig {
+    pub bundle_id: String,
+    pub app_args: Vec<String>,
+    pub env: HashMap<String, String>,
+    pub foreground_if_running: bool,
+    pub wait_for_debugger: bool,
+}
 
 pub struct IdbClient {
     client: CompanionServiceClient<Channel>,
@@ -14,7 +29,9 @@ pub struct IdbClient {
 
 impl IdbClient {
     /// Connect to idb_companion via Unix Domain Socket
-    pub async fn connect_uds(socket_path: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn connect_uds(
+        socket_path: &str,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let socket_path_owned = socket_path.to_string();
 
         // For Unix Domain Sockets, we need a dummy URI but real socket connection
@@ -107,5 +124,118 @@ impl IdbClient {
             },
             companion_info,
         })
+    }
+
+    /// Launch an application via bidirectional streaming gRPC
+    pub async fn launch(
+        &mut self,
+        config: LaunchConfig,
+        wait_for: bool,
+        mut stop_rx: watch::Receiver<bool>,
+    ) -> Result<Option<u64>, Box<dyn std::error::Error + Send + Sync>> {
+        // Create the initial Start request
+        let start_request = LaunchRequest {
+            control: Some(Control::Start(launch_request::Start {
+                bundle_id: config.bundle_id,
+                env: config.env,
+                app_args: config.app_args,
+                foreground_if_running: config.foreground_if_running,
+                wait_for,
+                wait_for_debugger: config.wait_for_debugger,
+            })),
+        };
+
+        // Create channel for additional requests (like Stop)
+        let (tx, rx) = mpsc::channel::<LaunchRequest>(4);
+
+        // Create a stream that starts with the initial request, then chains additional requests
+        let initial_stream = tokio_stream::once(start_request);
+        let additional_stream = ReceiverStream::new(rx);
+        let request_stream = tokio_stream::StreamExt::chain(initial_stream, additional_stream);
+
+        // Start the bidirectional stream
+        let response = self.client.launch(request_stream).await?;
+        let mut response_stream = response.into_inner();
+
+        let mut pid: Option<u64> = None;
+
+        if wait_for {
+            // Handle responses and stop signal concurrently when waiting for app to exit
+            loop {
+                tokio::select! {
+                    // Check for stop signal (Ctrl+C)
+                    _ = stop_rx.changed() => {
+                        if *stop_rx.borrow() {
+                            // Send Stop request
+                            let stop_request = LaunchRequest {
+                                control: Some(Control::Stop(launch_request::Stop {})),
+                            };
+                            let _ = tx.send(stop_request).await;
+                            break;
+                        }
+                    }
+
+                    // Process response stream
+                    response = response_stream.message() => {
+                        match response? {
+                            Some(launch_response) => {
+                                // Handle ProcessOutput
+                                if let Some(output) = launch_response.output {
+                                    let data = &output.data;
+                                    match output.interface() {
+                                        Interface::Stdout => {
+                                            std::io::stdout().write_all(data)?;
+                                            std::io::stdout().flush()?;
+                                        }
+                                        Interface::Stderr => {
+                                            std::io::stderr().write_all(data)?;
+                                            std::io::stderr().flush()?;
+                                        }
+                                    }
+                                }
+
+                                // Handle DebuggerInfo
+                                if let Some(debugger) = launch_response.debugger {
+                                    // Output PID as JSON (matching Python idb behavior)
+                                    println!("{{\"pid\": {}}}", debugger.pid);
+                                    pid = Some(debugger.pid);
+                                }
+                            }
+                            None => break, // Stream ended
+                        }
+                    }
+                }
+            }
+        } else {
+            // Close the send side immediately to signal we're done sending
+            drop(tx);
+
+            // Drain responses without waiting for stop signal
+            while let Some(launch_response) = response_stream.message().await? {
+                // Handle ProcessOutput
+                if let Some(output) = launch_response.output {
+                    let data = &output.data;
+                    match output.interface() {
+                        Interface::Stdout => {
+                            std::io::stdout().write_all(data)?;
+                            std::io::stdout().flush()?;
+                        }
+                        Interface::Stderr => {
+                            std::io::stderr().write_all(data)?;
+                            std::io::stderr().flush()?;
+                        }
+                    }
+                }
+
+                // Handle DebuggerInfo
+                if let Some(debugger) = launch_response.debugger {
+                    // Output PID as JSON (matching Python idb behavior)
+                    println!("{{\"pid\": {}}}", debugger.pid);
+                    pid = Some(debugger.pid);
+                }
+            }
+        }
+
+        Ok(pid)
     }
 }
