@@ -4,7 +4,7 @@ use crate::simctl;
 use crate::types::{human_format_target, json_format_target, Address, TargetDescription, TargetType};
 use std::collections::HashMap;
 
-pub async fn run(only: Option<String>, human_output: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(only: Option<String>, human_output: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Parse filter
     let filter: Option<TargetType> = only.map(|s| {
         s.parse()

@@ -11,9 +11,10 @@ syntax = "proto3";
 
 package idb;
 
-// Minimal CompanionService definition for list-targets
+// CompanionService definition
 service CompanionService {
   rpc describe(TargetDescriptionRequest) returns (TargetDescriptionResponse) {}
+  rpc launch(stream LaunchRequest) returns (stream LaunchResponse) {}
 }
 
 message CompanionInfo {
@@ -49,4 +50,38 @@ message TargetDescriptionRequest {
 message TargetDescriptionResponse {
   TargetDescription target_description = 1;
   CompanionInfo companion = 2;
+}
+
+message ProcessOutput {
+  enum Interface {
+    STDOUT = 0;
+    STDERR = 1;
+  }
+  Interface interface = 1;
+  bytes data = 2;
+}
+
+message DebuggerInfo {
+  uint64 pid = 1;
+}
+
+message LaunchRequest {
+  message Start {
+    string bundle_id = 1;
+    map<string, string> env = 2;
+    repeated string app_args = 3;
+    bool foreground_if_running = 4;
+    bool wait_for = 5;
+    bool wait_for_debugger = 6;
+  }
+  message Stop {}
+  oneof control {
+    Start start = 1;
+    Stop stop = 2;
+  }
+}
+
+message LaunchResponse {
+  ProcessOutput output = 3;
+  DebuggerInfo debugger = 4;
 }
