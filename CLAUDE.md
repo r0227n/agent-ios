@@ -16,6 +16,12 @@ This project replaces only the Python CLI with Rust, maintaining full compatibil
 
 If you are uncertain or lack sufficient information, use AskUserQuestion to clarify with the user.
 
+## Subagent Configuration
+
+- When launching subagents via the Task tool, always set `run_in_background: true` to run them in the background by default
+- Use TaskOutput to retrieve results when needed
+
+
 ## Development Commands
 
 ```bash
