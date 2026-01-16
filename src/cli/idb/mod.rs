@@ -1,9 +1,11 @@
 pub mod focus;
+pub mod install;
 pub mod kill;
 pub mod launch;
 pub mod list_targets;
 pub mod log;
 pub mod screenshot;
+pub mod uninstall;
 
 use clap::Subcommand;
 
@@ -83,5 +85,41 @@ pub enum IdbCommands {
         /// Additional log arguments (e.g., --style json --level info)
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         log_arguments: Vec<String>,
+    },
+
+    /// Install an application
+    Install {
+        /// Path to .app or .ipa bundle
+        bundle_path: String,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+
+        /// Make app debuggable (persist app bundle for debugserver)
+        #[arg(long)]
+        make_debuggable: bool,
+
+        /// Override modification time of files in .ipa
+        #[arg(long)]
+        override_mtime: bool,
+
+        /// Compression type (GZIP, ZSTD)
+        #[arg(long)]
+        compression: Option<String>,
+
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Uninstall an application
+    Uninstall {
+        /// Application bundle identifier
+        bundle_id: String,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
     },
 }

@@ -1,34 +1,12 @@
+mod common;
+
+use common::{ensure_companion_running, get_available_udid};
 use std::process::Command;
-
-fn get_available_udid() -> String {
-    let output = Command::new("idb")
-        .args(["list-targets", "--json"])
-        .output()
-        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
-
-    assert!(
-        output.status.success(),
-        "Python idb list-targets failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if let Some(udid) = json.get("udid").and_then(|v| v.as_str()) {
-                // Prefer Booted simulator
-                if json.get("state").and_then(|v| v.as_str()) == Some("Booted") {
-                    return udid.to_string();
-                }
-            }
-        }
-    }
-    panic!("No booted simulator with companion available");
-}
 
 #[test]
 fn test_focus_with_udid() {
     let udid = get_available_udid();
+    ensure_companion_running(&udid);
 
     // Test Rust implementation
     let rust_output = Command::new("./target/debug/agent-mobile")
@@ -107,6 +85,7 @@ fn test_focus_invalid_udid() {
 #[test]
 fn test_focus_compatibility_with_python_idb() {
     let udid = get_available_udid();
+    ensure_companion_running(&udid);
 
     // Run both implementations
     let rust_output = Command::new("./target/debug/agent-mobile")

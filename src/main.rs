@@ -1,7 +1,6 @@
 mod cli;
 mod companion;
 mod grpc;
-mod simctl;
 mod types;
 
 use clap::Parser;
@@ -9,7 +8,14 @@ use cli::idb::IdbCommands;
 use cli::{Cli, Commands};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn main() {
+    if let Err(e) = run().await {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -52,6 +58,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 log_arguments,
             } => {
                 cli::idb::log::run(udid, source, log_arguments).await?;
+            }
+            IdbCommands::Install {
+                bundle_path,
+                udid,
+                make_debuggable,
+                override_mtime,
+                compression,
+                json,
+            } => {
+                cli::idb::install::run(
+                    bundle_path,
+                    udid,
+                    make_debuggable,
+                    override_mtime,
+                    compression,
+                    json,
+                )
+                .await?;
+            }
+            IdbCommands::Uninstall { bundle_id, udid } => {
+                cli::idb::uninstall::run(bundle_id, udid).await?;
             }
         },
     }

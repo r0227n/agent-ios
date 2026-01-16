@@ -1,72 +1,7 @@
-use nix::sys::signal::{kill, Signal};
-use nix::unistd::Pid;
-use std::process::{Child, Command, Output, Stdio};
-use std::thread;
-use std::time::{Duration, Instant};
+mod common;
 
-/// Wait for child process with timeout, killing if necessary to prevent hangs
-fn wait_with_timeout(mut child: Child, timeout_secs: u64) -> Output {
-    let start = Instant::now();
-    let timeout = Duration::from_secs(timeout_secs);
-
-    // First, send SIGTERM after initial wait period
-    thread::sleep(Duration::from_secs(2));
-
-    #[cfg(unix)]
-    {
-        let _ = kill(Pid::from_raw(child.id() as i32), Signal::SIGTERM);
-    }
-
-    // Poll for process exit with timeout
-    loop {
-        match child.try_wait() {
-            Ok(Some(_status)) => {
-                // Process exited
-                return child.wait_with_output().expect("Failed to get output");
-            }
-            Ok(None) => {
-                if start.elapsed() >= timeout {
-                    // Timeout - force kill
-                    let _ = child.kill();
-                    return child
-                        .wait_with_output()
-                        .expect("Failed to get output after kill");
-                }
-                thread::sleep(Duration::from_millis(100));
-            }
-            Err(e) => {
-                panic!("Error waiting for process: {}", e);
-            }
-        }
-    }
-}
-
-/// Get a valid UDID from idb list-targets (prefers Booted simulator)
-fn get_available_udid() -> String {
-    let output = Command::new("idb")
-        .args(["list-targets", "--json"])
-        .output()
-        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
-
-    assert!(
-        output.status.success(),
-        "Python idb list-targets failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if let Some(udid) = json.get("udid").and_then(|v| v.as_str()) {
-                // Prefer Booted simulator
-                if json.get("state").and_then(|v| v.as_str()) == Some("Booted") {
-                    return udid.to_string();
-                }
-            }
-        }
-    }
-    panic!("No booted simulator available");
-}
+use common::{get_available_udid, wait_with_timeout};
+use std::process::{Command, Stdio};
 
 #[test]
 fn test_log_basic_execution() {

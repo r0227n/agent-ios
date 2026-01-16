@@ -1,32 +1,9 @@
+mod common;
+
+use common::get_available_udid;
 use std::fs;
 use std::process::Command;
 use tempfile::NamedTempFile;
-
-fn get_available_udid() -> String {
-    let output = Command::new("idb")
-        .args(["list-targets", "--json"])
-        .output()
-        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
-
-    assert!(
-        output.status.success(),
-        "Python idb list-targets failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if let Some(udid) = json.get("udid").and_then(|v| v.as_str()) {
-                // Prefer Booted simulator
-                if json.get("state").and_then(|v| v.as_str()) == Some("Booted") {
-                    return udid.to_string();
-                }
-            }
-        }
-    }
-    panic!("No booted simulator with companion available");
-}
 
 #[test]
 fn test_screenshot_to_file() {
