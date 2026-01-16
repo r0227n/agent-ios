@@ -96,6 +96,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 } => {
                     cli::idb::file::ls::run(paths, udid, bundle_id).await?;
                 }
+                file::FileCommands::Mkdir {
+                    path,
+                    bundle_id,
+                    root,
+                    udid,
+                } => {
+                    cli::idb::file::mkdir::run(path, bundle_id, root, udid).await?;
+                }
                 file::FileCommands::Rm {
                     paths,
                     udid,
