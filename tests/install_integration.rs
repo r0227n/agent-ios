@@ -235,8 +235,8 @@ fn test_install_compatibility_with_python_idb() {
         );
 
         // Extract bundle ID (first word after "Installed: ")
-        let rust_bundle_id = rust_stdout.trim().split_whitespace().nth(1);
-        let python_bundle_id = python_stdout.trim().split_whitespace().nth(1);
+        let rust_bundle_id = rust_stdout.split_whitespace().nth(1);
+        let python_bundle_id = python_stdout.split_whitespace().nth(1);
 
         assert_eq!(
             rust_bundle_id, python_bundle_id,
