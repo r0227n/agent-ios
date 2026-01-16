@@ -263,6 +263,42 @@ impl IdbClient {
         Ok(())
     }
 
+    /// Approve app permissions
+    pub async fn approve(
+        &mut self,
+        bundle_id: &str,
+        permissions: Vec<super::idb::approve_request::Permission>,
+        scheme: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let permissions_i32: Vec<i32> = permissions.iter().map(|p| *p as i32).collect();
+        let request = tonic::Request::new(super::idb::ApproveRequest {
+            bundle_id: bundle_id.to_string(),
+            permissions: permissions_i32,
+            scheme: scheme.unwrap_or_default(),
+        });
+        let response = self.client.approve(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Revoke app permissions
+    pub async fn revoke(
+        &mut self,
+        bundle_id: &str,
+        permissions: Vec<super::idb::revoke_request::Permission>,
+        scheme: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let permissions_i32: Vec<i32> = permissions.iter().map(|p| *p as i32).collect();
+        let request = tonic::Request::new(super::idb::RevokeRequest {
+            bundle_id: bundle_id.to_string(),
+            permissions: permissions_i32,
+            scheme: scheme.unwrap_or_default(),
+        });
+        let response = self.client.revoke(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Set device location
     pub async fn set_location(
         &mut self,
@@ -276,6 +312,9 @@ impl IdbClient {
             }),
         });
         let response = self.client.set_location(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
         let _inner = response.into_inner();
         Ok(())
     }
