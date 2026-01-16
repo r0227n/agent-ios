@@ -1,5 +1,8 @@
+pub mod focus;
+pub mod kill;
 pub mod launch;
 pub mod list_targets;
+pub mod screenshot;
 
 use clap::Subcommand;
 
@@ -44,5 +47,25 @@ pub enum IdbCommands {
         /// Write process PID to this file
         #[arg(short = 'p', long)]
         pid_file: Option<String>,
+    },
+
+    /// Kill the idb daemon
+    Kill,
+
+    /// Take a screenshot of the target device
+    Screenshot {
+        /// Destination path for the screenshot or "-" for stdout
+        dest_path: String,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Bring simulator window to front
+    Focus {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
     },
 }

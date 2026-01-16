@@ -79,6 +79,15 @@ impl CompanionState {
     pub fn find_by_udid(&self, udid: &str) -> Option<StoredCompanion> {
         self.get_companions().into_iter().find(|c| c.udid == udid)
     }
+
+    /// Clear the state file (delete all stored companions)
+    pub fn clear(&self) -> Result<(), std::io::Error> {
+        let path = Path::new(&self.state_file_path);
+        if path.exists() {
+            fs::remove_file(path)?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

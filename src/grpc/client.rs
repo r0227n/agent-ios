@@ -11,7 +11,7 @@ use tower::service_fn;
 use super::idb::companion_service_client::CompanionServiceClient;
 use super::idb::launch_request::{self, Control};
 use super::idb::process_output::Interface;
-use super::idb::{LaunchRequest, TargetDescriptionRequest};
+use super::idb::{LaunchRequest, ScreenshotRequest, TargetDescriptionRequest};
 
 /// Configuration for launching an application
 pub struct LaunchConfig {
@@ -237,5 +237,23 @@ impl IdbClient {
         }
 
         Ok(pid)
+    }
+
+    /// Take a screenshot and return the image data as PNG bytes
+    pub async fn screenshot(
+        &mut self,
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(ScreenshotRequest {});
+        let response = self.client.screenshot(request).await?;
+        let inner = response.into_inner();
+        Ok(inner.image_data)
+    }
+
+    /// Bring simulator window to front
+    pub async fn focus(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::FocusRequest {});
+        let response = self.client.focus(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
     }
 }
