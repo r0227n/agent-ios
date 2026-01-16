@@ -14,6 +14,7 @@ pub mod terminate;
 pub mod uninstall;
 pub mod url;
 pub mod xctest_list;
+pub mod xctest_list_bundle;
 
 use clap::Subcommand;
 
@@ -222,6 +223,20 @@ pub enum IdbCommands {
 
     /// List installed XCTest bundles
     XctestList {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// List tests inside an installed test bundle
+    XctestListBundle {
+        /// Bundle ID of the test bundle to list
+        bundle_id: String,
+
+        /// Path of the app of the test (needed for app tests)
+        #[arg(long)]
+        app_path: Option<String>,
+
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,

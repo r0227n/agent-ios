@@ -477,4 +477,18 @@ impl IdbClient {
         let response = self.client.xctest_list_bundles(request).await?;
         Ok(response.into_inner().bundles)
     }
+
+    /// List tests inside an installed test bundle
+    pub async fn xctest_list_tests(
+        &mut self,
+        bundle_name: String,
+        app_path: Option<String>,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::XctestListTestsRequest {
+            bundle_name,
+            app_path: app_path.unwrap_or_default(),
+        });
+        let response = self.client.xctest_list_tests(request).await?;
+        Ok(response.into_inner().names)
+    }
 }

@@ -30,6 +30,7 @@ service CompanionService {
   rpc terminate(TerminateRequest) returns (TerminateResponse) {}
   rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
   rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
+  rpc xctest_list_tests(XctestListTestsRequest) returns (XctestListTestsResponse) {}
 }
 
 message CompanionInfo {
@@ -291,6 +292,15 @@ message XctestListBundlesResponse {
     repeated string architectures = 3;
   }
   repeated Bundles bundles = 1;
+}
+
+message XctestListTestsRequest {
+  string bundle_name = 1;
+  string app_path = 2;
+}
+
+message XctestListTestsResponse {
+  repeated string names = 1;
 }
 
 // ========== Location ==========
