@@ -1,37 +1,16 @@
-use crate::companion::CompanionState;
-use crate::grpc::IdbClient;
-use crate::types::Address;
+use crate::companion::CompanionResolver;
 
 pub async fn run(
     bundle_id: String,
     udid: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 1. Resolve companion by UDID
-    let state = CompanionState::default();
-    let companion = match udid.as_deref() {
-        Some(u) => state
-            .find_by_udid(u)
-            .ok_or_else(|| format!("No companion found for UDID: {}", u))?,
-        None => state
-            .get_companions()
-            .into_iter()
-            .next()
-            .ok_or("No companions available. Run 'idb_companion' first.")?,
-    };
+    // 1. Connect to companion (with auto-spawning if needed)
+    let resolver = CompanionResolver::new();
+    let mut client = resolver.connect(udid.as_deref()).await?;
 
-    // 2. Connect to companion
-    let address = companion
-        .address()
-        .ok_or("Companion has no valid address")?;
-
-    let mut client = match &address {
-        Address::DomainSocket { path } => IdbClient::connect_uds(path).await?,
-        Address::Tcp { host, port } => IdbClient::connect_tcp(host, *port).await?,
-    };
-
-    // 3. Call uninstall RPC
+    // 2. Call uninstall RPC
     client.uninstall(&bundle_id).await?;
 
-    // 4. Success (no output for uninstall command, same as Python idb)
+    // 3. Success (no output for uninstall command, same as Python idb)
     Ok(())
 }

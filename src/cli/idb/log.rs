@@ -1,7 +1,5 @@
-use crate::companion::CompanionState;
+use crate::companion::CompanionResolver;
 use crate::grpc::idb::log_request::Source as LogSource;
-use crate::grpc::IdbClient;
-use crate::types::Address;
 use std::io::Write;
 use tokio::sync::watch;
 
@@ -10,49 +8,30 @@ pub async fn run(
     source: String,
     log_arguments: Vec<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 1. Resolve companion by UDID
-    let state = CompanionState::default();
-    let companion = match udid.as_deref() {
-        Some(u) => state
-            .find_by_udid(u)
-            .ok_or_else(|| format!("No companion found for UDID: {}", u))?,
-        None => state
-            .get_companions()
-            .into_iter()
-            .next()
-            .ok_or("No companions available. Run 'idb_companion' first.")?,
-    };
+    // 1. Connect to companion (with auto-spawning if needed)
+    let resolver = CompanionResolver::new();
+    let mut client = resolver.connect(udid.as_deref()).await?;
 
-    // 2. Connect to companion
-    let address = companion
-        .address()
-        .ok_or("Companion has no valid address")?;
-
-    let mut client = match &address {
-        Address::DomainSocket { path } => IdbClient::connect_uds(path).await?,
-        Address::Tcp { host, port } => IdbClient::connect_tcp(host, *port).await?,
-    };
-
-    // 3. Parse source option
+    // 2. Parse source option
     let log_source = match source.as_str() {
         "companion" => LogSource::Companion,
         _ => LogSource::Target,
     };
 
-    // 4. Normalize log arguments (remove leading "--" if present)
+    // 3. Normalize log arguments (remove leading "--" if present)
     let arguments = normalize_log_arguments(log_arguments);
 
-    // 5. Setup stop signal for Ctrl+C
+    // 4. Setup stop signal for Ctrl+C
     let (stop_tx, mut stop_rx) = watch::channel(false);
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();
         stop_tx.send(true).ok();
     });
 
-    // 6. Start streaming logs
+    // 5. Start streaming logs
     let mut response_stream = client.log(log_source, arguments).await?;
 
-    // 7. Process stream with graceful shutdown
+    // 6. Process stream with graceful shutdown
     loop {
         tokio::select! {
             // Check for stop signal (Ctrl+C)

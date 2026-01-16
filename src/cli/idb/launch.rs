@@ -1,6 +1,5 @@
-use crate::companion::CompanionState;
-use crate::grpc::{IdbClient, LaunchConfig};
-use crate::types::Address;
+use crate::companion::CompanionResolver;
+use crate::grpc::LaunchConfig;
 use std::collections::HashMap;
 use tokio::sync::watch;
 
@@ -13,31 +12,11 @@ pub async fn run(
     wait_for: bool,
     pid_file: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 1. Resolve companion by UDID
-    let state = CompanionState::default();
-    let companion = match udid.as_deref() {
-        std::option::Option::Some(u) => state
-            .find_by_udid(u)
-            .ok_or_else(|| format!("No companion found for UDID: {}", u))?,
-        std::option::Option::None => state
-            .get_companions()
-            .into_iter()
-            .next()
-            .ok_or("No companions available. Run 'idb_companion' first.")?,
-    };
-    // ... existing code ...
+    // 1. Connect to companion (with auto-spawning if needed)
+    let resolver = CompanionResolver::new();
+    let mut client = resolver.connect(udid.as_deref()).await?;
 
-    // 2. Connect to companion
-    let address = companion
-        .address()
-        .ok_or("Companion has no valid address")?;
-
-    let mut client = match &address {
-        Address::DomainSocket { path } => IdbClient::connect_uds(path).await?,
-        Address::Tcp { host, port } => IdbClient::connect_tcp(host, *port).await?,
-    };
-
-    // 3. Setup stop signal for --wait-for
+    // 2. Setup stop signal for --wait-for
     let (stop_tx, stop_rx) = watch::channel(false);
 
     if wait_for {
@@ -47,10 +26,10 @@ pub async fn run(
         });
     }
 
-    // 4. Collect IDB_ env vars
+    // 3. Collect IDB_ env vars
     let env = collect_idb_env();
 
-    // 5. Launch
+    // 4. Launch
     let config = LaunchConfig {
         bundle_id,
         app_args: app_arguments,
@@ -60,7 +39,7 @@ pub async fn run(
     };
     let pid = client.launch(config, wait_for, stop_rx).await?;
 
-    // 6. Write PID file if specified
+    // 5. Write PID file if specified
     if let (Some(p), Some(ref path)) = (pid, &pid_file) {
         std::fs::write(path, format!("{}", p))?;
     }

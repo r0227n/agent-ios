@@ -76,6 +76,7 @@ impl CompanionState {
     }
 
     /// Find a companion by UDID
+    #[allow(dead_code)]
     pub fn find_by_udid(&self, udid: &str) -> Option<StoredCompanion> {
         self.get_companions().into_iter().find(|c| c.udid == udid)
     }
@@ -87,6 +88,48 @@ impl CompanionState {
             fs::remove_file(path)?;
         }
         Ok(())
+    }
+
+    /// Add or update a companion in the state file
+    pub fn add_companion(&self, companion: StoredCompanion) -> Result<(), std::io::Error> {
+        // Ensure /tmp/idb directory exists
+        if let Some(parent) = Path::new(&self.state_file_path).parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        // Read existing companions
+        let mut companions = self.get_companions();
+
+        // Remove existing entry with same UDID (if any)
+        companions.retain(|c| c.udid != companion.udid);
+
+        // Add new companion
+        companions.push(companion);
+
+        // Write back to state file
+        let contents = serde_json::to_string(&companions)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        fs::write(&self.state_file_path, contents)?;
+
+        Ok(())
+    }
+
+    /// Remove a companion by UDID
+    #[allow(dead_code)]
+    pub fn remove_by_udid(&self, udid: &str) -> Result<Option<StoredCompanion>, std::io::Error> {
+        let mut companions = self.get_companions();
+        let removed = companions
+            .iter()
+            .position(|c| c.udid == udid)
+            .map(|i| companions.remove(i));
+
+        if removed.is_some() {
+            let contents = serde_json::to_string(&companions)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+            fs::write(&self.state_file_path, contents)?;
+        }
+
+        Ok(removed)
     }
 }
 
@@ -188,5 +231,109 @@ mod tests {
         // Not found
         let not_found = state.find_by_udid("NOTEXIST");
         assert!(not_found.is_none());
+    }
+
+    #[test]
+    fn test_add_companion() {
+        let file = NamedTempFile::new().unwrap();
+        let state = CompanionState::new(file.path().to_str().unwrap());
+
+        // Initially empty
+        assert!(state.get_companions().is_empty());
+
+        // Add first companion
+        state
+            .add_companion(StoredCompanion {
+                udid: "ABC123".to_string(),
+                is_local: true,
+                pid: Some(1234),
+                host: None,
+                port: None,
+                path: Some("/tmp/idb/abc.sock".to_string()),
+            })
+            .unwrap();
+
+        let companions = state.get_companions();
+        assert_eq!(companions.len(), 1);
+        assert_eq!(companions[0].udid, "ABC123");
+
+        // Add second companion
+        state
+            .add_companion(StoredCompanion {
+                udid: "XYZ789".to_string(),
+                is_local: true,
+                pid: Some(5678),
+                host: None,
+                port: None,
+                path: Some("/tmp/idb/xyz.sock".to_string()),
+            })
+            .unwrap();
+
+        let companions = state.get_companions();
+        assert_eq!(companions.len(), 2);
+
+        // Update existing companion (same UDID)
+        state
+            .add_companion(StoredCompanion {
+                udid: "ABC123".to_string(),
+                is_local: true,
+                pid: Some(9999),
+                host: None,
+                port: None,
+                path: Some("/tmp/idb/abc_new.sock".to_string()),
+            })
+            .unwrap();
+
+        let companions = state.get_companions();
+        assert_eq!(companions.len(), 2);
+        let abc = companions.iter().find(|c| c.udid == "ABC123").unwrap();
+        assert_eq!(abc.pid, Some(9999));
+        assert_eq!(abc.path, Some("/tmp/idb/abc_new.sock".to_string()));
+    }
+
+    #[test]
+    fn test_remove_by_udid() {
+        let file = NamedTempFile::new().unwrap();
+        let state = CompanionState::new(file.path().to_str().unwrap());
+
+        // Add companions
+        state
+            .add_companion(StoredCompanion {
+                udid: "ABC123".to_string(),
+                is_local: true,
+                pid: Some(1234),
+                host: None,
+                port: None,
+                path: Some("/tmp/idb/abc.sock".to_string()),
+            })
+            .unwrap();
+        state
+            .add_companion(StoredCompanion {
+                udid: "XYZ789".to_string(),
+                is_local: true,
+                pid: Some(5678),
+                host: None,
+                port: None,
+                path: Some("/tmp/idb/xyz.sock".to_string()),
+            })
+            .unwrap();
+
+        assert_eq!(state.get_companions().len(), 2);
+
+        // Remove one
+        let removed = state.remove_by_udid("ABC123").unwrap();
+        assert!(removed.is_some());
+        assert_eq!(removed.unwrap().udid, "ABC123");
+        assert_eq!(state.get_companions().len(), 1);
+
+        // Try to remove non-existent
+        let not_removed = state.remove_by_udid("NOTEXIST").unwrap();
+        assert!(not_removed.is_none());
+        assert_eq!(state.get_companions().len(), 1);
+
+        // Remove last one
+        let removed2 = state.remove_by_udid("XYZ789").unwrap();
+        assert!(removed2.is_some());
+        assert!(state.get_companions().is_empty());
     }
 }

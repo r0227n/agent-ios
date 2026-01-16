@@ -1,6 +1,5 @@
-use crate::companion::CompanionState;
-use crate::grpc::IdbClient;
-use crate::types::{Address, Compression, InstalledArtifact};
+use crate::companion::CompanionResolver;
+use crate::types::{Compression, InstalledArtifact};
 use serde_json::json;
 
 pub async fn run(
@@ -14,35 +13,16 @@ pub async fn run(
     // 1. Parse compression option
     let compression = compression.map(|s| s.parse::<Compression>()).transpose()?;
 
-    // 2. Resolve companion by UDID
-    let state = CompanionState::default();
-    let companion = match udid.as_deref() {
-        Some(u) => state
-            .find_by_udid(u)
-            .ok_or_else(|| format!("No companion found for UDID: {}", u))?,
-        None => state
-            .get_companions()
-            .into_iter()
-            .next()
-            .ok_or("No companions available. Run 'idb_companion' first.")?,
-    };
+    // 2. Connect to companion (with auto-spawning if needed)
+    let resolver = CompanionResolver::new();
+    let mut client = resolver.connect(udid.as_deref()).await?;
 
-    // 3. Connect to companion
-    let address = companion
-        .address()
-        .ok_or("Companion has no valid address")?;
-
-    let mut client = match &address {
-        Address::DomainSocket { path } => IdbClient::connect_uds(path).await?,
-        Address::Tcp { host, port } => IdbClient::connect_tcp(host, *port).await?,
-    };
-
-    // 4. Call install RPC
+    // 3. Call install RPC
     let mut response_stream = client
         .install(&bundle_path, make_debuggable, override_mtime, compression)
         .await?;
 
-    // 5. Process streaming responses
+    // 4. Process streaming responses
     let mut artifact: Option<InstalledArtifact> = None;
 
     while let Some(response) = response_stream.message().await? {
@@ -74,7 +54,7 @@ pub async fn run(
         }
     }
 
-    // 6. Output result
+    // 5. Output result
     if let Some(art) = artifact {
         if json_output {
             let output = json!({
