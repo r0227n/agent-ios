@@ -1,11 +1,12 @@
 mod common;
 
-use common::get_available_udid;
+use common::{ensure_companion_running, get_available_udid};
 use std::process::Command;
 
 #[test]
 fn test_focus_with_udid() {
     let udid = get_available_udid();
+    ensure_companion_running(&udid);
 
     // Test Rust implementation
     let rust_output = Command::new("./target/debug/agent-mobile")
@@ -84,6 +85,7 @@ fn test_focus_invalid_udid() {
 #[test]
 fn test_focus_compatibility_with_python_idb() {
     let udid = get_available_udid();
+    ensure_companion_running(&udid);
 
     // Run both implementations
     let rust_output = Command::new("./target/debug/agent-mobile")
