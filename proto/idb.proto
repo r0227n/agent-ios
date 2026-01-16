@@ -20,6 +20,10 @@ service CompanionService {
   rpc focus(FocusRequest) returns (FocusResponse) {}
   rpc log(LogRequest) returns (stream LogResponse) {}
   rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
+  // Settings Operations
+  rpc setting(SettingRequest) returns (SettingResponse) {}
+  rpc get_setting(GetSettingRequest) returns (GetSettingResponse) {}
+  rpc list_settings(ListSettingRequest) returns (ListSettingResponse) {}
 }
 
 message CompanionInfo {
@@ -158,3 +162,47 @@ message UninstallRequest {
 }
 
 message UninstallResponse {}
+
+// ========== Settings ==========
+
+enum Setting {
+  LOCALE = 0;
+  ANY = 1;
+}
+
+message SettingRequest {
+  message HardwareKeyboard {
+    bool enabled = 1;
+  }
+  message StringSetting {
+    Setting setting = 1;
+    string value = 2;
+    string name = 3;
+    string domain = 4;
+    string value_type = 5;
+  }
+  oneof setting {
+    HardwareKeyboard hardwareKeyboard = 1;
+    StringSetting stringSetting = 2;
+  }
+}
+
+message SettingResponse {}
+
+message GetSettingRequest {
+  Setting setting = 1;
+  string name = 2;
+  string domain = 3;
+}
+
+message GetSettingResponse {
+  string value = 1;
+}
+
+message ListSettingRequest {
+  Setting setting = 1;
+}
+
+message ListSettingResponse {
+  repeated string values = 1;
+}
