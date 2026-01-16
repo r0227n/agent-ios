@@ -1,37 +1,34 @@
 use std::process::Command;
 
-fn get_available_udid() -> Option<String> {
-    let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "list-targets", "--human"])
+fn get_available_udid() -> String {
+    let output = Command::new("idb")
+        .args(["list-targets", "--json"])
         .output()
-        .ok()?;
+        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
 
-    if !output.status.success() {
-        return None;
-    }
+    assert!(
+        output.status.success(),
+        "Python idb list-targets failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
-    // Parse first Booted simulator UDID with companion
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines() {
-        if line.contains("Booted") && !line.contains("No Companion") {
-            let parts: Vec<&str> = line.split('|').collect();
-            if parts.len() > 1 {
-                return Some(parts[1].trim().to_string());
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+            if let Some(udid) = json.get("udid").and_then(|v| v.as_str()) {
+                // Prefer Booted simulator
+                if json.get("state").and_then(|v| v.as_str()) == Some("Booted") {
+                    return udid.to_string();
+                }
             }
         }
     }
-    None
+    panic!("No booted simulator with companion available");
 }
 
 #[test]
 fn test_focus_with_udid() {
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping test: no booted simulator with companion available");
-            return;
-        }
-    };
+    let udid = get_available_udid();
 
     // Test Rust implementation
     let rust_output = Command::new("./target/debug/agent-mobile")
@@ -109,13 +106,7 @@ fn test_focus_invalid_udid() {
 
 #[test]
 fn test_focus_compatibility_with_python_idb() {
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping compatibility test: no booted simulator with companion available");
-            return;
-        }
-    };
+    let udid = get_available_udid();
 
     // Run both implementations
     let rust_output = Command::new("./target/debug/agent-mobile")

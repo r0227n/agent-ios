@@ -1,27 +1,34 @@
 use std::process::Command;
 
-fn get_idb_output() -> Option<String> {
-    let output = Command::new("idb").args(["list-targets"]).output().ok()?;
+fn get_idb_output() -> String {
+    let output = Command::new("idb")
+        .args(["list-targets"])
+        .output()
+        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
 
-    if output.status.success() {
-        Some(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        None
-    }
+    assert!(
+        output.status.success(),
+        "Python idb list-targets failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    String::from_utf8_lossy(&output.stdout).to_string()
 }
 
-fn get_agent_mobile_output() -> Option<String> {
+fn get_agent_mobile_output() -> String {
     // Use --human flag to match idb's default human-readable output
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "list-targets", "--human"])
         .output()
-        .ok()?;
+        .expect("Failed to execute agent-mobile command");
 
-    if output.status.success() {
-        Some(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        None
-    }
+    assert!(
+        output.status.success(),
+        "agent-mobile list-targets failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    String::from_utf8_lossy(&output.stdout).to_string()
 }
 
 fn normalize_output(output: &str) -> Vec<String> {
@@ -32,20 +39,8 @@ fn normalize_output(output: &str) -> Vec<String> {
 
 #[test]
 fn test_list_targets_output_matches_idb() {
-    let idb_output = match get_idb_output() {
-        Some(output) => output,
-        None => {
-            eprintln!("Skipping test: idb command not available");
-            return;
-        }
-    };
-
-    let agent_output = match get_agent_mobile_output() {
-        Some(output) => output,
-        None => {
-            panic!("agent-mobile command failed to execute");
-        }
-    };
+    let idb_output = get_idb_output();
+    let agent_output = get_agent_mobile_output();
 
     let idb_lines = normalize_output(&idb_output);
     let agent_lines = normalize_output(&agent_output);
@@ -56,31 +51,35 @@ fn test_list_targets_output_matches_idb() {
     );
 }
 
-fn get_idb_json_output() -> Option<String> {
+fn get_idb_json_output() -> String {
     let output = Command::new("idb")
         .args(["list-targets", "--json"])
         .output()
-        .ok()?;
+        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
 
-    if output.status.success() {
-        Some(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        None
-    }
+    assert!(
+        output.status.success(),
+        "Python idb list-targets --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    String::from_utf8_lossy(&output.stdout).to_string()
 }
 
-fn get_agent_mobile_json_output() -> Option<String> {
+fn get_agent_mobile_json_output() -> String {
     // agent-mobile defaults to JSON output (no flag needed)
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "list-targets"])
         .output()
-        .ok()?;
+        .expect("Failed to execute agent-mobile command");
 
-    if output.status.success() {
-        Some(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        None
-    }
+    assert!(
+        output.status.success(),
+        "agent-mobile list-targets failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    String::from_utf8_lossy(&output.stdout).to_string()
 }
 
 fn parse_json_lines(output: &str) -> Vec<serde_json::Value> {
@@ -92,20 +91,8 @@ fn parse_json_lines(output: &str) -> Vec<serde_json::Value> {
 
 #[test]
 fn test_list_targets_json_output_semantically_matches_idb() {
-    let idb_output = match get_idb_json_output() {
-        Some(output) => output,
-        None => {
-            eprintln!("Skipping test: idb command not available");
-            return;
-        }
-    };
-
-    let agent_output = match get_agent_mobile_json_output() {
-        Some(output) => output,
-        None => {
-            panic!("agent-mobile command failed to execute");
-        }
-    };
+    let idb_output = get_idb_json_output();
+    let agent_output = get_agent_mobile_json_output();
 
     let mut idb_json: Vec<serde_json::Value> = parse_json_lines(&idb_output);
     let mut agent_json: Vec<serde_json::Value> = parse_json_lines(&agent_output);

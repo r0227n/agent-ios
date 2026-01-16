@@ -4,15 +4,6 @@ use std::process::{Child, Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// Check if Python idb is available in PATH
-fn is_python_idb_available() -> bool {
-    Command::new("idb")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
 /// Wait for child process with timeout, killing if necessary to prevent hangs
 fn wait_with_timeout(mut child: Child, timeout_secs: u64) -> Output {
     let start = Instant::now();
@@ -51,15 +42,17 @@ fn wait_with_timeout(mut child: Child, timeout_secs: u64) -> Output {
 }
 
 /// Get a valid UDID from idb list-targets (prefers Booted simulator)
-fn get_available_udid() -> Option<String> {
+fn get_available_udid() -> String {
     let output = Command::new("idb")
         .args(["list-targets", "--json"])
         .output()
-        .ok()?;
+        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
 
-    if !output.status.success() {
-        return None;
-    }
+    assert!(
+        output.status.success(),
+        "Python idb list-targets failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines() {
@@ -67,23 +60,17 @@ fn get_available_udid() -> Option<String> {
             if let Some(udid) = json.get("udid").and_then(|v| v.as_str()) {
                 // Prefer Booted simulator
                 if json.get("state").and_then(|v| v.as_str()) == Some("Booted") {
-                    return Some(udid.to_string());
+                    return udid.to_string();
                 }
             }
         }
     }
-    None
+    panic!("No booted simulator available");
 }
 
 #[test]
 fn test_log_basic_execution() {
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping test: no booted simulator available");
-            return;
-        }
-    };
+    let udid = get_available_udid();
 
     // Start log command
     let child = Command::new("./target/debug/agent-mobile")
@@ -107,13 +94,7 @@ fn test_log_basic_execution() {
 
 #[test]
 fn test_log_with_source_companion() {
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping test: no booted simulator available");
-            return;
-        }
-    };
+    let udid = get_available_udid();
 
     let child = Command::new("./target/debug/agent-mobile")
         .args(["idb", "log", "--udid", &udid, "--source", "companion"])
@@ -153,12 +134,7 @@ fn test_log_invalid_udid() {
         rust_stderr
     );
 
-    // Python idb comparison (skip if not available)
-    if !is_python_idb_available() {
-        eprintln!("Skipping Python idb comparison: idb not available");
-        return;
-    }
-
+    // Python idb comparison
     let python_output = Command::new("idb")
         .args(["log", "--udid", "INVALID-UDID-12345"])
         .output()
@@ -193,18 +169,7 @@ fn test_log_help() {
 
 #[test]
 fn test_log_compatibility_with_python_idb() {
-    if !is_python_idb_available() {
-        eprintln!("Skipping compatibility test: Python idb not available");
-        return;
-    }
-
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping compatibility test: no booted simulator with companion available");
-            return;
-        }
-    };
+    let udid = get_available_udid();
 
     // Start Rust implementation
     let rust_child = Command::new("./target/debug/agent-mobile")
