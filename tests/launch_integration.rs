@@ -1,15 +1,17 @@
 use std::process::Command;
 
 /// Get a valid UDID from idb list-targets (prefers Booted simulator)
-fn get_available_udid() -> Option<String> {
+fn get_available_udid() -> String {
     let output = Command::new("idb")
         .args(["list-targets", "--json"])
         .output()
-        .ok()?;
+        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
 
-    if !output.status.success() {
-        return None;
-    }
+    assert!(
+        output.status.success(),
+        "Python idb list-targets failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines() {
@@ -17,12 +19,12 @@ fn get_available_udid() -> Option<String> {
             if let Some(udid) = json.get("udid").and_then(|v| v.as_str()) {
                 // Prefer Booted simulator
                 if json.get("state").and_then(|v| v.as_str()) == Some("Booted") {
-                    return Some(udid.to_string());
+                    return udid.to_string();
                 }
             }
         }
     }
-    None
+    panic!("No booted simulator available");
 }
 
 /// Get installed app bundle ID for testing (Settings app is always available)
@@ -32,14 +34,7 @@ fn get_test_bundle_id() -> String {
 
 #[test]
 fn test_launch_basic_execution() {
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping test: no booted simulator available");
-            return;
-        }
-    };
-
+    let udid = get_available_udid();
     let bundle_id = get_test_bundle_id();
 
     // Test that agent-mobile idb launch executes without error
@@ -62,62 +57,37 @@ fn test_launch_basic_execution() {
 
 #[test]
 fn test_launch_matches_idb_behavior() {
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping test: no booted simulator available");
-            return;
-        }
-    };
-
+    let udid = get_available_udid();
     let bundle_id = get_test_bundle_id();
 
     // Run idb launch
     let idb_result = Command::new("idb")
         .args(["launch", "--udid", &udid, &bundle_id])
-        .output();
+        .output()
+        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
 
     // Run agent-mobile idb launch
     let agent_result = Command::new("./target/debug/agent-mobile")
         .args(["idb", "launch", "--udid", &udid, &bundle_id])
-        .output();
+        .output()
+        .expect("Failed to execute agent-mobile command");
 
-    match (idb_result, agent_result) {
-        (Ok(idb), Ok(agent)) => {
-            // Both should succeed
-            assert!(
-                idb.status.success(),
-                "idb launch failed: {}",
-                String::from_utf8_lossy(&idb.stderr)
-            );
-            assert!(
-                agent.status.success(),
-                "agent-mobile launch failed: {}",
-                String::from_utf8_lossy(&agent.stderr)
-            );
-        }
-        (Ok(_), Err(e)) => {
-            panic!("agent-mobile failed to execute: {}", e);
-        }
-        (Err(_), Ok(_)) => {
-            eprintln!("Skipping comparison: idb not available");
-        }
-        (Err(e1), Err(e2)) => {
-            panic!("Both commands failed: idb={}, agent={}", e1, e2);
-        }
-    }
+    // Both should succeed
+    assert!(
+        idb_result.status.success(),
+        "Python idb launch failed: {}",
+        String::from_utf8_lossy(&idb_result.stderr)
+    );
+    assert!(
+        agent_result.status.success(),
+        "agent-mobile launch failed: {}",
+        String::from_utf8_lossy(&agent_result.stderr)
+    );
 }
 
 #[test]
 fn test_launch_with_foreground_flag() {
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping test: no booted simulator available");
-            return;
-        }
-    };
-
+    let udid = get_available_udid();
     let bundle_id = get_test_bundle_id();
 
     // Test --foreground-if-running flag
@@ -163,13 +133,7 @@ fn test_launch_invalid_udid() {
 
 #[test]
 fn test_launch_invalid_bundle_id() {
-    let udid = match get_available_udid() {
-        Some(u) => u,
-        None => {
-            eprintln!("Skipping test: no booted simulator available");
-            return;
-        }
-    };
+    let udid = get_available_udid();
 
     // Test with invalid bundle ID
     let output = Command::new("./target/debug/agent-mobile")

@@ -10,8 +10,9 @@ use tower::service_fn;
 
 use super::idb::companion_service_client::CompanionServiceClient;
 use super::idb::launch_request::{self, Control};
+use super::idb::log_request::Source as LogSource;
 use super::idb::process_output::Interface;
-use super::idb::{LaunchRequest, ScreenshotRequest, TargetDescriptionRequest};
+use super::idb::{LaunchRequest, LogRequest, ScreenshotRequest, TargetDescriptionRequest};
 
 /// Configuration for launching an application
 pub struct LaunchConfig {
@@ -255,5 +256,21 @@ impl IdbClient {
         let response = self.client.focus(request).await?;
         let _inner = response.into_inner();
         Ok(())
+    }
+
+    /// Tail logs from target or companion (server-side streaming)
+    pub async fn log(
+        &mut self,
+        source: LogSource,
+        arguments: Vec<String>,
+    ) -> Result<tonic::Streaming<super::idb::LogResponse>, Box<dyn std::error::Error + Send + Sync>>
+    {
+        let request = tonic::Request::new(LogRequest {
+            arguments,
+            source: source.into(),
+        });
+
+        let response = self.client.log(request).await?;
+        Ok(response.into_inner())
     }
 }

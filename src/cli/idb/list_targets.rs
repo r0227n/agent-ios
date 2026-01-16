@@ -6,6 +6,11 @@ use crate::types::{
 };
 use std::collections::HashMap;
 
+/// Determine if simulators should be listed based on the filter
+fn should_list_simulators(filter: Option<&TargetType>) -> bool {
+    filter.map(|f| *f == TargetType::Simulator).unwrap_or(true)
+}
+
 pub async fn run(
     only: Option<String>,
     human_output: bool,
@@ -47,12 +52,7 @@ pub async fn run(
     }
 
     // Get local simulators via simctl (only if filter allows simulators or no filter)
-    let should_list_simulators = filter
-        .as_ref()
-        .map(|f| *f == TargetType::Simulator)
-        .unwrap_or(true);
-
-    if should_list_simulators {
+    if should_list_simulators(filter.as_ref()) {
         if let Ok(local_targets) = simctl::list_simulators() {
             for target in local_targets {
                 // Skip if already connected via companion
@@ -84,4 +84,29 @@ pub async fn run(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_should_list_simulators_no_filter() {
+        assert!(should_list_simulators(None));
+    }
+
+    #[test]
+    fn test_should_list_simulators_with_simulator_filter() {
+        assert!(should_list_simulators(Some(&TargetType::Simulator)));
+    }
+
+    #[test]
+    fn test_should_list_simulators_with_device_filter() {
+        assert!(!should_list_simulators(Some(&TargetType::Device)));
+    }
+
+    #[test]
+    fn test_should_list_simulators_with_mac_filter() {
+        assert!(!should_list_simulators(Some(&TargetType::Mac)));
+    }
 }

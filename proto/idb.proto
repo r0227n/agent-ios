@@ -17,6 +17,7 @@ service CompanionService {
   rpc launch(stream LaunchRequest) returns (stream LaunchResponse) {}
   rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
   rpc focus(FocusRequest) returns (FocusResponse) {}
+  rpc log(LogRequest) returns (stream LogResponse) {}
 }
 
 message CompanionInfo {
@@ -98,3 +99,16 @@ message ScreenshotResponse {
 message FocusRequest {}
 
 message FocusResponse {}
+
+message LogRequest {
+  enum Source {
+    TARGET = 0;
+    COMPANION = 1;
+  }
+  repeated string arguments = 1;
+  Source source = 2;
+}
+
+message LogResponse {
+  bytes output = 1;
+}
