@@ -1,5 +1,6 @@
 use crate::companion::CompanionResolver;
 
+/// List crash logs
 pub async fn list(
     since: Option<u64>,
     before: Option<u64>,
@@ -28,6 +29,7 @@ pub async fn list(
     Ok(())
 }
 
+/// Show crash log contents
 pub async fn show(
     name: String,
     udid: Option<String>,
@@ -51,6 +53,7 @@ pub async fn show(
     Ok(())
 }
 
+/// Delete crash logs
 pub async fn delete(
     since: Option<u64>,
     before: Option<u64>,
