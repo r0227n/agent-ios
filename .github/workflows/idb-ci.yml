@@ -92,64 +92,8 @@ jobs:
     - name: Install Python idb CLI
       run: pip install fb-idb
 
-    - name: List available simulators
-      run: xcrun simctl list devices available
-
-    - name: Boot iOS Simulator
-      run: |
-        # Get the first available iPhone simulator UDID
-        SIMULATOR_UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE "[A-F0-9-]{36}")
-        echo "SIMULATOR_UDID=${SIMULATOR_UDID}" >> $GITHUB_ENV
-
-        if [ -z "$SIMULATOR_UDID" ]; then
-          echo "No iPhone simulator found, creating one..."
-          RUNTIME=$(xcrun simctl list runtimes | grep -m1 "iOS" | awk '{print $NF}')
-          DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-15"
-          SIMULATOR_UDID=$(xcrun simctl create "CI-iPhone" "$DEVICE_TYPE" "$RUNTIME")
-          echo "Created simulator: $SIMULATOR_UDID"
-          echo "SIMULATOR_UDID=${SIMULATOR_UDID}" >> $GITHUB_ENV
-        fi
-
-        echo "Booting simulator: $SIMULATOR_UDID"
-        xcrun simctl boot "$SIMULATOR_UDID" || true
-
-        # Wait for simulator to be ready
-        sleep 10
-        xcrun simctl list devices | grep Booted
-
-    - name: Start idb companion for simulator
-      run: |
-        echo "Starting idb companion for simulator: $SIMULATOR_UDID"
-        idb_companion --boot $SIMULATOR_UDID &
-        COMPANION_PID=$!
-        echo "COMPANION_PID=${COMPANION_PID}" >> $GITHUB_ENV
-        sleep 5
-        # Verify companion is registered in state file
-        if [ -f /tmp/idb/state ] && grep -q "$SIMULATOR_UDID" /tmp/idb/state; then
-            echo "Companion registered successfully for $SIMULATOR_UDID"
-            echo "State file contents:"
-            cat /tmp/idb/state
-        else
-            echo "ERROR: Companion not found in state file"
-            echo "State file exists: $(test -f /tmp/idb/state && echo 'yes' || echo 'no')"
-            cat /tmp/idb/state 2>/dev/null || echo "State file is empty or does not exist"
-            exit 1
-        fi
-
-    - name: Build Mock App
-      run: ./tests/fixtures/MockApp/build.sh
-
-    - name: Build project
-      run: cargo build --verbose
-
-    - name: Verify Python idb works
-      run: |
-        idb list-targets || echo "Python idb list-targets check complete"
+    - name: Setup test environment
+      run: mise run test-setup
 
     - name: Run integration tests
       run: cargo test --tests -- --test-threads=1
-
-    - name: Cleanup - Shutdown simulator
-      if: always()
-      run: |
-        xcrun simctl shutdown "$SIMULATOR_UDID" || true
