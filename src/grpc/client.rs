@@ -15,8 +15,8 @@ use super::idb::log_request::Source as LogSource;
 use super::idb::payload::Source as PayloadSource;
 use super::idb::process_output::Interface;
 use super::idb::{
-    InstallRequest, InstallResponse, LaunchRequest, LogRequest, Payload, ScreenshotRequest,
-    TargetDescriptionRequest,
+    InstallRequest, InstallResponse, LaunchRequest, LogRequest, Payload, RmRequest,
+    ScreenshotRequest, TargetDescriptionRequest,
 };
 
 /// Configuration for launching an application
@@ -348,5 +348,17 @@ impl IdbClient {
         // Start the bidirectional stream
         let response = self.client.install(request_stream).await?;
         Ok(response.into_inner())
+    }
+
+    /// Remove files or directories inside a container
+    pub async fn rm(
+        &mut self,
+        paths: Vec<String>,
+        container: Option<super::idb::FileContainer>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(RmRequest { paths, container });
+        let response = self.client.rm(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
     }
 }

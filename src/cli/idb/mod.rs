@@ -4,6 +4,7 @@ pub mod kill;
 pub mod launch;
 pub mod list_targets;
 pub mod log;
+pub mod rm;
 pub mod screenshot;
 pub mod uninstall;
 
@@ -121,5 +122,20 @@ pub enum IdbCommands {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
+    },
+
+    /// Remove files or directories inside a container
+    Rm {
+        /// Paths to remove (directories will be recursively deleted)
+        #[arg(required = true)]
+        paths: Vec<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+
+        /// Application bundle identifier (uses APPLICATION container)
+        #[arg(long)]
+        bundle_id: Option<String>,
     },
 }

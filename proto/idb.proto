@@ -20,6 +20,8 @@ service CompanionService {
   rpc focus(FocusRequest) returns (FocusResponse) {}
   rpc log(LogRequest) returns (stream LogResponse) {}
   rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
+  rpc mv(MvRequest) returns (MvResponse) {}
+  rpc rm(RmRequest) returns (RmResponse) {}
 }
 
 message CompanionInfo {
@@ -158,3 +160,43 @@ message UninstallRequest {
 }
 
 message UninstallResponse {}
+
+message FileContainer {
+  enum Kind {
+    NONE = 0;
+    APPLICATION = 1;
+    ROOT = 2;
+    MEDIA = 3;
+    CRASHES = 4;
+    PROVISIONING_PROFILES = 5;
+    MDM_PROFILES = 6;
+    SPRINGBOARD_ICONS = 7;
+    WALLPAPER = 8;
+    DISK_IMAGES = 9;
+    GROUP_CONTAINER = 10;
+    APPLICATION_CONTAINER = 11;
+    AUXILLARY = 12;
+    XCTEST = 13;
+    DYLIB = 14;
+    DSYM = 15;
+    FRAMEWORK = 16;
+    SYMBOLS = 17;
+  }
+  Kind kind = 1;
+  string bundle_id = 2;
+}
+
+message MvRequest {
+  repeated string src_paths = 2;
+  string dst_path = 3;
+  FileContainer container = 4;
+}
+
+message MvResponse {}
+
+message RmRequest {
+  repeated string paths = 2;
+  FileContainer container = 3;
+}
+
+message RmResponse {}
