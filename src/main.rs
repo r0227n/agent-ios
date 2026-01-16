@@ -4,7 +4,7 @@ mod grpc;
 mod types;
 
 use clap::Parser;
-use cli::idb::IdbCommands;
+use cli::idb::{IdbCommands, LocationCommands};
 use cli::{Cli, Commands};
 
 #[tokio::main]
@@ -83,6 +83,15 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::ListApps { udid } => {
                 cli::idb::list_apps::run(udid).await?;
             }
+            IdbCommands::Location { command } => match command {
+                LocationCommands::SetLocation {
+                    latitude,
+                    longitude,
+                    udid,
+                } => {
+                    cli::idb::location::run(latitude, longitude, udid).await?;
+                }
+            },
             IdbCommands::Rm {
                 paths,
                 udid,
