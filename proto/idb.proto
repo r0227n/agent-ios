@@ -31,6 +31,7 @@ service CompanionService {
   rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
   rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
   rpc xctest_list_tests(XctestListTestsRequest) returns (XctestListTestsResponse) {}
+  rpc ls(LsRequest) returns (LsResponse) {}
 }
 
 message CompanionInfo {
@@ -272,6 +273,26 @@ message RmRequest {
 }
 
 message RmResponse {}
+
+message FileInfo {
+  string path = 1;
+}
+
+message FileListing {
+  FileInfo parent = 1;
+  repeated FileInfo files = 2;
+}
+
+message LsRequest {
+  string path = 2;
+  FileContainer container = 3;
+  repeated string paths = 4;
+}
+
+message LsResponse {
+  repeated FileInfo files = 1;
+  repeated FileListing listings = 2;
+}
 
 // ========== App Lifecycle ==========
 

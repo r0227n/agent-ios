@@ -466,6 +466,22 @@ impl IdbClient {
         Ok(())
     }
 
+    /// List files on the target device/simulator
+    pub async fn ls(
+        &mut self,
+        path: String,
+        paths: Vec<String>,
+        container: Option<super::idb::FileContainer>,
+    ) -> Result<super::idb::LsResponse, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::LsRequest {
+            path,
+            container,
+            paths,
+        });
+        let response = self.client.ls(request).await?;
+        Ok(response.into_inner())
+    }
+
     /// List installed XCTest bundles
     pub async fn xctest_list_bundles(
         &mut self,
