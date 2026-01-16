@@ -6,6 +6,7 @@ pub mod list_targets;
 pub mod log;
 pub mod rm;
 pub mod screenshot;
+pub mod terminate;
 pub mod uninstall;
 pub mod xctest_list;
 
@@ -138,6 +139,16 @@ pub enum IdbCommands {
         /// Application bundle identifier (uses APPLICATION container)
         #[arg(long)]
         bundle_id: Option<String>,
+    },
+
+    /// Terminate a running application
+    Terminate {
+        /// Application bundle identifier
+        bundle_id: String,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
     },
 
     /// List installed XCTest bundles
