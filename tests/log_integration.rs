@@ -4,6 +4,15 @@ use std::process::{Child, Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+/// Check if Python idb is available in PATH
+fn is_python_idb_available() -> bool {
+    Command::new("idb")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 /// Wait for child process with timeout, killing if necessary to prevent hangs
 fn wait_with_timeout(mut child: Child, timeout_secs: u64) -> Output {
     let start = Instant::now();
@@ -131,28 +140,33 @@ fn test_log_invalid_udid() {
         .output()
         .expect("Failed to run Rust implementation");
 
-    // Python idb implementation
-    let python_output = Command::new("idb")
-        .args(["log", "--udid", "INVALID-UDID-12345"])
-        .output()
-        .expect("Failed to run Python implementation");
-
-    // Both should fail with invalid UDID
+    // Verify Rust implementation fails with invalid UDID
     assert!(
         !rust_output.status.success(),
         "Rust: log with invalid UDID should fail"
     );
-    assert!(
-        !python_output.status.success(),
-        "Python: log with invalid UDID should fail"
-    );
 
-    // Verify error message content in Rust implementation
     let rust_stderr = String::from_utf8_lossy(&rust_output.stderr);
     assert!(
         rust_stderr.contains("No companion found") || rust_stderr.contains("not found"),
         "Expected UDID error in Rust stderr, got: {}",
         rust_stderr
+    );
+
+    // Python idb comparison (skip if not available)
+    if !is_python_idb_available() {
+        eprintln!("Skipping Python idb comparison: idb not available");
+        return;
+    }
+
+    let python_output = Command::new("idb")
+        .args(["log", "--udid", "INVALID-UDID-12345"])
+        .output()
+        .expect("Failed to run Python implementation");
+
+    assert!(
+        !python_output.status.success(),
+        "Python: log with invalid UDID should fail"
     );
 }
 
@@ -179,6 +193,11 @@ fn test_log_help() {
 
 #[test]
 fn test_log_compatibility_with_python_idb() {
+    if !is_python_idb_available() {
+        eprintln!("Skipping compatibility test: Python idb not available");
+        return;
+    }
+
     let udid = match get_available_udid() {
         Some(u) => u,
         None => {
