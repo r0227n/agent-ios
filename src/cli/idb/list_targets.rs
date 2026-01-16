@@ -1,7 +1,8 @@
-use crate::companion::CompanionState;
+use crate::companion::{CompanionLister, CompanionState};
 use crate::grpc::IdbClient;
 use crate::types::{
-    human_format_target, json_format_target, Address, TargetDescription, TargetType,
+    human_format_target, json_format_target, merge_connected_targets, Address, TargetDescription,
+    TargetType,
 };
 
 pub async fn run(
@@ -15,11 +16,45 @@ pub async fn run(
         })
     });
 
-    let mut targets: Vec<TargetDescription> = Vec::new();
+    // 1. Get local targets from idb_companion --list 1
+    let local_targets = match CompanionLister::new() {
+        Ok(lister) => lister.list_targets(filter).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
 
-    // Get stored companions from state file and query connected targets
+    // 2. Get connected targets from state file companions
+    let connected_targets = get_connected_targets().await;
+
+    // 3. Merge targets (connected takes priority for same UDID)
+    let mut targets = merge_connected_targets(local_targets, connected_targets);
+
+    // Apply filter (for connected targets that might not have been filtered)
+    if let Some(ref filter_type) = filter {
+        targets.retain(|t| &t.target_type == filter_type);
+    }
+
+    // Sort by name (matching Python behavior)
+    targets.sort_by(|a, b| a.name.cmp(&b.name));
+
+    // Output results (default: JSON, --human: human-readable)
+    let formatter: fn(&TargetDescription) -> String = if human_output {
+        human_format_target
+    } else {
+        json_format_target
+    };
+
+    for target in targets {
+        println!("{}", formatter(&target));
+    }
+
+    Ok(())
+}
+
+/// Get connected targets by querying companions from state file
+async fn get_connected_targets() -> Vec<TargetDescription> {
     let state = CompanionState::default();
     let companions = state.get_companions();
+    let mut targets = Vec::new();
 
     for companion in companions {
         let address = match companion.address() {
@@ -42,24 +77,5 @@ pub async fn run(
         }
     }
 
-    // Apply filter
-    if let Some(ref filter_type) = filter {
-        targets.retain(|t| &t.target_type == filter_type);
-    }
-
-    // Sort by name (matching Python behavior)
-    targets.sort_by(|a, b| a.name.cmp(&b.name));
-
-    // Output results (default: JSON, --human: human-readable)
-    let formatter: fn(&TargetDescription) -> String = if human_output {
-        human_format_target
-    } else {
-        json_format_target
-    };
-
-    for target in targets {
-        println!("{}", formatter(&target));
-    }
-
-    Ok(())
+    targets
 }
