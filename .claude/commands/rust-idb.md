@@ -14,7 +14,6 @@ agent: cli-developer, python-engineer, rust-engineer
 
 `$ARGUMENTS` から以下を抽出してください：
 - `command_name`: 移植するコマンド名（例: screenshot, kill, install）
-- `--skip-tests`: オプションフラグ、テスト作成をスキップ
 
 ## ワークフロー
 
@@ -148,6 +147,7 @@ TodoWriteで実装タスクを作成:
     { "content": "proto/idb.protoを更新", "status": "pending", "activeForm": "proto/idb.protoを更新中" },
     { "content": "src/cli/idb/mod.rsにenumバリアント追加", "status": "pending", "activeForm": "enumバリアントを追加中" },
     { "content": "src/cli/idb/<command>.rsを作成", "status": "pending", "activeForm": "実装ファイルを作成中" },
+    { "content": "src/cli/idb/<command>.rsにユニットテスト追加", "status": "pending", "activeForm": "ユニットテストを追加中" },
     { "content": "src/grpc/client.rsにgRPCメソッド追加", "status": "pending", "activeForm": "gRPCメソッドを追加中" },
     { "content": "src/main.rsにルーティング追加", "status": "pending", "activeForm": "ルーティングを追加中" },
     { "content": "tests/<command>_integration.rsを作成", "status": "pending", "activeForm": "統合テストを作成中" },
@@ -273,7 +273,14 @@ pub async fn run(
 
 #[cfg(test)]
 mod tests {
-    // ユニットテスト（必要な場合のみ）
+    use super::*;
+
+    #[test]
+    fn test_helper_function_name() {
+        // ヘルパー関数のテスト
+        let result = helper_function(input);
+        assert_eq!(result, expected);
+    }
 }
 ```
 
@@ -289,6 +296,48 @@ mod tests {
 
 - タスクを `completed` にマーク
 - `cargo build` で確認
+
+**Step 3.3.1: ユニットテストを追加（必須）**
+
+各コマンドには最低2-3個のユニットテストを追加する。
+
+**ヘルパー関数の抽出方針:**
+- `run()` 関数内の純粋なロジック（外部依存のない処理）を抽出
+- 例: フォーマット関数、バリデーション関数、変換関数
+
+**ユニットテストのテンプレート:**
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_output() {
+        let result = format_output("input");
+        assert_eq!(result, "expected output");
+    }
+
+    #[test]
+    fn test_validate_argument() {
+        assert!(validate_argument("valid"));
+        assert!(!validate_argument("invalid"));
+    }
+
+    #[test]
+    fn test_edge_case() {
+        let result = helper_function("");
+        assert!(result.is_empty());
+    }
+}
+```
+
+**テスト対象の例:**
+- メッセージフォーマット関数（例: `format_kill_message`）
+- 出力先判定関数（例: `is_stdout_output`）
+- フィルタ判定関数（例: `should_list_simulators`）
+- 引数正規化関数（例: `normalize_log_arguments`）
+
+- タスクを `completed` にマーク
 
 **Step 3.4: src/grpc/client.rs にメソッド追加**
 
@@ -340,7 +389,7 @@ IdbCommands::CommandName { arg1, arg2, flag, udid } => {
 - タスクを `completed` にマーク
 - `cargo build` で確認
 
-**Step 3.6: tests/<command>_integration.rs を作成** (`--skip-tests` でない場合)
+**Step 3.6: tests/<command>_integration.rs を作成**（必須）
 
 テンプレート:
 ```rust
@@ -447,7 +496,7 @@ cargo clippy -- -D warnings
 
 - タスクを `completed` にマーク
 
-### Phase 5: テスト実行 (`--skip-tests` でない場合)
+### Phase 5: テスト実行（必須）
 
 **Step 5.1: 統合テストを実行**
 ```bash
@@ -532,6 +581,41 @@ agent-mobile idb <command> [arguments]
 3. **Python互換性**: 統合テストで完全互換性を保証
 4. **TodoWrite**: 各タスク完了時に即座にステータス更新
 5. **エラーハンドリング**: 3回まで自動修正、それ以降はユーザー相談
+6. **ユニットテスト必須**: 各コマンドに最低2-3個のユニットテストを追加
+
+## ユニットテスト要件
+
+**必須**: すべてのコマンド実装にユニットテストを含める。
+
+### ヘルパー関数の抽出
+`run()` 関数内のロジックをテスト可能なヘルパー関数に抽出する:
+- フォーマット関数（メッセージ生成、出力整形）
+- バリデーション関数（引数チェック、状態判定）
+- 変換関数（データ変換、正規化）
+
+### 最低テスト数
+- 各コマンドに最低 **2-3個** のユニットテスト
+- エッジケース（空入力、無効値）を含める
+
+### テスト命名規則
+```rust
+#[test]
+fn test_<function_name>_<scenario>() {
+    // ...
+}
+```
+
+例:
+- `test_format_kill_message_with_valid_udid`
+- `test_is_stdout_output_with_dash`
+- `test_normalize_arguments_empty`
+
+### 参考実装
+- `src/cli/idb/kill.rs`: `format_kill_message`, `format_kill_success`, `format_kill_error`
+- `src/cli/idb/list_targets.rs`: `should_list_simulators`
+- `src/cli/idb/screenshot.rs`: `is_stdout_output`
+- `src/cli/idb/log.rs`: `normalize_log_arguments`
+- `src/cli/idb/launch.rs`: `collect_idb_env`
 
 ## コマンドタイプ別の実装パターン
 
