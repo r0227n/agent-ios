@@ -263,6 +263,68 @@ impl IdbClient {
         Ok(())
     }
 
+    /// Approve (grant) app permissions
+    pub async fn approve(
+        &mut self,
+        bundle_id: &str,
+        permissions: Vec<i32>,
+        scheme: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::ApproveRequest {
+            bundle_id: bundle_id.to_string(),
+            permissions,
+            scheme: scheme.unwrap_or_default(),
+        });
+        let response = self.client.approve(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Open a URL on the device
+    pub async fn open_url(
+        &mut self,
+        url: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::OpenUrlRequest {
+            url: url.to_string(),
+        });
+        let response = self.client.open_url(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Revoke app permissions
+    pub async fn revoke(
+        &mut self,
+        bundle_id: &str,
+        permissions: Vec<i32>,
+        scheme: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::RevokeRequest {
+            bundle_id: bundle_id.to_string(),
+            permissions,
+            scheme: scheme.unwrap_or_default(),
+        });
+        let response = self.client.revoke(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Send a push notification to the device
+    pub async fn send_notification(
+        &mut self,
+        bundle_id: &str,
+        json_payload: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::SendNotificationRequest {
+            bundle_id: bundle_id.to_string(),
+            json_payload: json_payload.to_string(),
+        });
+        let response = self.client.send_notification(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Set device location
     pub async fn set_location(
         &mut self,
