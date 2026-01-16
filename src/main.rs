@@ -4,7 +4,7 @@ mod grpc;
 mod types;
 
 use clap::Parser;
-use cli::idb::IdbCommands;
+use cli::idb::{IdbCommands, SettingsCommands};
 use cli::{Cli, Commands};
 
 #[tokio::main]
@@ -80,6 +80,27 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Uninstall { bundle_id, udid } => {
                 cli::idb::uninstall::run(bundle_id, udid).await?;
             }
+            IdbCommands::Settings { command } => match command {
+                SettingsCommands::Set {
+                    name,
+                    value,
+                    value_type,
+                    domain,
+                    udid,
+                } => {
+                    cli::idb::settings::set(name, value, value_type, domain, udid).await?;
+                }
+                SettingsCommands::Get {
+                    name,
+                    domain,
+                    udid,
+                } => {
+                    cli::idb::settings::get(name, domain, udid).await?;
+                }
+                SettingsCommands::ListLocale { udid } => {
+                    cli::idb::settings::list_locale(udid).await?;
+                }
+            },
         },
     }
 

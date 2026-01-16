@@ -5,6 +5,7 @@ pub mod launch;
 pub mod list_targets;
 pub mod log;
 pub mod screenshot;
+pub mod settings;
 pub mod uninstall;
 
 use clap::Subcommand;
@@ -118,6 +119,57 @@ pub enum IdbCommands {
         /// Application bundle identifier
         bundle_id: String,
 
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Device settings operations
+    Settings {
+        #[command(subcommand)]
+        command: SettingsCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum SettingsCommands {
+    /// Set a device setting
+    Set {
+        /// Setting name
+        name: String,
+
+        /// Setting value
+        value: String,
+
+        /// Value type (string, int, bool, etc.)
+        #[arg(long)]
+        value_type: Option<String>,
+
+        /// Settings domain
+        #[arg(long)]
+        domain: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Get a device setting value
+    Get {
+        /// Setting name
+        name: String,
+
+        /// Settings domain
+        #[arg(long)]
+        domain: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// List available locales
+    ListLocale {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
