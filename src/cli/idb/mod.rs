@@ -7,6 +7,7 @@ pub mod log;
 pub mod rm;
 pub mod screenshot;
 pub mod uninstall;
+pub mod xctest_list;
 
 use clap::Subcommand;
 
@@ -137,5 +138,12 @@ pub enum IdbCommands {
         /// Application bundle identifier (uses APPLICATION container)
         #[arg(long)]
         bundle_id: Option<String>,
+    },
+
+    /// List installed XCTest bundles
+    XctestList {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
     },
 }
