@@ -11,16 +11,18 @@ pub async fn run(
     let companion = match udid.as_deref() {
         Some(u) => state
             .find_by_udid(u)
-            .ok_or_else(|| format_no_companion_error(u))?,
+            .ok_or_else(|| format!("No companion found for UDID: {}", u))?,
         None => state
             .get_companions()
             .into_iter()
             .next()
-            .ok_or_else(format_no_companions_error)?,
+            .ok_or("No companions available. Run 'idb_companion' first.")?,
     };
 
     // 2. Connect to companion
-    let address = companion.address().ok_or_else(format_no_address_error)?;
+    let address = companion
+        .address()
+        .ok_or("Companion has no valid address")?;
 
     let mut client = match &address {
         Address::DomainSocket { path } => IdbClient::connect_uds(path).await?,
@@ -32,42 +34,4 @@ pub async fn run(
 
     // 4. Success (no output for uninstall command, same as Python idb)
     Ok(())
-}
-
-/// Format error message when companion is not found for UDID
-fn format_no_companion_error(udid: &str) -> String {
-    format!("No companion found for UDID: {}", udid)
-}
-
-/// Format error message when no companions are available
-fn format_no_companions_error() -> String {
-    "No companions available. Run 'idb_companion' first.".to_string()
-}
-
-/// Format error message when companion has no valid address
-fn format_no_address_error() -> String {
-    "Companion has no valid address".to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_no_companion_error() {
-        let error = format_no_companion_error("ABC123-DEF456");
-        assert_eq!(error, "No companion found for UDID: ABC123-DEF456");
-    }
-
-    #[test]
-    fn test_format_no_companions_error() {
-        let error = format_no_companions_error();
-        assert_eq!(error, "No companions available. Run 'idb_companion' first.");
-    }
-
-    #[test]
-    fn test_format_no_address_error() {
-        let error = format_no_address_error();
-        assert_eq!(error, "Companion has no valid address");
-    }
 }
