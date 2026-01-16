@@ -97,7 +97,7 @@ jobs:
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Run unit tests
-      run: cargo test --lib --verbose
+      run: cargo test --verbose
 
   integration-tests:
     runs-on: macos-15-intel
