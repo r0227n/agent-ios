@@ -94,8 +94,8 @@ mod tests {
 
         assert_eq!(env.get("TEST_VAR"), Some(&"test_value".to_string()));
         assert_eq!(env.get("ANOTHER"), Some(&"another_value".to_string()));
-        assert!(env.get("NOT_IDB_VAR").is_none());
-        assert!(env.get("IDB_TEST_VAR").is_none()); // prefix should be stripped
+        assert!(!env.contains_key("NOT_IDB_VAR"));
+        assert!(!env.contains_key("IDB_TEST_VAR")); // prefix should be stripped
 
         // Cleanup
         std::env::remove_var("IDB_TEST_VAR");
