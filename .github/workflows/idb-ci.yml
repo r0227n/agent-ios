@@ -8,6 +8,7 @@ on:
       - 'proto/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'tests/**'
   pull_request:
     branches: [ main, develop ]
     paths:
@@ -15,6 +16,7 @@ on:
       - 'proto/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'tests/**'
 
 env:
   CARGO_TERM_COLOR: always
@@ -40,13 +42,13 @@ jobs:
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Cache cargo index
-      uses: actions/cache@v4
+      uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
       with:
         path: ~/.cargo/git
         key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Cache cargo build
-      uses: actions/cache@v4
+      uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
       with:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
@@ -97,7 +99,7 @@ jobs:
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Run unit tests
-      run: cargo test --verbose
+      run: cargo test --lib --verbose
 
   integration-tests:
     runs-on: macos-15-intel
@@ -132,7 +134,7 @@ jobs:
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
       with:
         python-version: '3.11'
 
