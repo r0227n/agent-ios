@@ -117,4 +117,3 @@ mod tests {
         assert_eq!(result, "12345");
     }
 }
-

@@ -69,7 +69,10 @@ fn test_list_apps_without_udid() {
 
     // Output should contain app information
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains(" | "), "Output should be in pipe-delimited format");
+    assert!(
+        stdout.contains(" | "),
+        "Output should be in pipe-delimited format"
+    );
 }
 
 /// Test that output format matches expected structure
