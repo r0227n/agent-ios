@@ -124,8 +124,17 @@ jobs:
         COMPANION_PID=$!
         echo "COMPANION_PID=${COMPANION_PID}" >> $GITHUB_ENV
         sleep 5
-        # Verify companion is running
-        idb list-targets --json | grep -q "companion" && echo "Companion started successfully"
+        # Verify companion is registered in state file
+        if [ -f /tmp/idb/state ] && grep -q "$SIMULATOR_UDID" /tmp/idb/state; then
+            echo "Companion registered successfully for $SIMULATOR_UDID"
+            echo "State file contents:"
+            cat /tmp/idb/state
+        else
+            echo "ERROR: Companion not found in state file"
+            echo "State file exists: $(test -f /tmp/idb/state && echo 'yes' || echo 'no')"
+            cat /tmp/idb/state 2>/dev/null || echo "State file is empty or does not exist"
+            exit 1
+        fi
 
     - name: Build Mock App
       run: ./tests/fixtures/MockApp/build.sh
