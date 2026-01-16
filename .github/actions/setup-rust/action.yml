@@ -3,10 +3,14 @@ description: 'Install Rust toolchain with rustfmt and clippy, and install protob
 runs:
   using: 'composite'
   steps:
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+    - name: Setup environment with mise
+      uses: jdx/mise-action@146a28175021df8ca24f8ee1828cc2a60f980bd5
       with:
-        components: rustfmt, clippy
+        cache: true
+
+    - name: Install Rust components
+      run: rustup component add rustfmt clippy
+      shell: bash
 
     - name: Install protobuf
       run: brew install protobuf
