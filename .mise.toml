@@ -72,11 +72,7 @@ else
     echo "Warning: Companion may not be fully started"
 fi
 
-# 5. Build the project
-echo "Building project..."
-cargo build
-
-# 6. Build MockApp if needed
+# 5. Build MockApp if needed
 if [ ! -d "tests/fixtures/MockApp.app" ]; then
     echo "Building MockApp..."
     ./tests/fixtures/MockApp/build.sh
