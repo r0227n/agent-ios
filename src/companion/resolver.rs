@@ -1,5 +1,4 @@
 use crate::grpc::IdbClient;
-use crate::simctl;
 use crate::types::{Address, TargetType};
 
 use super::spawner::{CompanionSpawnConfig, CompanionSpawner, SpawnError};
@@ -81,14 +80,7 @@ impl CompanionResolver {
             return Some(TargetType::Mac);
         }
 
-        // Check simctl for simulators
-        if let Ok(simulators) = simctl::list_simulators() {
-            if simulators.iter().any(|s| s.udid == udid) {
-                return Some(TargetType::Simulator);
-            }
-        }
-
-        // For now, we cannot validate device UDIDs without a companion
+        // Without simctl, we cannot validate simulator UDIDs
         // Return None to indicate we cannot verify this UDID
         None
     }

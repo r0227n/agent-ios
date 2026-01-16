@@ -1,7 +1,6 @@
 mod cli;
 mod companion;
 mod grpc;
-mod simctl;
 mod types;
 
 use clap::Parser;
