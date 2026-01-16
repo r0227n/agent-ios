@@ -276,6 +276,18 @@ impl IdbClient {
         Ok(())
     }
 
+    /// List installed applications
+    pub async fn list_apps(
+        &mut self,
+    ) -> Result<Vec<super::idb::InstalledAppInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::ListAppsRequest {
+            suppress_process_state: false,
+        });
+        let response = self.client.list_apps(request).await?;
+        let inner = response.into_inner();
+        Ok(inner.apps)
+    }
+
     /// Terminate a running application
     pub async fn terminate(
         &mut self,

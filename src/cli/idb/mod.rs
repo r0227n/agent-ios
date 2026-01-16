@@ -2,6 +2,7 @@ pub mod focus;
 pub mod install;
 pub mod kill;
 pub mod launch;
+pub mod list_apps;
 pub mod list_targets;
 pub mod log;
 pub mod rm;
@@ -121,6 +122,13 @@ pub enum IdbCommands {
         /// Application bundle identifier
         bundle_id: String,
 
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// List installed applications
+    ListApps {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
