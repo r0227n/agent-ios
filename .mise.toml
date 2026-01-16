@@ -1,6 +1,7 @@
 [tools]
 # Rust toolchain
 rust = "1.92.0"
+python = "3.9.6"
 
 # Build tools
 "cargo:cargo-watch" = "8.5.3"
@@ -12,3 +13,75 @@ test = "cargo test"
 lint = "cargo clippy -- -D warnings"
 format = "cargo fmt --all"
 format-check = "cargo fmt --all -- --check"
+
+test-setup = """
+#!/bin/bash
+set -e
+
+echo "=== Setting up test environment ==="
+
+# 1. Check if idb and idb_companion are installed
+if ! command -v idb &> /dev/null; then
+    echo "Error: Python idb not found. Install with: pip install fb-idb"
+    exit 1
+fi
+
+if ! command -v idb_companion &> /dev/null; then
+    echo "Error: idb_companion not found. Install with: brew install idb-companion"
+    exit 1
+fi
+
+# 2. Find a booted simulator
+SIMULATOR_UDID=$(xcrun simctl list devices booted -j | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for runtime, devices in data.get('devices', {}).items():
+    for device in devices:
+        if device.get('state') == 'Booted':
+            print(device['udid'])
+            sys.exit(0)
+sys.exit(1)
+" 2>/dev/null) || true
+
+if [ -z "$SIMULATOR_UDID" ]; then
+    echo "No booted simulator found. Starting one..."
+    # Find first available iPhone simulator
+    SIMULATOR_UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE "[A-F0-9-]{36}" | head -1)
+    if [ -z "$SIMULATOR_UDID" ]; then
+        echo "Error: No iPhone simulator found"
+        exit 1
+    fi
+    echo "Booting simulator: $SIMULATOR_UDID"
+    xcrun simctl boot "$SIMULATOR_UDID"
+    sleep 5
+fi
+
+echo "Using simulator: $SIMULATOR_UDID"
+
+# 3. Start idb_companion if not already running
+if ! idb list-targets --json 2>/dev/null | grep -q '"companion"'; then
+    echo "Starting idb_companion for simulator..."
+    idb_companion --boot "$SIMULATOR_UDID" &
+    sleep 5
+fi
+
+# 4. Verify companion is running
+if idb list-targets --json | grep -q '"companion"'; then
+    echo "Companion is running successfully"
+else
+    echo "Warning: Companion may not be fully started"
+fi
+
+# 5. Build the project
+echo "Building project..."
+cargo build
+
+# 6. Build MockApp if needed
+if [ ! -d "tests/fixtures/MockApp.app" ]; then
+    echo "Building MockApp..."
+    ./tests/fixtures/MockApp/build.sh
+fi
+
+echo "=== Test environment ready ==="
+echo "Run tests with: cargo test --tests -- --test-threads=1"
+"""
