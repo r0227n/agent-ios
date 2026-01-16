@@ -30,8 +30,8 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+    - name: Setup Rust
+      uses: ./.github/actions/setup-rust
 
     - name: Cache cargo registry
       uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
@@ -75,8 +75,8 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+    - name: Setup Rust
+      uses: ./.github/actions/setup-rust
 
     - name: Cache cargo registry
       uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
@@ -110,8 +110,8 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+    - name: Setup Rust
+      uses: ./.github/actions/setup-rust
 
     - name: Cache cargo registry
       uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1

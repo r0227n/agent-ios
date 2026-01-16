@@ -1,0 +1,13 @@
+name: 'Setup Rust Environment'
+description: 'Install Rust toolchain with rustfmt and clippy, and install protobuf'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Install protobuf
+      run: brew install protobuf
+      shell: bash
