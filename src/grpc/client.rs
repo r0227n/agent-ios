@@ -395,6 +395,23 @@ impl IdbClient {
         Ok(())
     }
 
+    /// Move files/directories on the target
+    pub async fn mv(
+        &mut self,
+        src_paths: Vec<String>,
+        dst_path: &str,
+        container: super::idb::FileContainer,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::MvRequest {
+            src_paths,
+            dst_path: dst_path.to_string(),
+            container: Some(container),
+        });
+        let response = self.client.mv(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Tail logs from target or companion (server-side streaming)
     pub async fn log(
         &mut self,
