@@ -46,6 +46,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Focus { udid } => {
                 cli::idb::focus::run(udid).await?;
             }
+            IdbCommands::Log {
+                udid,
+                source,
+                log_arguments,
+            } => {
+                cli::idb::log::run(udid, source, log_arguments).await?;
+            }
         },
     }
 

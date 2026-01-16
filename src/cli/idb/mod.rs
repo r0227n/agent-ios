@@ -2,6 +2,7 @@ pub mod focus;
 pub mod kill;
 pub mod launch;
 pub mod list_targets;
+pub mod log;
 pub mod screenshot;
 
 use clap::Subcommand;
@@ -67,5 +68,20 @@ pub enum IdbCommands {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
+    },
+
+    /// Obtain logs from the target or companion
+    Log {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+
+        /// Log source: target (default) or companion
+        #[arg(long, value_parser = ["target", "companion"], default_value = "target")]
+        source: String,
+
+        /// Additional log arguments (e.g., --style json --level info)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        log_arguments: Vec<String>,
     },
 }
