@@ -168,17 +168,8 @@ jobs:
         sleep 10
         xcrun simctl list devices | grep Booted
 
-    - name: Start idb_companion
-      run: |
-        # Start idb_companion for the booted simulator
-        idb_companion --udid "$SIMULATOR_UDID" &
-
-        # Wait for companion to initialize
-        sleep 5
-
-        # Verify companion is running
-        ls -la /tmp/idb/ || true
-        cat /tmp/idb/state || true
+    - name: Build Mock App
+      run: ./tests/fixtures/MockApp/build.sh
 
     - name: Build project
       run: cargo build --verbose

@@ -14,10 +14,12 @@ package idb;
 // CompanionService definition
 service CompanionService {
   rpc describe(TargetDescriptionRequest) returns (TargetDescriptionResponse) {}
+  rpc install(stream InstallRequest) returns (stream InstallResponse) {}
   rpc launch(stream LaunchRequest) returns (stream LaunchResponse) {}
   rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
   rpc focus(FocusRequest) returns (FocusResponse) {}
   rpc log(LogRequest) returns (stream LogResponse) {}
+  rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
 }
 
 message CompanionInfo {
@@ -112,3 +114,47 @@ message LogRequest {
 message LogResponse {
   bytes output = 1;
 }
+
+message Payload {
+  oneof source {
+    string file_path = 1;
+    bytes data = 2;
+    string url = 3;
+    Compression compression = 4;
+  }
+  enum Compression {
+    GZIP = 0;
+    ZSTD = 1;
+  }
+}
+
+message InstallRequest {
+  enum Destination {
+    APP = 0;
+    XCTEST = 1;
+    DYLIB = 2;
+    DSYM = 3;
+    FRAMEWORK = 4;
+  }
+  oneof value {
+    Destination destination = 1;
+    Payload payload = 2;
+    string name_hint = 3;
+    bool make_debuggable = 4;
+    string bundle_id = 5;
+    bool override_modification_time = 7;
+    bool skip_signing_bundles = 8;
+  }
+}
+
+message InstallResponse {
+  string name = 1;
+  string uuid = 2;
+  double progress = 3;
+}
+
+message UninstallRequest {
+  string bundle_id = 1;
+}
+
+message UninstallResponse {}

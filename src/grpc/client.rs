@@ -1,4 +1,4 @@
-use crate::types::{Address, CompanionInfo, TargetDescription, TargetType};
+use crate::types::{Address, CompanionInfo, Compression, TargetDescription, TargetType};
 use hyper_util::rt::TokioIo;
 use std::collections::HashMap;
 use std::io::Write;
@@ -9,10 +9,15 @@ use tonic::transport::{Channel, Endpoint, Uri};
 use tower::service_fn;
 
 use super::idb::companion_service_client::CompanionServiceClient;
+use super::idb::install_request::{self, Destination};
 use super::idb::launch_request::{self, Control};
 use super::idb::log_request::Source as LogSource;
+use super::idb::payload::Source as PayloadSource;
 use super::idb::process_output::Interface;
-use super::idb::{LaunchRequest, LogRequest, ScreenshotRequest, TargetDescriptionRequest};
+use super::idb::{
+    InstallRequest, InstallResponse, LaunchRequest, LogRequest, Payload, ScreenshotRequest,
+    TargetDescriptionRequest,
+};
 
 /// Configuration for launching an application
 pub struct LaunchConfig {
@@ -258,6 +263,19 @@ impl IdbClient {
         Ok(())
     }
 
+    /// Uninstall an application
+    pub async fn uninstall(
+        &mut self,
+        bundle_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::UninstallRequest {
+            bundle_id: bundle_id.to_string(),
+        });
+        let response = self.client.uninstall(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Tail logs from target or companion (server-side streaming)
     pub async fn log(
         &mut self,
@@ -271,6 +289,64 @@ impl IdbClient {
         });
 
         let response = self.client.log(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Install an application via bidirectional streaming gRPC
+    pub async fn install(
+        &mut self,
+        bundle_path: &str,
+        make_debuggable: bool,
+        override_mtime: bool,
+        compression: Option<Compression>,
+    ) -> Result<tonic::Streaming<InstallResponse>, Box<dyn std::error::Error + Send + Sync>> {
+        // Build the sequence of install requests
+        let mut requests: Vec<InstallRequest> = Vec::new();
+
+        // 1. Destination request (APP)
+        requests.push(InstallRequest {
+            value: Some(install_request::Value::Destination(Destination::App as i32)),
+        });
+
+        // 2. Payload with file path
+        requests.push(InstallRequest {
+            value: Some(install_request::Value::Payload(Payload {
+                source: Some(PayloadSource::FilePath(bundle_path.to_string())),
+            })),
+        });
+
+        // 3. Optional: make_debuggable
+        if make_debuggable {
+            requests.push(InstallRequest {
+                value: Some(install_request::Value::MakeDebuggable(true)),
+            });
+        }
+
+        // 4. Optional: override_modification_time
+        if override_mtime {
+            requests.push(InstallRequest {
+                value: Some(install_request::Value::OverrideModificationTime(true)),
+            });
+        }
+
+        // 5. Optional: compression
+        if let Some(comp) = compression {
+            let compression_enum = match comp {
+                Compression::Gzip => super::idb::payload::Compression::Gzip,
+                Compression::Zstd => super::idb::payload::Compression::Zstd,
+            };
+            requests.push(InstallRequest {
+                value: Some(install_request::Value::Payload(Payload {
+                    source: Some(PayloadSource::Compression(compression_enum as i32)),
+                })),
+            });
+        }
+
+        // Create stream from requests
+        let request_stream = tokio_stream::iter(requests);
+
+        // Start the bidirectional stream
+        let response = self.client.install(request_stream).await?;
         Ok(response.into_inner())
     }
 }

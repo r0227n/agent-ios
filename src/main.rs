@@ -53,6 +53,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             } => {
                 cli::idb::log::run(udid, source, log_arguments).await?;
             }
+            IdbCommands::Install {
+                bundle_path,
+                udid,
+                make_debuggable,
+                override_mtime,
+                compression,
+                json,
+            } => {
+                cli::idb::install::run(
+                    bundle_path,
+                    udid,
+                    make_debuggable,
+                    override_mtime,
+                    compression,
+                    json,
+                )
+                .await?;
+            }
+            IdbCommands::Uninstall { bundle_id, udid } => {
+                cli::idb::uninstall::run(bundle_id, udid).await?;
+            }
         },
     }
 
