@@ -315,9 +315,6 @@ impl IdbClient {
         let _inner = response.into_inner();
         Ok(())
     }
-        let _inner = response.into_inner();
-        Ok(())
-    }
 
     /// Uninstall an application
     pub async fn uninstall(

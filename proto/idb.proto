@@ -26,6 +26,9 @@ service CompanionService {
   rpc terminate(TerminateRequest) returns (TerminateResponse) {}
   rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
   rpc set_location(SetLocationRequest) returns (SetLocationResponse) {}
+  // Permissions
+  rpc approve(ApproveRequest) returns (ApproveResponse) {}
+  rpc revoke(RevokeRequest) returns (RevokeResponse) {}
 }
 
 message CompanionInfo {
@@ -258,3 +261,39 @@ message SetLocationRequest {
 }
 
 message SetLocationResponse {}
+
+// ========== Permissions ==========
+
+message ApproveRequest {
+  enum Permission {
+    PHOTOS = 0;
+    CAMERA = 1;
+    CONTACTS = 2;
+    URL = 3;
+    LOCATION = 4;
+    NOTIFICATION = 5;
+    MICROPHONE = 6;
+  }
+  string bundle_id = 1;
+  repeated Permission permissions = 2;
+  string scheme = 3;
+}
+
+message ApproveResponse {}
+
+message RevokeRequest {
+  enum Permission {
+    PHOTOS = 0;
+    CAMERA = 1;
+    CONTACTS = 2;
+    URL = 3;
+    LOCATION = 4;
+    NOTIFICATION = 5;
+    MICROPHONE = 6;
+  }
+  string bundle_id = 1;
+  repeated Permission permissions = 2;
+  string scheme = 3;
+}
+
+message RevokeResponse {}
