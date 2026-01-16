@@ -1,40 +1,12 @@
+mod common;
+
+use common::{ensure_companion_running, get_available_udid, get_test_bundle_id};
 use std::process::Command;
-
-/// Get a valid UDID from idb list-targets (prefers Booted simulator)
-fn get_available_udid() -> String {
-    let output = Command::new("idb")
-        .args(["list-targets", "--json"])
-        .output()
-        .expect("Failed to execute Python idb - ensure idb is installed and in PATH");
-
-    assert!(
-        output.status.success(),
-        "Python idb list-targets failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if let Some(udid) = json.get("udid").and_then(|v| v.as_str()) {
-                // Prefer Booted simulator
-                if json.get("state").and_then(|v| v.as_str()) == Some("Booted") {
-                    return udid.to_string();
-                }
-            }
-        }
-    }
-    panic!("No booted simulator available");
-}
-
-/// Get installed app bundle ID for testing (Settings app is always available)
-fn get_test_bundle_id() -> String {
-    "com.apple.Preferences".to_string()
-}
 
 #[test]
 fn test_launch_basic_execution() {
     let udid = get_available_udid();
+    ensure_companion_running(&udid);
     let bundle_id = get_test_bundle_id();
 
     // Test that agent-mobile idb launch executes without error
@@ -88,6 +60,7 @@ fn test_launch_matches_idb_behavior() {
 #[test]
 fn test_launch_with_foreground_flag() {
     let udid = get_available_udid();
+    ensure_companion_running(&udid);
     let bundle_id = get_test_bundle_id();
 
     // Test --foreground-if-running flag

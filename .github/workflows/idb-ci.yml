@@ -143,6 +143,9 @@ jobs:
         brew tap facebook/fb
         brew install idb-companion
 
+    - name: Install Python idb CLI
+      run: pip install fb-idb
+
     - name: List available simulators
       run: xcrun simctl list devices available
 
@@ -168,6 +171,16 @@ jobs:
         sleep 10
         xcrun simctl list devices | grep Booted
 
+    - name: Start idb companion for simulator
+      run: |
+        echo "Starting idb companion for simulator: $SIMULATOR_UDID"
+        idb_companion --boot $SIMULATOR_UDID &
+        COMPANION_PID=$!
+        echo "COMPANION_PID=${COMPANION_PID}" >> $GITHUB_ENV
+        sleep 5
+        # Verify companion is running
+        idb list-targets --json | grep -q "companion" && echo "Companion started successfully"
+
     - name: Build Mock App
       run: ./tests/fixtures/MockApp/build.sh
 
@@ -179,9 +192,7 @@ jobs:
         idb list-targets || echo "Python idb list-targets check complete"
 
     - name: Run integration tests
-      run: |
-        cargo test --test '*_integration' --verbose -- --test-threads=1
-      continue-on-error: true
+      run: cargo test --tests -- --test-threads=1
 
     - name: Cleanup - Shutdown simulator
       if: always()

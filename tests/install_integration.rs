@@ -1,39 +1,7 @@
+mod common;
+
+use common::{get_available_udid, get_test_app_path};
 use std::process::Command;
-
-/// Get an available booted simulator UDID using Python idb
-fn get_available_udid() -> String {
-    let output = Command::new("idb")
-        .args(["list-targets", "--json"])
-        .output()
-        .expect("Failed to execute Python idb - ensure idb is installed");
-
-    assert!(
-        output.status.success(),
-        "idb list-targets failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-            if json.get("state").and_then(|v| v.as_str()) == Some("Booted") {
-                return json.get("udid").unwrap().as_str().unwrap().to_string();
-            }
-        }
-    }
-    panic!("No booted simulator available");
-}
-
-/// Get the path to the mock app for testing
-fn get_mock_app_path() -> String {
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    format!("{}/tests/fixtures/MockApp.app", manifest_dir)
-}
-
-/// Get the test app path (mock app or custom via env var)
-fn get_test_app_path() -> String {
-    std::env::var("TEST_APP_PATH").unwrap_or_else(|_| get_mock_app_path())
-}
 
 #[test]
 fn test_install_help() {
