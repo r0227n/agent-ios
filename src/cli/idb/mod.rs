@@ -1,21 +1,32 @@
+pub mod accessibility;
+pub mod contacts;
 pub mod crash;
+pub mod dap;
+pub mod debugserver;
 pub mod file;
 pub mod focus;
 pub mod hid;
 pub mod install;
+pub mod keychain;
 pub mod kill;
 pub mod launch;
 pub mod list_apps;
 pub mod list_targets;
 pub mod location;
 pub mod log;
+pub mod media;
+pub mod memory;
 pub mod notification;
 pub mod permissions;
+pub mod photos;
 pub mod screenshot;
 pub mod settings;
+pub mod target;
 pub mod terminate;
 pub mod uninstall;
 pub mod url;
+pub mod video;
+pub mod xctest_install;
 pub mod xctest_list;
 pub mod xctest_list_bundle;
 pub mod xctest_run;
@@ -308,6 +319,106 @@ pub enum IdbCommands {
         command: UrlCommands,
     },
 
+    /// Media operations (photos/videos)
+    Media {
+        #[command(subcommand)]
+        command: media::MediaCommands,
+    },
+
+    /// Video recording and streaming operations
+    Video {
+        #[command(subcommand)]
+        command: video::VideoCommands,
+    },
+
+    /// Clear all photos from the device
+    PhotosClear {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Get accessibility information for all elements
+    AccessibilityDescribeAll {
+        /// Use nested format (more detailed)
+        #[arg(long)]
+        nested: bool,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Get accessibility information at a specific point
+    AccessibilityDescribePoint {
+        /// X coordinate
+        x: f64,
+
+        /// Y coordinate
+        y: f64,
+
+        /// Use nested format (more detailed)
+        #[arg(long)]
+        nested: bool,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Update contacts database
+    ContactsUpdate {
+        /// Path to contacts database file
+        db_path: String,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Clear all contacts
+    ContactsClear {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Clear keychain
+    KeychainClear {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Simulate memory warning
+    MemoryWarning {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Install an XCTest bundle
+    XctestInstall {
+        /// Path to the XCTest bundle
+        test_bundle_path: String,
+
+        /// Skip signing the test bundle
+        #[arg(long)]
+        skip_signing: bool,
+
+        /// Compression format (gzip or zstd)
+        #[arg(long)]
+        compression: Option<String>,
+
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
     /// List installed XCTest bundles
     XctestList {
         /// Target device/simulator UDID
@@ -337,6 +448,28 @@ pub enum IdbCommands {
         /// Specific tests to run (format: ClassName/testMethod)
         #[arg(long)]
         tests_to_run: Vec<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Target/simulator management operations
+    Target {
+        #[command(subcommand)]
+        command: target::TargetCommands,
+    },
+
+    /// Debug server operations
+    Debugserver {
+        #[command(subcommand)]
+        command: debugserver::DebugServerCommands,
+    },
+
+    /// Spawn a debug server using VSCode DAP protocol
+    Dap {
+        /// Path of the DAP package to install
+        dap_pkg_path: String,
 
         /// Target device/simulator UDID
         #[arg(short, long)]

@@ -184,3 +184,44 @@ pub fn build_agent_mobile() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// Run Python idb command with given arguments
+pub fn run_idb_command(args: &[&str]) -> Output {
+    Command::new("idb")
+        .args(args)
+        .output()
+        .expect("Failed to execute Python idb - ensure idb is installed and in PATH")
+}
+
+/// Run agent-mobile idb command with given arguments
+pub fn run_agent_mobile_command(args: &[&str]) -> Output {
+    Command::new("./target/debug/agent-mobile")
+        .args(args)
+        .output()
+        .expect("Failed to run agent-mobile - ensure it is built with 'cargo build'")
+}
+
+/// Compare outputs from Python idb and agent-mobile (generic version)
+pub fn compare_command_outputs(python_output: &Output, rust_output: &Output) {
+    // Compare exit codes
+    assert_eq!(
+        python_output.status.code(),
+        rust_output.status.code(),
+        "Exit codes differ:\n  Python idb: {:?}\n  agent-mobile: {:?}",
+        python_output.status.code(),
+        rust_output.status.code()
+    );
+
+    // For success cases, compare stdout
+    if python_output.status.success() {
+        let python_stdout = String::from_utf8_lossy(&python_output.stdout);
+        let rust_stdout = String::from_utf8_lossy(&rust_output.stdout);
+        assert_eq!(
+            python_stdout.trim(),
+            rust_stdout.trim(),
+            "stdout differs:\n  Python idb:\n{}\n  agent-mobile:\n{}",
+            python_stdout,
+            rust_stdout
+        );
+    }
+}

@@ -41,14 +41,8 @@ fn test_ls_with_bundle_id_equivalence() {
     let bundle_id = common::get_test_bundle_id();
 
     // Test listing app container with bundle ID
-    let python_output = common::run_idb_file_command(&[
-        "ls",
-        "/",
-        "--bundle-id",
-        &bundle_id,
-        "--udid",
-        &udid,
-    ]);
+    let python_output =
+        common::run_idb_file_command(&["ls", "/", "--bundle-id", &bundle_id, "--udid", &udid]);
     let rust_output = common::run_agent_mobile_file_command(&[
         "ls",
         "/",
@@ -71,8 +65,7 @@ fn test_ls_nonexistent_path_error() {
     let nonexistent_path = "/this/path/does/not/exist/12345";
 
     // Both should fail with error
-    let python_output =
-        common::run_idb_file_command(&["ls", nonexistent_path, "--udid", &udid]);
+    let python_output = common::run_idb_file_command(&["ls", nonexistent_path, "--udid", &udid]);
     let rust_output =
         common::run_agent_mobile_file_command(&["ls", nonexistent_path, "--udid", &udid]);
 

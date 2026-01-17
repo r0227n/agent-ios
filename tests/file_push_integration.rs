@@ -22,13 +22,8 @@ fn test_push_file_equivalence() {
     fs::write(&local_file, test_content).expect("Failed to create local test file");
 
     // Push with Python idb
-    let python_output = common::run_idb_file_command(&[
-        "push",
-        &local_file,
-        &device_path_python,
-        "--udid",
-        &udid,
-    ]);
+    let python_output =
+        common::run_idb_file_command(&["push", &local_file, &device_path_python, "--udid", &udid]);
 
     // Push with agent-mobile
     let rust_output = common::run_agent_mobile_file_command(&[
@@ -62,10 +57,14 @@ fn test_push_file_equivalence() {
             &udid,
         ]);
 
-        let python_content = fs::read(&pull_python_dest).expect("Failed to read Python pushed file");
+        let python_content =
+            fs::read(&pull_python_dest).expect("Failed to read Python pushed file");
         let rust_content = fs::read(&pull_rust_dest).expect("Failed to read Rust pushed file");
 
-        assert_eq!(python_content, test_content, "Python pushed content differs");
+        assert_eq!(
+            python_content, test_content,
+            "Python pushed content differs"
+        );
         assert_eq!(rust_content, test_content, "Rust pushed content differs");
 
         // Cleanup
@@ -160,13 +159,8 @@ fn test_push_binary_file_equivalence() {
     fs::write(&local_file, &test_content).expect("Failed to create local test file");
 
     // Push with Python idb
-    let python_output = common::run_idb_file_command(&[
-        "push",
-        &local_file,
-        &device_path_python,
-        "--udid",
-        &udid,
-    ]);
+    let python_output =
+        common::run_idb_file_command(&["push", &local_file, &device_path_python, "--udid", &udid]);
 
     // Push with agent-mobile
     let rust_output = common::run_agent_mobile_file_command(&[
@@ -200,10 +194,14 @@ fn test_push_binary_file_equivalence() {
             &udid,
         ]);
 
-        let python_content = fs::read(&pull_python_dest).expect("Failed to read Python pushed file");
+        let python_content =
+            fs::read(&pull_python_dest).expect("Failed to read Python pushed file");
         let rust_content = fs::read(&pull_rust_dest).expect("Failed to read Rust pushed file");
 
-        assert_eq!(python_content, test_content, "Python binary content differs");
+        assert_eq!(
+            python_content, test_content,
+            "Python binary content differs"
+        );
         assert_eq!(rust_content, test_content, "Rust binary content differs");
 
         // Cleanup
@@ -263,13 +261,8 @@ fn test_push_overwrite_existing_file_equivalence() {
     fs::write(&local_file2, content2).expect("Failed to create second local test file");
 
     // Push first file with Python idb
-    let _push1_python = common::run_idb_file_command(&[
-        "push",
-        &local_file1,
-        &device_path_python,
-        "--udid",
-        &udid,
-    ]);
+    let _push1_python =
+        common::run_idb_file_command(&["push", &local_file1, &device_path_python, "--udid", &udid]);
 
     // Push first file with agent-mobile
     let _push1_rust = common::run_agent_mobile_file_command(&[
@@ -281,13 +274,8 @@ fn test_push_overwrite_existing_file_equivalence() {
     ]);
 
     // Overwrite with second file using Python idb
-    let python_output = common::run_idb_file_command(&[
-        "push",
-        &local_file2,
-        &device_path_python,
-        "--udid",
-        &udid,
-    ]);
+    let python_output =
+        common::run_idb_file_command(&["push", &local_file2, &device_path_python, "--udid", &udid]);
 
     // Overwrite with second file using agent-mobile
     let rust_output = common::run_agent_mobile_file_command(&[
@@ -321,7 +309,8 @@ fn test_push_overwrite_existing_file_equivalence() {
             &udid,
         ]);
 
-        let python_content = fs::read(&pull_python_dest).expect("Failed to read Python pushed file");
+        let python_content =
+            fs::read(&pull_python_dest).expect("Failed to read Python pushed file");
         let rust_content = fs::read(&pull_rust_dest).expect("Failed to read Rust pushed file");
 
         assert_eq!(python_content, content2, "Python overwrite failed");

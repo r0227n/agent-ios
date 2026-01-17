@@ -1,12 +1,13 @@
 mod cli;
 mod companion;
 mod grpc;
+mod simctl;
 mod types;
 
 use clap::Parser;
 use cli::idb::{
-    file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, SettingsCommands,
-    UrlCommands,
+    debugserver, file, target, CrashCommands, IdbCommands, LocationCommands, NotificationCommands,
+    SettingsCommands, UrlCommands,
 };
 use cli::{Cli, Commands};
 
@@ -169,6 +170,20 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 } => {
                     cli::idb::file::tail::run(path, udid, bundle_id).await?;
                 }
+                file::FileCommands::Read {
+                    src_path,
+                    bundle_id,
+                    udid,
+                } => {
+                    cli::idb::file::read::run(src_path, udid, bundle_id).await?;
+                }
+                file::FileCommands::Write {
+                    dst_path,
+                    bundle_id,
+                    udid,
+                } => {
+                    cli::idb::file::write::run(dst_path, udid, bundle_id).await?;
+                }
             },
             IdbCommands::Tap {
                 x,
@@ -264,6 +279,71 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     cli::idb::url::run(url, udid).await?;
                 }
             },
+            IdbCommands::Media { command } => match command {
+                cli::idb::media::MediaCommands::AddMedia { file_paths, udid } => {
+                    cli::idb::media::add_media::run(file_paths, udid).await?;
+                }
+            },
+            IdbCommands::Video { command } => match command {
+                cli::idb::video::VideoCommands::RecordVideo { output_file, udid } => {
+                    cli::idb::video::record::run(output_file, udid).await?;
+                }
+                cli::idb::video::VideoCommands::VideoStream {
+                    output_file,
+                    fps,
+                    format,
+                    compression_quality,
+                    scale_factor,
+                    udid,
+                } => {
+                    cli::idb::video::stream::run(
+                        output_file,
+                        fps,
+                        format,
+                        compression_quality,
+                        scale_factor,
+                        udid,
+                    )
+                    .await?;
+                }
+            },
+            IdbCommands::PhotosClear { udid } => {
+                cli::idb::photos::clear(udid).await?;
+            }
+            IdbCommands::AccessibilityDescribeAll { nested, udid } => {
+                cli::idb::accessibility::describe_all(nested, udid).await?;
+            }
+            IdbCommands::AccessibilityDescribePoint { x, y, nested, udid } => {
+                cli::idb::accessibility::describe_point(x, y, nested, udid).await?;
+            }
+            IdbCommands::ContactsUpdate { db_path, udid } => {
+                cli::idb::contacts::update(db_path, udid).await?;
+            }
+            IdbCommands::ContactsClear { udid } => {
+                cli::idb::contacts::clear(udid).await?;
+            }
+            IdbCommands::KeychainClear { udid } => {
+                cli::idb::keychain::clear(udid).await?;
+            }
+            IdbCommands::MemoryWarning { udid } => {
+                cli::idb::memory::simulate_warning(udid).await?;
+            }
+            IdbCommands::XctestInstall {
+                test_bundle_path,
+                skip_signing,
+                compression,
+                json,
+                udid,
+            } => {
+                cli::idb::xctest_install::run(
+                    test_bundle_path,
+                    udid,
+                    skip_signing,
+                    compression,
+                    json,
+                )
+                .await?;
+            }
             IdbCommands::XctestList { udid } => {
                 cli::idb::xctest_list::run(udid).await?;
             }
@@ -280,6 +360,55 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 udid,
             } => {
                 cli::idb::xctest_run::run(test_bundle_id, tests_to_run, udid).await?;
+            }
+            IdbCommands::Target { command } => match command {
+                target::TargetCommands::Boot { udid, headless } => {
+                    cli::idb::target::boot::run(udid, headless).await?;
+                }
+                target::TargetCommands::Shutdown { udid } => {
+                    cli::idb::target::shutdown::run(udid).await?;
+                }
+                target::TargetCommands::Erase { udid } => {
+                    cli::idb::target::erase::run(udid).await?;
+                }
+                target::TargetCommands::Create {
+                    device_type,
+                    os_version,
+                } => {
+                    cli::idb::target::create::run(device_type, os_version).await?;
+                }
+                target::TargetCommands::Clone { udid } => {
+                    cli::idb::target::clone::run(udid).await?;
+                }
+                target::TargetCommands::Delete { udid } => {
+                    cli::idb::target::delete::run(Some(udid), false).await?;
+                }
+                target::TargetCommands::DeleteAll => {
+                    cli::idb::target::delete::run(None, true).await?;
+                }
+                target::TargetCommands::Connect { host, port, udid } => {
+                    cli::idb::target::connect::run(host, port, udid).await?;
+                }
+                target::TargetCommands::Disconnect { udid } => {
+                    cli::idb::target::disconnect::run(udid).await?;
+                }
+                target::TargetCommands::Describe { udid, diagnostics } => {
+                    cli::idb::target::describe::run(udid, diagnostics).await?;
+                }
+            },
+            IdbCommands::Debugserver { command } => match command {
+                debugserver::DebugServerCommands::Start { bundle_id, udid } => {
+                    cli::idb::debugserver::start::run(bundle_id, udid).await?;
+                }
+                debugserver::DebugServerCommands::Stop { udid } => {
+                    cli::idb::debugserver::stop::run(udid).await?;
+                }
+                debugserver::DebugServerCommands::Status { udid } => {
+                    cli::idb::debugserver::status::run(udid).await?;
+                }
+            },
+            IdbCommands::Dap { dap_pkg_path, udid } => {
+                cli::idb::dap::run(dap_pkg_path, udid).await?;
             }
         },
     }

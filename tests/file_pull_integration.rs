@@ -22,8 +22,7 @@ fn test_pull_file_equivalence() {
     let test_content = b"test content for pull";
     let temp_local = format!("/tmp/test_pull_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push =
-        common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Pull with Python idb
     let python_output =
@@ -38,14 +37,13 @@ fn test_pull_file_equivalence() {
 
     // Compare pulled file contents
     if python_output.status.success() {
-        let python_content =
-            fs::read(&python_dest).expect("Failed to read Python pulled file");
+        let python_content = fs::read(&python_dest).expect("Failed to read Python pulled file");
         let rust_content = fs::read(&rust_dest).expect("Failed to read Rust pulled file");
+        assert_eq!(python_content, rust_content, "Pulled file contents differ");
         assert_eq!(
-            python_content, rust_content,
-            "Pulled file contents differ"
+            python_content, test_content,
+            "Pulled content doesn't match original"
         );
-        assert_eq!(python_content, test_content, "Pulled content doesn't match original");
     }
 
     // Cleanup
@@ -69,12 +67,10 @@ fn test_pull_to_stdout_equivalence() {
     let test_content = b"stdout test content";
     let temp_local = format!("/tmp/test_pull_stdout_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push =
-        common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Pull to stdout with Python idb
-    let python_output =
-        common::run_idb_file_command(&["pull", &device_path, "-", "--udid", &udid]);
+    let python_output = common::run_idb_file_command(&["pull", &device_path, "-", "--udid", &udid]);
 
     // Pull to stdout with agent-mobile
     let rust_output =
@@ -147,13 +143,9 @@ fn test_pull_with_bundle_id_equivalence() {
 
     // Compare pulled file contents
     if python_output.status.success() {
-        let python_content =
-            fs::read(&python_dest).expect("Failed to read Python pulled file");
+        let python_content = fs::read(&python_dest).expect("Failed to read Python pulled file");
         let rust_content = fs::read(&rust_dest).expect("Failed to read Rust pulled file");
-        assert_eq!(
-            python_content, rust_content,
-            "Pulled file contents differ"
-        );
+        assert_eq!(python_content, rust_content, "Pulled file contents differ");
     }
 
     // Cleanup
@@ -216,8 +208,7 @@ fn test_pull_binary_file_equivalence() {
     let test_content: Vec<u8> = (0..256).map(|i| i as u8).collect();
     let temp_local = format!("/tmp/test_pull_binary_local_{}", pid);
     fs::write(&temp_local, &test_content).expect("Failed to create local test file");
-    let _push =
-        common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Pull with Python idb
     let python_output =
@@ -232,14 +223,13 @@ fn test_pull_binary_file_equivalence() {
 
     // Compare pulled file contents
     if python_output.status.success() {
-        let python_content =
-            fs::read(&python_dest).expect("Failed to read Python pulled file");
+        let python_content = fs::read(&python_dest).expect("Failed to read Python pulled file");
         let rust_content = fs::read(&rust_dest).expect("Failed to read Rust pulled file");
+        assert_eq!(python_content, rust_content, "Binary file contents differ");
         assert_eq!(
-            python_content, rust_content,
-            "Binary file contents differ"
+            python_content, test_content,
+            "Binary content doesn't match original"
         );
-        assert_eq!(python_content, test_content, "Binary content doesn't match original");
     }
 
     // Cleanup

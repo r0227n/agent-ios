@@ -20,8 +20,7 @@ fn test_tail_existing_file_equivalence() {
     let test_content = b"line 1\nline 2\nline 3\n";
     let temp_local = format!("/tmp/test_tail_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push =
-        common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Tail with Python idb (spawn and terminate after brief period)
     let python_child = Command::new("idb")
@@ -153,8 +152,7 @@ fn test_tail_nonexistent_file_error() {
     let nonexistent_path = "/tmp/this_file_does_not_exist_12345";
 
     // Both should fail immediately
-    let python_output =
-        common::run_idb_file_command(&["tail", nonexistent_path, "--udid", &udid]);
+    let python_output = common::run_idb_file_command(&["tail", nonexistent_path, "--udid", &udid]);
     let rust_output =
         common::run_agent_mobile_file_command(&["tail", nonexistent_path, "--udid", &udid]);
 
@@ -177,8 +175,7 @@ fn test_tail_empty_file_equivalence() {
     // Create empty file on device
     let temp_local = format!("/tmp/test_tail_empty_local_{}", pid);
     fs::write(&temp_local, b"").expect("Failed to create local test file");
-    let _push =
-        common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Tail with Python idb
     let python_child = Command::new("idb")
@@ -232,8 +229,7 @@ fn test_tail_signal_handling() {
     let test_content = b"test content\n";
     let temp_local = format!("/tmp/test_tail_signal_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push =
-        common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Test that both implementations handle SIGTERM gracefully
     let python_child = Command::new("idb")

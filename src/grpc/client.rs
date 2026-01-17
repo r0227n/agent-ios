@@ -17,6 +17,7 @@ use super::idb::process_output::Interface;
 use super::idb::push_request;
 use super::idb::tail_request::{self, Control as TailControl};
 use super::idb::xctest_run_request::{self, Mode};
+use super::idb::AddMediaRequest;
 use super::idb::{
     InstallRequest, InstallResponse, LaunchRequest, LogRequest, Payload, PullRequest, PushRequest,
     RmRequest, ScreenshotRequest, TailRequest, TargetDescriptionRequest, XctestRunRequest,
@@ -258,6 +259,238 @@ impl IdbClient {
         Ok(inner.image_data)
     }
 
+    /// Add media files (photos/videos) to the device
+    pub async fn add_media(
+        &mut self,
+        file_paths: Vec<String>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Build requests for each file
+        let requests: Vec<AddMediaRequest> = file_paths
+            .into_iter()
+            .map(|path| AddMediaRequest {
+                payload: Some(Payload {
+                    source: Some(PayloadSource::FilePath(path)),
+                }),
+            })
+            .collect();
+
+        // Send the request stream
+        let request_stream = tokio_stream::iter(requests);
+        let response = self.client.add_media(request_stream).await?;
+        let _inner = response.into_inner();
+
+        Ok(())
+    }
+
+    /// Clear all photos from the device
+    pub async fn photos_clear(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::PhotosClearRequest {});
+        let response = self.client.photos_clear(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Record video to a file (bidirectional streaming)
+    /// The recording continues until stop_rx receives a signal
+    pub async fn record_video(
+        &mut self,
+        output_file: String,
+        mut stop_rx: watch::Receiver<bool>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::record_request::{Control, Start, Stop};
+        use super::idb::RecordRequest;
+
+        // Create channel for sending requests
+        let (tx, rx) = tokio::sync::mpsc::channel::<RecordRequest>(4);
+        let request_stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+
+        // Start the bidirectional stream first
+        let response = self.client.record(request_stream).await?;
+        let mut stream = response.into_inner();
+
+        // Now send the start request
+        tx.send(RecordRequest {
+            control: Some(Control::Start(Start {
+                file_path: output_file.clone(),
+            })),
+        })
+        .await?;
+
+        // Wait for stop signal while draining responses
+        loop {
+            tokio::select! {
+                _ = stop_rx.changed() => {
+                    // Stop signal received, send stop request
+                    tx.send(RecordRequest {
+                        control: Some(Control::Stop(Stop {})),
+                    }).await?;
+                    // Drop tx to close the request stream
+                    drop(tx);
+                    // Wait for the final response (companion confirms recording saved)
+                    while let Ok(Some(_)) = stream.message().await {}
+                    break;
+                }
+                msg = stream.message() => {
+                    match msg {
+                        Ok(Some(_response)) => {
+                            // Continue receiving (log_output or payload)
+                        }
+                        Ok(None) => break, // Stream ended
+                        Err(e) => return Err(e.into()),
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Stream video data (bidirectional streaming)
+    pub async fn video_stream(
+        &mut self,
+        output_file: Option<String>,
+        fps: Option<u64>,
+        format: super::idb::video_stream_request::Format,
+        compression_quality: f64,
+        scale_factor: f64,
+        mut stop_rx: watch::Receiver<bool>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::video_stream_request::{Control, Start, Stop};
+        use super::idb::VideoStreamRequest;
+        use std::io::Write;
+
+        // Create channel for sending requests
+        let (tx, rx) = tokio::sync::mpsc::channel::<VideoStreamRequest>(4);
+        let request_stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+
+        // Start the bidirectional stream first
+        let response = self.client.video_stream(request_stream).await?;
+        let mut stream = response.into_inner();
+
+        // Now send start request
+        tx.send(VideoStreamRequest {
+            control: Some(Control::Start(Start {
+                file_path: output_file.clone().unwrap_or_default(),
+                fps: fps.unwrap_or(0),
+                format: format.into(),
+                compression_quality,
+                scale_factor,
+                avg_bitrate: 0.0,
+                key_frame_rate: 0.0,
+            })),
+        })
+        .await?;
+
+        // Create output: file or stdout
+        let mut file_output: Option<std::fs::File> = output_file
+            .as_ref()
+            .map(std::fs::File::create)
+            .transpose()?;
+
+        // Stream data until stop signal
+        loop {
+            tokio::select! {
+                _ = stop_rx.changed() => {
+                    // Stop signal received
+                    let _ = tx.send(VideoStreamRequest {
+                        control: Some(Control::Stop(Stop {})),
+                    }).await;
+                    drop(tx);
+                    break;
+                }
+                msg = stream.message() => {
+                    match msg {
+                        Ok(Some(response)) => {
+                            if let Some(super::idb::video_stream_response::Output::Payload(payload)) = response.output {
+                                if let Some(super::idb::payload::Source::Data(data)) = payload.source {
+                                    if let Some(ref mut file) = file_output {
+                                        file.write_all(&data)?;
+                                    } else {
+                                        std::io::stdout().write_all(&data)?;
+                                        std::io::stdout().flush()?;
+                                    }
+                                }
+                            }
+                        }
+                        Ok(None) => break, // Stream ended
+                        Err(e) => return Err(e.into()),
+                    }
+                }
+            }
+        }
+
+        // Drain remaining messages
+        while let Ok(Some(_)) = stream.message().await {}
+
+        if let Some(ref mut file) = file_output {
+            file.flush()?;
+        }
+
+        Ok(())
+    }
+
+    /// Get accessibility information
+    pub async fn accessibility_info(
+        &mut self,
+        point: Option<(f64, f64)>,
+        nested: bool,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::accessibility_info_request::Format;
+        use super::idb::Point;
+
+        let request = tonic::Request::new(super::idb::AccessibilityInfoRequest {
+            point: point.map(|(x, y)| Point { x, y }),
+            format: if nested {
+                Format::Nested as i32
+            } else {
+                Format::Legacy as i32
+            },
+        });
+        let response = self.client.accessibility_info(request).await?;
+        Ok(response.into_inner().json)
+    }
+
+    /// Update contacts database
+    pub async fn contacts_update(
+        &mut self,
+        db_path: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::ContactsUpdateRequest {
+            payload: Some(Payload {
+                source: Some(PayloadSource::FilePath(db_path.to_string())),
+            }),
+        });
+        let response = self.client.contacts_update(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Clear all contacts
+    pub async fn contacts_clear(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::ContactsClearRequest {});
+        let response = self.client.contacts_clear(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Clear keychain
+    pub async fn clear_keychain(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::ClearKeychainRequest {});
+        let response = self.client.clear_keychain(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Simulate memory warning
+    pub async fn simulate_memory_warning(
+        &mut self,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::SimulateMemoryWarningRequest {});
+        let response = self.client.simulate_memory_warning(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Bring simulator window to front
     pub async fn focus(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let request = tonic::Request::new(super::idb::FocusRequest {});
@@ -432,6 +665,55 @@ impl IdbClient {
     }
 
     /// Install an application via bidirectional streaming gRPC
+    pub async fn install_xctest(
+        &mut self,
+        bundle_path: &str,
+        skip_signing: bool,
+        compression: Option<Compression>,
+    ) -> Result<tonic::Streaming<InstallResponse>, Box<dyn std::error::Error + Send + Sync>> {
+        // Build the sequence of install requests for XCTest
+        let mut requests: Vec<InstallRequest> = Vec::new();
+
+        // 1. Destination request (XCTEST)
+        requests.push(InstallRequest {
+            value: Some(install_request::Value::Destination(
+                Destination::Xctest as i32,
+            )),
+        });
+
+        // 2. Payload with file path
+        requests.push(InstallRequest {
+            value: Some(install_request::Value::Payload(Payload {
+                source: Some(PayloadSource::FilePath(bundle_path.to_string())),
+            })),
+        });
+
+        // 3. Optional: skip_signing_bundles
+        if skip_signing {
+            requests.push(InstallRequest {
+                value: Some(install_request::Value::SkipSigningBundles(true)),
+            });
+        }
+
+        // 4. Optional: compression
+        if let Some(comp) = compression {
+            let compression_enum = match comp {
+                Compression::Gzip => super::idb::payload::Compression::Gzip,
+                Compression::Zstd => super::idb::payload::Compression::Zstd,
+            };
+            requests.push(InstallRequest {
+                value: Some(install_request::Value::Payload(Payload {
+                    source: Some(PayloadSource::Compression(compression_enum as i32)),
+                })),
+            });
+        }
+
+        // Send the request stream
+        let request_stream = tokio_stream::iter(requests);
+        let response = self.client.install(request_stream).await?;
+        Ok(response.into_inner())
+    }
+
     pub async fn install(
         &mut self,
         bundle_path: &str,
@@ -612,6 +894,28 @@ impl IdbClient {
 
         let response = self.client.pull(request).await?;
         Ok(response.into_inner())
+    }
+
+    /// Pull a file to a local destination path (for local companions)
+    pub async fn pull_to_file(
+        &mut self,
+        src_path: String,
+        dst_path: String,
+        container: Option<super::idb::FileContainer>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(PullRequest {
+            src_path,
+            dst_path,
+            container,
+        });
+
+        let response = self.client.pull(request).await?;
+        let mut stream = response.into_inner();
+
+        // Drain the stream (companion writes to disk, we just need to consume responses)
+        while (stream.message().await?).is_some() {}
+
+        Ok(())
     }
 
     /// Push a file to the target device (client-side streaming)
@@ -798,4 +1102,250 @@ impl IdbClient {
         let _inner = response.into_inner();
         Ok(())
     }
+
+    // ========== Debug Server ==========
+
+    /// Start the debug server for a bundle
+    /// Returns LLDB bootstrap commands
+    pub async fn debugserver_start(
+        &mut self,
+        bundle_id: String,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::debug_server_request::{Control, Start};
+        use super::idb::DebugServerRequest;
+
+        let (tx, rx) = mpsc::channel(1);
+        let request_stream = ReceiverStream::new(rx);
+
+        // Send start request
+        tx.send(DebugServerRequest {
+            control: Some(Control::Start(Start {
+                bundle_id: bundle_id.clone(),
+            })),
+        })
+        .await?;
+        drop(tx); // End the stream
+
+        // Start the bidirectional stream
+        let response = self.client.debugserver(request_stream).await?;
+        let mut stream = response.into_inner();
+
+        // Get the response with bootstrap commands
+        if let Some(resp) = stream.message().await? {
+            if let Some(super::idb::debug_server_response::Control::Status(status)) = resp.control {
+                return Ok(status.lldb_bootstrap_commands);
+            }
+        }
+
+        Err("No response from debugserver start".into())
+    }
+
+    /// Stop the debug server
+    pub async fn debugserver_stop(
+        &mut self,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::debug_server_request::{Control, Stop};
+        use super::idb::DebugServerRequest;
+
+        let (tx, rx) = mpsc::channel(1);
+        let request_stream = ReceiverStream::new(rx);
+
+        // Send stop request
+        tx.send(DebugServerRequest {
+            control: Some(Control::Stop(Stop {})),
+        })
+        .await?;
+        drop(tx);
+
+        // Start the stream and wait for completion
+        let response = self.client.debugserver(request_stream).await?;
+        let mut stream = response.into_inner();
+
+        // Drain the stream
+        while (stream.message().await?).is_some() {}
+
+        Ok(())
+    }
+
+    /// Get the status of the debug server
+    /// Returns Some(commands) if running, None if not running
+    pub async fn debugserver_status(
+        &mut self,
+    ) -> Result<Option<Vec<String>>, Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::debug_server_request::{Control, Status};
+        use super::idb::DebugServerRequest;
+
+        let (tx, rx) = mpsc::channel(1);
+        let request_stream = ReceiverStream::new(rx);
+
+        // Send status request
+        tx.send(DebugServerRequest {
+            control: Some(Control::Status(Status {})),
+        })
+        .await?;
+        drop(tx);
+
+        // Start the stream
+        let response = self.client.debugserver(request_stream).await?;
+        let mut stream = response.into_inner();
+
+        // Get the response
+        if let Some(resp) = stream.message().await? {
+            if let Some(super::idb::debug_server_response::Control::Status(status)) = resp.control {
+                let commands = status.lldb_bootstrap_commands;
+                if commands.is_empty() {
+                    return Ok(None);
+                }
+                return Ok(Some(commands));
+            }
+        }
+
+        Ok(None)
+    }
+
+    // ========== DAP (Debug Adapter Protocol) ==========
+
+    /// Start a DAP debug session
+    /// This bridges stdin/stdout to the remote DAP server
+    pub async fn dap(
+        &mut self,
+        pkg_id: String,
+        mut stop_rx: watch::Receiver<bool>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::dap_request::{Control, Pipe, Start, Stop};
+        use super::idb::DapRequest;
+        use tokio::io::{AsyncWriteExt, BufReader};
+
+        let (tx, rx) = mpsc::channel(32);
+        let request_stream = ReceiverStream::new(rx);
+
+        // Send start request
+        tx.send(DapRequest {
+            control: Some(Control::Start(Start {
+                debugger_pkg_id: pkg_id,
+            })),
+        })
+        .await?;
+
+        // Start the bidirectional stream
+        let response = self.client.dap(request_stream).await?;
+        let mut stream = response.into_inner();
+
+        // Wait for started response
+        if let Some(resp) = stream.message().await? {
+            if resp.output.is_none()
+                || !matches!(
+                    resp.output,
+                    Some(super::idb::dap_response::Output::Started(_))
+                )
+            {
+                return Err("DAP server failed to start".into());
+            }
+        } else {
+            return Err("No response from DAP server".into());
+        }
+
+        eprintln!("DAP server started, bridging stdin/stdout...");
+
+        // Setup stdin reader
+        let stdin = tokio::io::stdin();
+        let mut stdin_reader = BufReader::new(stdin);
+        let mut stdout = tokio::io::stdout();
+
+        // Bridge stdin/stdout to DAP server
+        loop {
+            tokio::select! {
+                // Check for stop signal
+                _ = stop_rx.changed() => {
+                    if *stop_rx.borrow() {
+                        // Send stop request
+                        let _ = tx.send(DapRequest {
+                            control: Some(Control::Stop(Stop {})),
+                        }).await;
+                        break;
+                    }
+                }
+
+                // Read from stdin and send to DAP server
+                result = read_dap_message(&mut stdin_reader) => {
+                    match result {
+                        Ok(Some(data)) => {
+                            tx.send(DapRequest {
+                                control: Some(Control::Pipe(Pipe { data })),
+                            }).await?;
+                        }
+                        Ok(None) => {
+                            // EOF on stdin
+                            break;
+                        }
+                        Err(e) => {
+                            eprintln!("Error reading stdin: {}", e);
+                            break;
+                        }
+                    }
+                }
+
+                // Read from DAP server and write to stdout
+                response = stream.message() => {
+                    match response? {
+                        Some(resp) => {
+                            match resp.output {
+                                Some(super::idb::dap_response::Output::Stdout(pipe)) => {
+                                    stdout.write_all(&pipe.data).await?;
+                                    stdout.flush().await?;
+                                }
+                                Some(super::idb::dap_response::Output::Stopped(_)) => {
+                                    eprintln!("DAP server stopped");
+                                    break;
+                                }
+                                _ => {}
+                            }
+                        }
+                        None => break,
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Read a DAP protocol message from a reader
+/// DAP messages have format: "Content-Length: <length>\r\n\r\n<body>"
+async fn read_dap_message<R: tokio::io::AsyncBufRead + tokio::io::AsyncRead + Unpin>(
+    reader: &mut R,
+) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt};
+
+    // Read headers until empty line
+    let mut headers = String::new();
+    loop {
+        let mut line = String::new();
+        let n = reader.read_line(&mut line).await?;
+        if n == 0 {
+            return Ok(None); // EOF
+        }
+        headers.push_str(&line);
+        if line == "\r\n" || line == "\n" {
+            break;
+        }
+    }
+
+    // Parse Content-Length header
+    let content_length = headers
+        .lines()
+        .find(|line| line.to_lowercase().starts_with("content-length:"))
+        .and_then(|line| line.split(':').nth(1))
+        .and_then(|s| s.trim().parse::<usize>().ok())
+        .ok_or("Missing or invalid Content-Length header")?;
+
+    // Read body
+    let mut body = vec![0u8; content_length];
+    reader.read_exact(&mut body).await?;
+
+    // Return full message (headers + body)
+    let mut message = headers.into_bytes();
+    message.extend(body);
+    Ok(Some(message))
 }
