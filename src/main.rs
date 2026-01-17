@@ -80,6 +80,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Uninstall { bundle_id, udid } => {
                 cli::idb::uninstall::run(bundle_id, udid).await?;
             }
+            IdbCommands::ListApps { udid } => {
+                cli::idb::list_apps::run(udid).await?;
+            }
             IdbCommands::Rm {
                 paths,
                 udid,

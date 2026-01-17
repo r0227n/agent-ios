@@ -20,6 +20,7 @@ service CompanionService {
   rpc focus(FocusRequest) returns (FocusResponse) {}
   rpc log(LogRequest) returns (stream LogResponse) {}
   rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
+  rpc list_apps(ListAppsRequest) returns (ListAppsResponse) {}
   rpc mv(MvRequest) returns (MvResponse) {}
   rpc rm(RmRequest) returns (RmResponse) {}
   rpc terminate(TerminateRequest) returns (TerminateResponse) {}
@@ -162,6 +163,29 @@ message UninstallRequest {
 }
 
 message UninstallResponse {}
+
+message ListAppsRequest {
+  bool suppress_process_state = 1;
+}
+
+message ListAppsResponse {
+  repeated InstalledAppInfo apps = 1;
+}
+
+message InstalledAppInfo {
+  string bundle_id = 1;
+  string name = 2;
+  repeated string architectures = 3;
+  string install_type = 4;
+  enum AppProcessState {
+    UNKNOWN = 0;
+    NOT_RUNNING = 1;
+    RUNNING = 2;
+  }
+  AppProcessState process_state = 5;
+  bool debuggable = 6;
+  uint64 process_identifier = 7;
+}
 
 message FileContainer {
   enum Kind {

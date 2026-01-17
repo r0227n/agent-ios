@@ -276,6 +276,18 @@ impl IdbClient {
         Ok(())
     }
 
+    /// List installed applications
+    pub async fn list_apps(
+        &mut self,
+    ) -> Result<Vec<super::idb::InstalledAppInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::ListAppsRequest {
+            suppress_process_state: false,
+        });
+        let response = self.client.list_apps(request).await?;
+        let inner = response.into_inner();
+        Ok(inner.apps)
+    }
+
     /// Terminate a running application
     pub async fn terminate(
         &mut self,
@@ -378,7 +390,10 @@ impl IdbClient {
     /// List installed XCTest bundles
     pub async fn xctest_list_bundles(
         &mut self,
-    ) -> Result<Vec<super::idb::xctest_list_bundles_response::Bundles>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<
+        Vec<super::idb::xctest_list_bundles_response::Bundles>,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
         let request = tonic::Request::new(super::idb::XctestListBundlesRequest {});
         let response = self.client.xctest_list_bundles(request).await?;
         Ok(response.into_inner().bundles)
