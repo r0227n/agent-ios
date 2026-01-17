@@ -6,6 +6,7 @@ pub mod list_apps;
 pub mod list_targets;
 pub mod log;
 pub mod location;
+pub mod permissions;
 pub mod rm;
 pub mod screenshot;
 pub mod terminate;
@@ -128,6 +129,24 @@ pub enum IdbCommands {
         udid: Option<String>,
     },
 
+    /// Grant app permissions
+    Approve {
+        /// Application bundle identifier
+        bundle_id: String,
+
+        /// Permissions to grant (photos, camera, contacts, url, location, notification, microphone)
+        #[arg(required = true)]
+        permissions: Vec<String>,
+
+        /// URL scheme for URL permissions
+        #[arg(long)]
+        scheme: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
     /// List installed applications
     ListApps {
         /// Target device/simulator UDID
@@ -140,6 +159,24 @@ pub enum IdbCommands {
         /// Subcommand for location operations
         #[command(subcommand)]
         command: LocationCommands,
+    },
+
+    /// Revoke app permissions
+    Revoke {
+        /// Application bundle identifier
+        bundle_id: String,
+
+        /// Permissions to revoke (photos, camera, contacts, url, location, notification, microphone)
+        #[arg(required = true)]
+        permissions: Vec<String>,
+
+        /// URL scheme for URL permissions
+        #[arg(long)]
+        scheme: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
     },
 
     /// Remove files or directories inside a container

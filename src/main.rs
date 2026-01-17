@@ -80,6 +80,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Uninstall { bundle_id, udid } => {
                 cli::idb::uninstall::run(bundle_id, udid).await?;
             }
+            IdbCommands::Approve {
+                bundle_id,
+                permissions,
+                scheme,
+                udid,
+            } => {
+                cli::idb::permissions::approve(bundle_id, permissions, scheme, udid).await?;
+            }
             IdbCommands::ListApps { udid } => {
                 cli::idb::list_apps::run(udid).await?;
             }
@@ -92,6 +100,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     cli::idb::location::run(latitude, longitude, udid).await?;
                 }
             },
+            IdbCommands::Revoke {
+                bundle_id,
+                permissions,
+                scheme,
+                udid,
+            } => {
+                cli::idb::permissions::revoke(bundle_id, permissions, scheme, udid).await?;
+            }
             IdbCommands::Rm {
                 paths,
                 udid,
