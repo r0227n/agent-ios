@@ -46,6 +46,8 @@ service CompanionService {
   rpc tail(stream TailRequest) returns (stream TailResponse) {}
   // Phase 2: XCTest Execution
   rpc xctest_run(XctestRunRequest) returns (stream XctestRunResponse) {}
+  // HID (Human Interface Device)
+  rpc hid(stream HIDEvent) returns (HIDResponse) {}
 }
 
 message CompanionInfo {
@@ -587,3 +589,69 @@ message ListSettingRequest {
 message ListSettingResponse {
   repeated string values = 1;
 }
+
+// ========== HID (Human Interface Device) ==========
+
+message Point {
+  double x = 1;
+  double y = 2;
+}
+
+message HIDEvent {
+  enum HIDDirection {
+    DOWN = 0;
+    UP = 1;
+  }
+
+  message HIDTouch {
+    Point point = 1;
+  }
+
+  enum HIDButtonType {
+    APPLE_PAY = 0;
+    HOME = 1;
+    LOCK = 2;
+    SIDE_BUTTON = 3;
+    SIRI = 4;
+  }
+
+  message HIDButton {
+    HIDButtonType button = 1;
+  }
+
+  message HIDKey {
+    uint64 keycode = 1;
+  }
+
+  message HIDPressAction {
+    oneof action {
+      HIDTouch touch = 1;
+      HIDButton button = 2;
+      HIDKey key = 3;
+    }
+  }
+
+  message HIDPress {
+    HIDPressAction action = 1;
+    HIDDirection direction = 2;
+  }
+
+  message HIDSwipe {
+    Point start = 1;
+    Point end = 2;
+    double delta = 5;
+    double duration = 6;
+  }
+
+  message HIDDelay {
+    double duration = 1;
+  }
+
+  oneof event {
+    HIDPress press = 1;
+    HIDSwipe swipe = 2;
+    HIDDelay delay = 3;
+  }
+}
+
+message HIDResponse {}

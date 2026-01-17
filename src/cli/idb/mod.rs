@@ -1,6 +1,7 @@
 pub mod crash;
 pub mod file;
 pub mod focus;
+pub mod hid;
 pub mod install;
 pub mod kill;
 pub mod launch;
@@ -165,6 +166,13 @@ pub enum IdbCommands {
         /// File operation subcommand
         #[command(subcommand)]
         command: file::FileCommands,
+    },
+
+    /// HID (Human Interface Device) operations
+    Hid {
+        /// HID operation subcommand
+        #[command(subcommand)]
+        command: hid::HidCommands,
     },
 
     /// List installed applications
