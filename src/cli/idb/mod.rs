@@ -1,3 +1,4 @@
+pub mod crash;
 pub mod file;
 pub mod focus;
 pub mod install;
@@ -150,6 +151,13 @@ pub enum IdbCommands {
         udid: Option<String>,
     },
 
+    /// Crash log operations
+    Crash {
+        /// Subcommand for crash log operations
+        #[command(subcommand)]
+        command: CrashCommands,
+    },
+
     /// File operations
     File {
         /// File operation subcommand
@@ -228,6 +236,65 @@ pub enum IdbCommands {
         /// Path of the app of the test (needed for app tests)
         #[arg(long)]
         app_path: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum CrashCommands {
+    /// List crash logs
+    List {
+        /// Only show crash logs after this timestamp
+        #[arg(long)]
+        since: Option<u64>,
+
+        /// Only show crash logs before this timestamp
+        #[arg(long)]
+        before: Option<u64>,
+
+        /// Filter by bundle identifier
+        #[arg(long)]
+        bundle_id: Option<String>,
+
+        /// Filter by crash log name
+        #[arg(long)]
+        name: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Show crash log contents
+    Show {
+        /// Name of the crash log to display
+        name: String,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Delete crash logs
+    Delete {
+        /// Only delete crash logs after this timestamp
+        #[arg(long)]
+        since: Option<u64>,
+
+        /// Only delete crash logs before this timestamp
+        #[arg(long)]
+        before: Option<u64>,
+
+        /// Filter by bundle identifier
+        #[arg(long)]
+        bundle_id: Option<String>,
+
+        /// Filter by crash log name
+        #[arg(long)]
+        name: Option<String>,
 
         /// Target device/simulator UDID
         #[arg(short, long)]

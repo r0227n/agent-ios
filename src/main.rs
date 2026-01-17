@@ -4,7 +4,7 @@ mod grpc;
 mod types;
 
 use clap::Parser;
-use cli::idb::{file, IdbCommands, LocationCommands, NotificationCommands, UrlCommands};
+use cli::idb::{file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, UrlCommands};
 use cli::{Cli, Commands};
 
 #[tokio::main]
@@ -88,6 +88,29 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             } => {
                 cli::idb::permissions::approve(bundle_id, permissions, scheme, udid).await?;
             }
+            IdbCommands::Crash { command } => match command {
+                CrashCommands::List {
+                    since,
+                    before,
+                    bundle_id,
+                    name,
+                    udid,
+                } => {
+                    cli::idb::crash::list(since, before, bundle_id, name, udid).await?;
+                }
+                CrashCommands::Show { name, udid } => {
+                    cli::idb::crash::show(name, udid).await?;
+                }
+                CrashCommands::Delete {
+                    since,
+                    before,
+                    bundle_id,
+                    name,
+                    udid,
+                } => {
+                    cli::idb::crash::delete(since, before, bundle_id, name, udid).await?;
+                }
+            },
             IdbCommands::File { command } => match command {
                 file::FileCommands::Ls {
                     paths,

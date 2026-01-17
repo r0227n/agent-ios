@@ -539,4 +539,54 @@ impl IdbClient {
         let response = self.client.xctest_list_tests(request).await?;
         Ok(response.into_inner().names)
     }
+
+    /// List crash logs
+    pub async fn crash_list(
+        &mut self,
+        since: Option<u64>,
+        before: Option<u64>,
+        bundle_id: Option<String>,
+        name: Option<String>,
+    ) -> Result<Vec<super::idb::CrashLogInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let query = super::idb::CrashLogQuery {
+            since: since.unwrap_or(0),
+            before: before.unwrap_or(0),
+            bundle_id: bundle_id.unwrap_or_default(),
+            name: name.unwrap_or_default(),
+        };
+
+        let request = tonic::Request::new(query);
+        let response = self.client.crash_list(request).await?;
+        Ok(response.into_inner().list)
+    }
+
+    /// Show crash log contents
+    pub async fn crash_show(
+        &mut self,
+        name: &str,
+    ) -> Result<super::idb::CrashShowResponse, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::CrashShowRequest { name: name.to_string() });
+        let response = self.client.crash_show(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Delete crash logs
+    pub async fn crash_delete(
+        &mut self,
+        since: Option<u64>,
+        before: Option<u64>,
+        bundle_id: Option<String>,
+        name: Option<String>,
+    ) -> Result<Vec<super::idb::CrashLogInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let query = super::idb::CrashLogQuery {
+            since: since.unwrap_or(0),
+            before: before.unwrap_or(0),
+            bundle_id: bundle_id.unwrap_or_default(),
+            name: name.unwrap_or_default(),
+        };
+
+        let request = tonic::Request::new(query);
+        let response = self.client.crash_delete(request).await?;
+        Ok(response.into_inner().list)
+    }
 }

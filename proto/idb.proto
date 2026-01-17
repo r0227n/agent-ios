@@ -33,6 +33,10 @@ service CompanionService {
   rpc xctest_list_tests(XctestListTestsRequest) returns (XctestListTestsResponse) {}
   rpc ls(LsRequest) returns (LsResponse) {}
   rpc mkdir(MkdirRequest) returns (MkdirResponse) {}
+  // Crash Operations
+  rpc crash_delete(CrashLogQuery) returns (CrashLogResponse) {}
+  rpc crash_list(CrashLogQuery) returns (CrashLogResponse) {}
+  rpc crash_show(CrashShowRequest) returns (CrashShowResponse) {}
 }
 
 message CompanionInfo {
@@ -359,3 +363,35 @@ message SendNotificationRequest {
 }
 
 message SendNotificationResponse {}
+
+// ========== Crash Logs ==========
+
+message CrashLogQuery {
+  uint64 since = 1;
+  uint64 before = 2;
+  string bundle_id = 3;
+  string name = 4;
+}
+
+message CrashLogInfo {
+  string name = 1;
+  string bundle_id = 2;
+  string process_name = 3;
+  string parent_process_name = 4;
+  uint64 process_identifier = 5;
+  uint64 parent_process_identifier = 6;
+  uint64 timestamp = 7;
+}
+
+message CrashLogResponse {
+  repeated CrashLogInfo list = 1;
+}
+
+message CrashShowRequest {
+  string name = 1;
+}
+
+message CrashShowResponse {
+  CrashLogInfo info = 1;
+  string contents = 2;
+}
