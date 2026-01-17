@@ -146,6 +146,29 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 } => {
                     cli::idb::file::rm::run(paths, udid, bundle_id).await?;
                 }
+                file::FileCommands::Pull {
+                    src_path,
+                    dst_path,
+                    bundle_id,
+                    udid,
+                } => {
+                    cli::idb::file::pull::run(src_path, dst_path, udid, bundle_id).await?;
+                }
+                file::FileCommands::Push {
+                    src_path,
+                    dst_path,
+                    bundle_id,
+                    udid,
+                } => {
+                    cli::idb::file::push::run(src_path, dst_path, udid, bundle_id).await?;
+                }
+                file::FileCommands::Tail {
+                    path,
+                    bundle_id,
+                    udid,
+                } => {
+                    cli::idb::file::tail::run(path, udid, bundle_id).await?;
+                }
             },
             IdbCommands::ListApps { udid } => {
                 cli::idb::list_apps::run(udid).await?;
@@ -210,6 +233,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 udid,
             } => {
                 cli::idb::xctest_list_bundle::run(bundle_id, app_path, udid).await?;
+            }
+            IdbCommands::XctestRun {
+                test_bundle_id,
+                tests_to_run,
+                udid,
+            } => {
+                cli::idb::xctest_run::run(test_bundle_id, tests_to_run, udid).await?;
             }
         },
     }
