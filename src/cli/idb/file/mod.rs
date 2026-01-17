@@ -1,5 +1,6 @@
 pub mod ls;
 pub mod mkdir;
+pub mod mv;
 pub mod rm;
 
 use clap::Subcommand;
@@ -31,6 +32,28 @@ pub enum FileCommands {
         bundle_id: Option<String>,
 
         /// Use root container
+        #[arg(long)]
+        root: bool,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Move files on the target device
+    Mv {
+        /// Source paths to move
+        #[arg(required = true)]
+        src_paths: Vec<String>,
+
+        /// Destination path
+        dst_path: String,
+
+        /// Bundle ID for app-specific file container
+        #[arg(long)]
+        bundle_id: Option<String>,
+
+        /// Use root file container
         #[arg(long)]
         root: bool,
 

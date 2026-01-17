@@ -1,0 +1,18 @@
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -80,6 +80,16 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+             IdbCommands::Uninstall { bundle_id, udid } => {
+                 cli::idb::uninstall::run(bundle_id, udid).await?;
+             }
++            IdbCommands::Mv {
++                src_paths,
++                dst_path,
++                bundle_id,
++                root,
++                udid,
++            } => {
++                cli::idb::mv::run(src_paths, dst_path, bundle_id, root, udid).await?;
++            }
+         },
+     }
+
