@@ -87,6 +87,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             } => {
                 cli::idb::rm::run(paths, udid, bundle_id).await?;
             }
+            IdbCommands::XctestList { udid } => {
+                cli::idb::xctest_list::run(udid).await?;
+            }
         },
     }
 

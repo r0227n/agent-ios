@@ -361,4 +361,13 @@ impl IdbClient {
         let _inner = response.into_inner();
         Ok(())
     }
+
+    /// List installed XCTest bundles
+    pub async fn xctest_list_bundles(
+        &mut self,
+    ) -> Result<Vec<super::idb::xctest_list_bundles_response::Bundles>, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::XctestListBundlesRequest {});
+        let response = self.client.xctest_list_bundles(request).await?;
+        Ok(response.into_inner().bundles)
+    }
 }

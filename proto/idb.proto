@@ -22,6 +22,7 @@ service CompanionService {
   rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
   rpc mv(MvRequest) returns (MvResponse) {}
   rpc rm(RmRequest) returns (RmResponse) {}
+  rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
 }
 
 message CompanionInfo {
@@ -200,3 +201,15 @@ message RmRequest {
 }
 
 message RmResponse {}
+
+// XCTest
+message XctestListBundlesRequest {}
+
+message XctestListBundlesResponse {
+  message Bundles {
+    string name = 1;
+    string bundle_id = 2;
+    repeated string architectures = 3;
+  }
+  repeated Bundles bundles = 1;
+}
