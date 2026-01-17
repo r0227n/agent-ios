@@ -16,6 +16,7 @@ pub mod uninstall;
 pub mod url;
 pub mod xctest_list;
 pub mod xctest_list_bundle;
+pub mod xctest_run;
 
 use clap::Subcommand;
 
@@ -236,6 +237,20 @@ pub enum IdbCommands {
         /// Path of the app of the test (needed for app tests)
         #[arg(long)]
         app_path: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Run XCTest tests
+    XctestRun {
+        /// Test bundle ID to run
+        test_bundle_id: String,
+
+        /// Specific tests to run (format: ClassName/testMethod)
+        #[arg(long)]
+        tests_to_run: Vec<String>,
 
         /// Target device/simulator UDID
         #[arg(short, long)]

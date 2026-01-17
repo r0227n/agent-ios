@@ -14,9 +14,12 @@ use super::idb::launch_request::{self, Control};
 use super::idb::log_request::Source as LogSource;
 use super::idb::payload::Source as PayloadSource;
 use super::idb::process_output::Interface;
+use super::idb::push_request;
+use super::idb::tail_request::{self, Control as TailControl};
+use super::idb::xctest_run_request::{self, Mode};
 use super::idb::{
-    InstallRequest, InstallResponse, LaunchRequest, LogRequest, Payload, RmRequest,
-    ScreenshotRequest, TargetDescriptionRequest,
+    InstallRequest, InstallResponse, LaunchRequest, LogRequest, Payload, PullRequest, PushRequest,
+    RmRequest, ScreenshotRequest, TailRequest, TargetDescriptionRequest, XctestRunRequest,
 };
 
 /// Configuration for launching an application
@@ -565,7 +568,9 @@ impl IdbClient {
         &mut self,
         name: &str,
     ) -> Result<super::idb::CrashShowResponse, Box<dyn std::error::Error + Send + Sync>> {
-        let request = tonic::Request::new(super::idb::CrashShowRequest { name: name.to_string() });
+        let request = tonic::Request::new(super::idb::CrashShowRequest {
+            name: name.to_string(),
+        });
         let response = self.client.crash_show(request).await?;
         Ok(response.into_inner())
     }
@@ -588,5 +593,145 @@ impl IdbClient {
         let request = tonic::Request::new(query);
         let response = self.client.crash_delete(request).await?;
         Ok(response.into_inner().list)
+    }
+
+    // ========== Phase 2: Streaming File Operations ==========
+
+    /// Pull a file from the target device (server-side streaming)
+    pub async fn pull(
+        &mut self,
+        src_path: String,
+        container: Option<super::idb::FileContainer>,
+    ) -> Result<tonic::Streaming<super::idb::PullResponse>, Box<dyn std::error::Error + Send + Sync>>
+    {
+        let request = tonic::Request::new(PullRequest {
+            src_path,
+            dst_path: String::new(),
+            container,
+        });
+
+        let response = self.client.pull(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Push a file to the target device (client-side streaming)
+    pub async fn push(
+        &mut self,
+        src_path: String,
+        dst_path: String,
+        container: Option<super::idb::FileContainer>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let requests: Vec<PushRequest> = vec![
+            // 1. Send Inner with dst_path and container
+            PushRequest {
+                value: Some(push_request::Value::Inner(push_request::Inner {
+                    dst_path,
+                    container,
+                })),
+            },
+            // 2. Send Payload with file path
+            PushRequest {
+                value: Some(push_request::Value::Payload(Payload {
+                    source: Some(PayloadSource::FilePath(src_path)),
+                })),
+            },
+        ];
+
+        let request_stream = tokio_stream::iter(requests);
+        let response = self.client.push(request_stream).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Tail a file on the target device (bidirectional streaming)
+    pub async fn tail(
+        &mut self,
+        path: String,
+        container: Option<super::idb::FileContainer>,
+        mut stop_rx: watch::Receiver<bool>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Create the initial Start request
+        let start_request = TailRequest {
+            control: Some(TailControl::Start(tail_request::Start { container, path })),
+        };
+
+        // Create channel for additional requests (like Stop)
+        let (tx, rx) = mpsc::channel::<TailRequest>(4);
+
+        // Create a stream that starts with the initial request, then chains additional requests
+        let initial_stream = tokio_stream::once(start_request);
+        let additional_stream = ReceiverStream::new(rx);
+        let request_stream = tokio_stream::StreamExt::chain(initial_stream, additional_stream);
+
+        // Start the bidirectional stream
+        let response = self.client.tail(request_stream).await?;
+        let mut response_stream = response.into_inner();
+
+        // Handle responses and stop signal concurrently
+        loop {
+            tokio::select! {
+                // Check for stop signal (Ctrl+C)
+                _ = stop_rx.changed() => {
+                    if *stop_rx.borrow() {
+                        // Send Stop request
+                        let stop_request = TailRequest {
+                            control: Some(TailControl::Stop(tail_request::Stop {})),
+                        };
+                        let _ = tx.send(stop_request).await;
+                        break;
+                    }
+                }
+
+                // Process response stream
+                response = response_stream.message() => {
+                    match response? {
+                        Some(tail_response) => {
+                            // Write tail data to stdout
+                            std::io::stdout().write_all(&tail_response.data)?;
+                            std::io::stdout().flush()?;
+                        }
+                        None => break, // Stream ended
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // ========== Phase 2: XCTest Execution ==========
+
+    /// Run XCTest tests in logic mode (server-side streaming)
+    pub async fn xctest_run_logic(
+        &mut self,
+        test_bundle_id: String,
+        tests_to_run: Vec<String>,
+    ) -> Result<
+        tonic::Streaming<super::idb::XctestRunResponse>,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
+        let request = tonic::Request::new(XctestRunRequest {
+            mode: Some(Mode {
+                mode: Some(xctest_run_request::mode::Mode::Logic(
+                    xctest_run_request::Logic {},
+                )),
+            }),
+            test_bundle_id,
+            tests_to_run,
+            tests_to_skip: vec![],
+            arguments: vec![],
+            environment: HashMap::new(),
+            timeout: 0,
+            report_activities: false,
+            collect_coverage: false,
+            report_attachments: false,
+            collect_logs: false,
+            wait_for_debugger: false,
+            code_coverage: None,
+            collect_result_bundle: false,
+        });
+
+        let response = self.client.xctest_run(request).await?;
+        Ok(response.into_inner())
     }
 }
