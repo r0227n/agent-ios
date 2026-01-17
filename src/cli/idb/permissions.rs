@@ -41,10 +41,7 @@ pub async fn approve(
         .iter()
         .map(|p| parse_approve_permission(p))
         .collect();
-    let parsed_permissions: Vec<i32> = parsed_permissions?
-        .into_iter()
-        .map(|p| p as i32)
-        .collect();
+    let parsed_permissions: Vec<i32> = parsed_permissions?.into_iter().map(|p| p as i32).collect();
 
     client
         .approve(&bundle_id, parsed_permissions, scheme)
@@ -66,10 +63,7 @@ pub async fn revoke(
         .iter()
         .map(|p| parse_revoke_permission(p))
         .collect();
-    let parsed_permissions: Vec<i32> = parsed_permissions?
-        .into_iter()
-        .map(|p| p as i32)
-        .collect();
+    let parsed_permissions: Vec<i32> = parsed_permissions?.into_iter().map(|p| p as i32).collect();
 
     client
         .revoke(&bundle_id, parsed_permissions, scheme)

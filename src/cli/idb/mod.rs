@@ -1,3 +1,4 @@
+pub mod file;
 pub mod focus;
 pub mod install;
 pub mod kill;
@@ -8,7 +9,6 @@ pub mod location;
 pub mod log;
 pub mod notification;
 pub mod permissions;
-pub mod rm;
 pub mod screenshot;
 pub mod terminate;
 pub mod uninstall;
@@ -150,6 +150,13 @@ pub enum IdbCommands {
         udid: Option<String>,
     },
 
+    /// File operations
+    File {
+        /// File operation subcommand
+        #[command(subcommand)]
+        command: file::FileCommands,
+    },
+
     /// List installed applications
     ListApps {
         /// Target device/simulator UDID
@@ -187,21 +194,6 @@ pub enum IdbCommands {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
-    },
-
-    /// Remove files or directories inside a container
-    Rm {
-        /// Paths to remove (directories will be recursively deleted)
-        #[arg(required = true)]
-        paths: Vec<String>,
-
-        /// Target device/simulator UDID
-        #[arg(short, long)]
-        udid: Option<String>,
-
-        /// Application bundle identifier (uses APPLICATION container)
-        #[arg(long)]
-        bundle_id: Option<String>,
     },
 
     /// Terminate a running application

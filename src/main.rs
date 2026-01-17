@@ -4,7 +4,7 @@ mod grpc;
 mod types;
 
 use clap::Parser;
-use cli::idb::{IdbCommands, LocationCommands, NotificationCommands, UrlCommands};
+use cli::idb::{file, IdbCommands, LocationCommands, NotificationCommands, UrlCommands};
 use cli::{Cli, Commands};
 
 #[tokio::main]
@@ -88,6 +88,22 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             } => {
                 cli::idb::permissions::approve(bundle_id, permissions, scheme, udid).await?;
             }
+            IdbCommands::File { command } => match command {
+                file::FileCommands::Ls {
+                    paths,
+                    bundle_id,
+                    udid,
+                } => {
+                    cli::idb::file::ls::run(paths, udid, bundle_id).await?;
+                }
+                file::FileCommands::Rm {
+                    paths,
+                    udid,
+                    bundle_id,
+                } => {
+                    cli::idb::file::rm::run(paths, udid, bundle_id).await?;
+                }
+            },
             IdbCommands::ListApps { udid } => {
                 cli::idb::list_apps::run(udid).await?;
             }
@@ -116,13 +132,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 udid,
             } => {
                 cli::idb::permissions::revoke(bundle_id, permissions, scheme, udid).await?;
-            }
-            IdbCommands::Rm {
-                paths,
-                udid,
-                bundle_id,
-            } => {
-                cli::idb::rm::run(paths, udid, bundle_id).await?;
             }
             IdbCommands::Terminate { bundle_id, udid } => {
                 cli::idb::terminate::run(bundle_id, udid).await?;
