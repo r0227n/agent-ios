@@ -794,7 +794,7 @@ message RecordResponse {
 message VideoStreamRequest {
   enum Format {
     H264 = 0;
-    RBGA = 1;
+    RGBA = 1;
     MJPEG = 2;
     MINICAP = 3;
     I420 = 4;
@@ -892,7 +892,7 @@ message InstrumentsRunResponse {
 // ========== XCTrace ==========
 
 message XctraceRecordRequest {
-  message LauchProcess {
+  message LaunchProcess {
     string process_to_launch = 1;
     repeated string launch_args = 2;
     string target_stdin = 3;
@@ -903,7 +903,7 @@ message XctraceRecordRequest {
     oneof target {
       bool all_processes = 1;
       string process_to_attach = 2;
-      LauchProcess launch_process = 3;
+      LaunchProcess launch_process = 3;
     }
   }
   message Start {

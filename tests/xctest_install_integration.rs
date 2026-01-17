@@ -146,17 +146,23 @@ fn test_xctest_install_nonexistent_bundle() {
     let udid = common::get_available_udid();
     common::ensure_companion_running(&udid);
 
-    let nonexistent_bundle = "/tmp/nonexistent_test_bundle_12345.xctest";
+    let nonexistent_bundle = format!("/tmp/nonexistent_test_bundle_{}.xctest", std::process::id());
 
     // Run Python idb xctest install
     let python_output = Command::new("idb")
-        .args(["xctest", "install", nonexistent_bundle, "--udid", &udid])
+        .args(["xctest", "install", &nonexistent_bundle, "--udid", &udid])
         .output()
         .expect("Failed to run Python idb");
 
     // Run agent-mobile xctest-install
     let rust_output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "xctest-install", nonexistent_bundle, "--udid", &udid])
+        .args([
+            "idb",
+            "xctest-install",
+            &nonexistent_bundle,
+            "--udid",
+            &udid,
+        ])
         .output()
         .expect("Failed to run agent-mobile");
 

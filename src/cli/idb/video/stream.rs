@@ -12,13 +12,13 @@ pub async fn run(
 ) -> CommandResult {
     let video_format = match format.to_lowercase().as_str() {
         "h264" => Format::H264,
-        "rbga" => Format::Rbga,
+        "rgba" => Format::Rgba,
         "mjpeg" => Format::Mjpeg,
         "minicap" => Format::Minicap,
         "i420" => Format::I420,
         _ => {
             return Err(format!(
-                "Invalid video format '{}'. Valid options: h264, rbga, mjpeg, minicap, i420",
+                "Invalid video format '{}'. Valid options: h264, rgba, mjpeg, minicap, i420",
                 format
             )
             .into())

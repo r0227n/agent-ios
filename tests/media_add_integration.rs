@@ -129,11 +129,11 @@ fn test_media_add_nonexistent_file() {
     let udid = common::get_available_udid();
     common::ensure_companion_running(&udid);
 
-    let nonexistent_file = "/tmp/nonexistent_media_file_12345.png";
+    let nonexistent_file = format!("/tmp/nonexistent_media_file_{}.png", std::process::id());
 
     // Run Python idb media add-media
     let python_output = Command::new("idb")
-        .args(["media", "add-media", nonexistent_file, "--udid", &udid])
+        .args(["media", "add-media", &nonexistent_file, "--udid", &udid])
         .output()
         .expect("Failed to run Python idb");
 
@@ -143,7 +143,7 @@ fn test_media_add_nonexistent_file() {
             "idb",
             "media",
             "add-media",
-            nonexistent_file,
+            &nonexistent_file,
             "--udid",
             &udid,
         ])

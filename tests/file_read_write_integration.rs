@@ -68,11 +68,11 @@ fn test_file_read_nonexistent() {
     let udid = common::get_available_udid();
     common::ensure_companion_running(&udid);
 
-    let nonexistent_path = "/tmp/nonexistent_file_12345.txt";
+    let nonexistent_path = format!("/tmp/nonexistent_file_{}.txt", std::process::id());
 
-    let python_output = common::run_idb_file_command(&["read", nonexistent_path, "--udid", &udid]);
+    let python_output = common::run_idb_file_command(&["read", &nonexistent_path, "--udid", &udid]);
     let rust_output =
-        common::run_agent_mobile_file_command(&["read", nonexistent_path, "--udid", &udid]);
+        common::run_agent_mobile_file_command(&["read", &nonexistent_path, "--udid", &udid]);
 
     // Both should fail
     assert!(!python_output.status.success());

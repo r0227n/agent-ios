@@ -29,12 +29,10 @@ fn test_video_record_video() {
     );
 
     // ファイルが作成されたことを確認
-    let metadata = std::fs::metadata(output_path);
-    if let Ok(meta) = metadata {
-        assert!(meta.len() > 0, "Expected non-empty video file");
-        // クリーンアップ
-        let _ = std::fs::remove_file(output_path);
-    }
+    let metadata = std::fs::metadata(output_path).expect("Video file was not created");
+    assert!(metadata.len() > 0, "Expected non-empty video file");
+    // クリーンアップ
+    let _ = std::fs::remove_file(output_path);
 }
 
 #[test]
@@ -211,17 +209,16 @@ fn test_video_record_video_file_size() {
     let _output = wait_with_timeout(child, 3);
 
     // ファイルサイズを確認
-    if let Ok(metadata) = std::fs::metadata(output_path) {
-        let file_size = metadata.len();
-        assert!(
-            file_size > 1000,
-            "Expected file size > 1KB, got {} bytes",
-            file_size
-        );
+    let metadata = std::fs::metadata(output_path).expect("Video file was not created");
+    let file_size = metadata.len();
+    assert!(
+        file_size > 1000,
+        "Expected file size > 1KB, got {} bytes",
+        file_size
+    );
 
-        // クリーンアップ
-        let _ = std::fs::remove_file(output_path);
-    }
+    // クリーンアップ
+    let _ = std::fs::remove_file(output_path);
 }
 
 #[test]

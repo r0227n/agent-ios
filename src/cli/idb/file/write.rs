@@ -31,7 +31,7 @@ pub async fn run(
 
     // Move temp_dir into the closure to ensure it lives until push completes
     with_client(udid.as_deref(), |mut client| async move {
-        let _temp_dir = temp_dir; // Keep temp_dir alive
+        let _temp_dir_guard = temp_dir; // Keep temp_dir alive
         client
             .push(
                 temp_file_path.to_string_lossy().to_string(),
