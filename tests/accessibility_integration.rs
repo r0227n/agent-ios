@@ -204,7 +204,7 @@ fn test_accessibility_describe_point_negative_coordinates() {
     let udid = get_available_udid();
 
     // 負の座標
-    let output = Command::new("./target/debug/agent-mobile")
+    let _output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
             "accessibility-describe-point",

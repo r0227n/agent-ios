@@ -1,7 +1,5 @@
 mod common;
 
-use std::process::Command;
-
 /// Integration tests for file rm command
 /// Compares Python idb output with agent-mobile output to ensure compatibility
 

@@ -154,9 +154,6 @@ pub fn compare_file_command_outputs(python_output: &Output, rust_output: &Output
 
     // Note: stderr comparison is relaxed as error messages may have minor formatting differences
     // We only check that both have errors or both succeed
-    let python_has_error = !python_output.stderr.is_empty();
-    let rust_has_error = !rust_output.stderr.is_empty();
-
     if python_output.status.success() {
         assert!(
             rust_output.status.success(),

@@ -208,7 +208,7 @@ fn test_video_record_video_file_size() {
         .expect("Failed to spawn record-video");
 
     // 3秒録画
-    let output = wait_with_timeout(child, 3);
+    let _output = wait_with_timeout(child, 3);
 
     // ファイルサイズを確認
     if let Ok(metadata) = std::fs::metadata(output_path) {
@@ -241,7 +241,7 @@ fn test_video_record_video_python_compatibility() {
         .spawn()
         .expect("Failed to spawn Python idb");
 
-    let python_output = wait_with_timeout(python_child, 3);
+    let _python_output = wait_with_timeout(python_child, 3);
 
     // agent-mobile
     let rust_child = Command::new("./target/debug/agent-mobile")
@@ -258,7 +258,7 @@ fn test_video_record_video_python_compatibility() {
         .spawn()
         .expect("Failed to spawn agent-mobile");
 
-    let rust_output = wait_with_timeout(rust_child, 3);
+    let _rust_output = wait_with_timeout(rust_child, 3);
 
     // 両方とも録画が実行されたことを確認
     let python_exists = std::fs::metadata(python_output_path).is_ok();

@@ -188,7 +188,7 @@ fn test_send_notification_invalid_bundle_id() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
-    let output = Command::new("./target/debug/agent-mobile")
+    let _output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
             "notification",
@@ -212,7 +212,7 @@ fn test_send_notification_empty_payload() {
     ensure_companion_running(&udid);
     let bundle_id = get_test_bundle_id();
 
-    let output = Command::new("./target/debug/agent-mobile")
+    let _output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
             "notification",

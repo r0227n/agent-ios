@@ -84,7 +84,7 @@ fn test_dap_invalid_bundle_id() {
         .expect("Failed to spawn dap");
 
     // 無効なbundle IDでエラーになる可能性がある
-    let output = wait_with_timeout(child, 5);
+    let _output = wait_with_timeout(child, 5);
     // エラーハンドリングは実装依存
 }
 

@@ -68,7 +68,7 @@ fn test_xctest_install_basic() {
 
     // If both succeeded, verify output format
     if python_output.status.success() && rust_output.status.success() {
-        let python_stdout = String::from_utf8_lossy(&python_output.stdout);
+        let _python_stdout = String::from_utf8_lossy(&python_output.stdout);
         let rust_stdout = String::from_utf8_lossy(&rust_output.stdout);
 
         // Both should produce output with "Installed:" prefix

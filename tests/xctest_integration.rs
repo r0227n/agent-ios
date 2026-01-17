@@ -20,7 +20,7 @@ fn test_xctest_list() {
     );
 
     // リストが空の場合でも成功
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let _stdout = String::from_utf8_lossy(&output.stdout);
     // JSONまたは空の出力を期待
 }
 
@@ -139,7 +139,7 @@ fn test_xctest_run_with_test_filter() {
         .expect("TEST_XCTEST_BUNDLE environment variable must be set");
 
     // 特定のテストを実行（例: MyTestClass/testExample）
-    let output = Command::new("./target/debug/agent-mobile")
+    let _output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
             "xctest-run",
@@ -166,7 +166,7 @@ fn test_xctest_run_logic_test() {
         .expect("TEST_XCTEST_BUNDLE environment variable must be set");
 
     // ロジックテストとして実行
-    let output = Command::new("./target/debug/agent-mobile")
+    let _output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
             "xctest-run",
@@ -192,7 +192,7 @@ fn test_xctest_run_ui_test() {
         .expect("TEST_XCTEST_BUNDLE environment variable must be set");
 
     // UIテストとして実行
-    let output = Command::new("./target/debug/agent-mobile")
+    let _output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
             "xctest-run",

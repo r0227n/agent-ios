@@ -45,7 +45,7 @@ fn test_debugserver_status() {
     );
 
     // ステータス情報が出力される
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let _stdout = String::from_utf8_lossy(&output.stdout);
     // 出力形式は実装依存
 }
 
@@ -192,7 +192,7 @@ fn test_debugserver_stop_not_running() {
     ensure_companion_running(&udid);
 
     // デバッグサーバーが起動していない状態でstop
-    let output = Command::new("./target/debug/agent-mobile")
+    let _output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "debugserver", "stop", "--udid", &udid])
         .output()
         .expect("Failed to run debugserver stop");

@@ -20,7 +20,7 @@ fn test_crash_list() {
     );
 
     // リストが空の場合でも成功
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let _stdout = String::from_utf8_lossy(&output.stdout);
     // JSONまたは空の出力を期待
 }
 
