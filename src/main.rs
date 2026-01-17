@@ -135,6 +135,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::XctestList { udid } => {
                 cli::idb::xctest_list::run(udid).await?;
             }
+            IdbCommands::XctestListBundle {
+                bundle_id,
+                app_path,
+                udid,
+            } => {
+                cli::idb::xctest_list_bundle::run(bundle_id, app_path, udid).await?;
+            }
         },
     }
 
