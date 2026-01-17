@@ -1,65 +1,59 @@
-use crate::companion::CompanionResolver;
+use crate::cli::helpers::{setup_ctrl_c_handler, with_client, CommandResult};
 use crate::grpc::idb::log_request::Source as LogSource;
 use std::io::Write;
-use tokio::sync::watch;
 
 pub async fn run(
     udid: Option<String>,
     source: String,
     log_arguments: Vec<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 1. Connect to companion (with auto-spawning if needed)
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
-
-    // 2. Parse source option
+) -> CommandResult {
+    // Parse source option
     let log_source = match source.as_str() {
         "companion" => LogSource::Companion,
         _ => LogSource::Target,
     };
 
-    // 3. Normalize log arguments (remove leading "--" if present)
+    // Normalize log arguments (remove leading "--" if present)
     let arguments = normalize_log_arguments(log_arguments);
 
-    // 4. Setup stop signal for Ctrl+C
-    let (stop_tx, mut stop_rx) = watch::channel(false);
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.ok();
-        stop_tx.send(true).ok();
-    });
+    // Setup stop signal for Ctrl+C
+    let mut stop_rx = setup_ctrl_c_handler();
 
-    // 5. Start streaming logs
-    let mut response_stream = client.log(log_source, arguments).await?;
+    with_client(udid.as_deref(), |mut client| async move {
+        // Start streaming logs
+        let mut response_stream = client.log(log_source, arguments).await?;
 
-    // 6. Process stream with graceful shutdown
-    loop {
-        tokio::select! {
-            // Check for stop signal (Ctrl+C)
-            _ = stop_rx.changed() => {
-                if *stop_rx.borrow() {
-                    break;
-                }
-            }
-
-            // Process response stream
-            response = response_stream.message() => {
-                match response? {
-                    Some(log_response) => {
-                        // Write log output to stdout
-                        let output = &log_response.output;
-                        std::io::stdout().write_all(output)?;
-                        std::io::stdout().flush()?;
+        // Process stream with graceful shutdown
+        loop {
+            tokio::select! {
+                // Check for stop signal (Ctrl+C)
+                _ = stop_rx.changed() => {
+                    if *stop_rx.borrow() {
+                        break;
                     }
-                    None => break, // Stream ended
+                }
+
+                // Process response stream
+                response = response_stream.message() => {
+                    match response? {
+                        Some(log_response) => {
+                            // Write log output to stdout
+                            let output = &log_response.output;
+                            std::io::stdout().write_all(output)?;
+                            std::io::stdout().flush()?;
+                        }
+                        None => break, // Stream ended
+                    }
                 }
             }
         }
-    }
 
-    // Final newline (matching Python behavior)
-    println!();
+        // Final newline (matching Python behavior)
+        println!();
 
-    Ok(())
+        Ok(())
+    })
+    .await
 }
 
 /// Normalize log arguments by removing leading "--" separator

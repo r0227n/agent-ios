@@ -1,4 +1,4 @@
-use crate::companion::CompanionResolver;
+use crate::cli::helpers::{with_client, CommandResult};
 use crate::grpc::idb::approve_request::Permission as ApprovePermission;
 use crate::grpc::idb::revoke_request::Permission as RevokePermission;
 
@@ -33,21 +33,20 @@ pub async fn approve(
     permissions: Vec<String>,
     scheme: Option<String>,
     udid: Option<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
-
+) -> CommandResult {
     let parsed_permissions: Result<Vec<_>, _> = permissions
         .iter()
         .map(|p| parse_approve_permission(p))
         .collect();
     let parsed_permissions: Vec<i32> = parsed_permissions?.into_iter().map(|p| p as i32).collect();
 
-    client
-        .approve(&bundle_id, parsed_permissions, scheme)
-        .await?;
-
-    Ok(())
+    with_client(udid.as_deref(), |mut client| async move {
+        client
+            .approve(&bundle_id, parsed_permissions, scheme)
+            .await?;
+        Ok(())
+    })
+    .await
 }
 
 pub async fn revoke(
@@ -55,19 +54,18 @@ pub async fn revoke(
     permissions: Vec<String>,
     scheme: Option<String>,
     udid: Option<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
-
+) -> CommandResult {
     let parsed_permissions: Result<Vec<_>, _> = permissions
         .iter()
         .map(|p| parse_revoke_permission(p))
         .collect();
     let parsed_permissions: Vec<i32> = parsed_permissions?.into_iter().map(|p| p as i32).collect();
 
-    client
-        .revoke(&bundle_id, parsed_permissions, scheme)
-        .await?;
-
-    Ok(())
+    with_client(udid.as_deref(), |mut client| async move {
+        client
+            .revoke(&bundle_id, parsed_permissions, scheme)
+            .await?;
+        Ok(())
+    })
+    .await
 }

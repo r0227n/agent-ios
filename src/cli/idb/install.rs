@@ -1,4 +1,4 @@
-use crate::companion::CompanionResolver;
+use crate::cli::helpers::{with_client, CommandResult};
 use crate::types::{Compression, InstalledArtifact};
 use serde_json::json;
 
@@ -9,65 +9,64 @@ pub async fn run(
     override_mtime: bool,
     compression: Option<String>,
     json_output: bool,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> CommandResult {
     // 1. Parse compression option
     let compression = compression.map(|s| s.parse::<Compression>()).transpose()?;
 
-    // 2. Connect to companion (with auto-spawning if needed)
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
+    with_client(udid.as_deref(), |mut client| async move {
+        // 2. Call install RPC
+        let mut response_stream = client
+            .install(&bundle_path, make_debuggable, override_mtime, compression)
+            .await?;
 
-    // 3. Call install RPC
-    let mut response_stream = client
-        .install(&bundle_path, make_debuggable, override_mtime, compression)
-        .await?;
+        // 3. Process streaming responses
+        let mut artifact: Option<InstalledArtifact> = None;
 
-    // 4. Process streaming responses
-    let mut artifact: Option<InstalledArtifact> = None;
+        while let Some(response) = response_stream.message().await? {
+            // Track progress
+            let progress = if response.progress > 0.0 {
+                Some(response.progress)
+            } else {
+                None
+            };
 
-    while let Some(response) = response_stream.message().await? {
-        // Track progress
-        let progress = if response.progress > 0.0 {
-            Some(response.progress)
-        } else {
-            None
-        };
+            // Log progress (if not final response)
+            if let Some(p) = progress {
+                if p < 1.0 {
+                    eprintln!("Progress: {:.0}%", p * 100.0);
+                }
+            }
 
-        // Log progress (if not final response)
-        if let Some(p) = progress {
-            if p < 1.0 {
-                eprintln!("Progress: {:.0}%", p * 100.0);
+            // Update artifact info
+            if !response.name.is_empty() {
+                artifact = Some(InstalledArtifact {
+                    name: response.name,
+                    uuid: if response.uuid.is_empty() {
+                        None
+                    } else {
+                        Some(response.uuid)
+                    },
+                    progress,
+                });
             }
         }
 
-        // Update artifact info
-        if !response.name.is_empty() {
-            artifact = Some(InstalledArtifact {
-                name: response.name,
-                uuid: if response.uuid.is_empty() {
-                    None
-                } else {
-                    Some(response.uuid)
-                },
-                progress,
-            });
-        }
-    }
-
-    // 5. Output result
-    if let Some(art) = artifact {
-        if json_output {
-            let output = json!({
-                "installedAppBundleId": art.name,
-                "uuid": art.uuid,
-            });
-            println!("{}", serde_json::to_string(&output)?);
+        // 5. Output result
+        if let Some(art) = artifact {
+            if json_output {
+                let output = json!({
+                    "installedAppBundleId": art.name,
+                    "uuid": art.uuid,
+                });
+                println!("{}", serde_json::to_string(&output)?);
+            } else {
+                println!("Installed: {} {}", art.name, art.uuid.unwrap_or_default());
+            }
         } else {
-            println!("Installed: {} {}", art.name, art.uuid.unwrap_or_default());
+            return Err("No install response received".into());
         }
-    } else {
-        return Err("No install response received".into());
-    }
 
-    Ok(())
+        Ok(())
+    })
+    .await
 }

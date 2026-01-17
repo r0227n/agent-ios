@@ -1,10 +1,9 @@
-use crate::companion::CompanionResolver;
+use crate::cli::helpers::{with_client, CommandResult};
 
-pub async fn run(udid: Option<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
-
-    client.focus().await?;
-
-    Ok(())
+pub async fn run(udid: Option<String>) -> CommandResult {
+    with_client(udid.as_deref(), |mut client| async move {
+        client.focus().await?;
+        Ok(())
+    })
+    .await
 }
