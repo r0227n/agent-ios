@@ -380,6 +380,21 @@ impl IdbClient {
         Ok(())
     }
 
+    /// Create a directory on the target
+    pub async fn mkdir(
+        &mut self,
+        path: &str,
+        container: super::idb::FileContainer,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::MkdirRequest {
+            path: path.to_string(),
+            container: Some(container),
+        });
+        let response = self.client.mkdir(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Tail logs from target or companion (server-side streaming)
     pub async fn log(
         &mut self,

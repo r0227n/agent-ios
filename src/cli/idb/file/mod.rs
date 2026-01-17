@@ -1,4 +1,5 @@
 pub mod ls;
+pub mod mkdir;
 pub mod rm;
 
 use clap::Subcommand;
@@ -14,6 +15,24 @@ pub enum FileCommands {
         /// Bundle ID for app-specific file container
         #[arg(long)]
         bundle_id: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Create a directory inside a container
+    Mkdir {
+        /// Path to create
+        path: String,
+
+        /// Application bundle identifier (uses APPLICATION container)
+        #[arg(long)]
+        bundle_id: Option<String>,
+
+        /// Use root container
+        #[arg(long)]
+        root: bool,
 
         /// Target device/simulator UDID
         #[arg(short, long)]

@@ -32,6 +32,7 @@ service CompanionService {
   rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
   rpc xctest_list_tests(XctestListTestsRequest) returns (XctestListTestsResponse) {}
   rpc ls(LsRequest) returns (LsResponse) {}
+  rpc mkdir(MkdirRequest) returns (MkdirResponse) {}
 }
 
 message CompanionInfo {
@@ -293,6 +294,13 @@ message LsResponse {
   repeated FileInfo files = 1;
   repeated FileListing listings = 2;
 }
+
+message MkdirRequest {
+  string path = 2;
+  FileContainer container = 3;
+}
+
+message MkdirResponse {}
 
 // ========== App Lifecycle ==========
 
