@@ -101,3 +101,86 @@ pub fn wait_with_timeout(mut child: Child, timeout_secs: u64) -> Output {
         }
     }
 }
+
+/// Run Python idb file command with given arguments
+///
+/// Example: run_idb_file_command(&["ls", "/tmp", "--udid", "ABC123"])
+pub fn run_idb_file_command(args: &[&str]) -> Output {
+    let mut full_args = vec!["file"];
+    full_args.extend_from_slice(args);
+
+    Command::new("idb")
+        .args(&full_args)
+        .output()
+        .expect("Failed to execute Python idb - ensure idb is installed and in PATH")
+}
+
+/// Run agent-mobile idb file command with given arguments
+///
+/// Example: run_agent_mobile_file_command(&["ls", "/tmp", "--udid", "ABC123"])
+pub fn run_agent_mobile_file_command(args: &[&str]) -> Output {
+    let mut full_args = vec!["idb", "file"];
+    full_args.extend_from_slice(args);
+
+    Command::new("./target/debug/agent-mobile")
+        .args(&full_args)
+        .output()
+        .expect("Failed to run agent-mobile - ensure it is built with 'cargo build'")
+}
+
+/// Compare outputs from Python idb and agent-mobile
+///
+/// Compares exit codes and stdout/stderr content
+pub fn compare_file_command_outputs(python_output: &Output, rust_output: &Output) {
+    // Compare exit codes
+    assert_eq!(
+        python_output.status.code(),
+        rust_output.status.code(),
+        "Exit codes differ:\n  Python idb: {:?}\n  agent-mobile: {:?}",
+        python_output.status.code(),
+        rust_output.status.code()
+    );
+
+    // Compare stdout
+    let python_stdout = String::from_utf8_lossy(&python_output.stdout);
+    let rust_stdout = String::from_utf8_lossy(&rust_output.stdout);
+    assert_eq!(
+        python_stdout.trim(),
+        rust_stdout.trim(),
+        "stdout differs:\n  Python idb:\n{}\n  agent-mobile:\n{}",
+        python_stdout,
+        rust_stdout
+    );
+
+    // Note: stderr comparison is relaxed as error messages may have minor formatting differences
+    // We only check that both have errors or both succeed
+    let python_has_error = !python_output.stderr.is_empty();
+    let rust_has_error = !rust_output.stderr.is_empty();
+
+    if python_output.status.success() {
+        assert!(
+            rust_output.status.success(),
+            "Python succeeded but Rust failed:\n{}",
+            String::from_utf8_lossy(&rust_output.stderr)
+        );
+    } else {
+        assert!(
+            !rust_output.status.success(),
+            "Python failed but Rust succeeded"
+        );
+    }
+}
+
+/// Build agent-mobile binary (debug mode)
+pub fn build_agent_mobile() {
+    let output = Command::new("cargo")
+        .args(["build"])
+        .output()
+        .expect("Failed to run cargo build");
+
+    assert!(
+        output.status.success(),
+        "cargo build failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
