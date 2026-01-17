@@ -41,12 +41,12 @@ mod tests {
     #[test]
     fn test_architecture_formatting() {
         // Test that architectures are joined with ", "
-        let archs = vec!["x86_64".to_string(), "arm64".to_string()];
+        let archs = ["x86_64".to_string(), "arm64".to_string()];
         let result = archs.join(", ");
         assert_eq!(result, "x86_64, arm64");
 
         // Single architecture
-        let archs = vec!["arm64".to_string()];
+        let archs = ["arm64".to_string()];
         let result = archs.join(", ");
         assert_eq!(result, "arm64");
 

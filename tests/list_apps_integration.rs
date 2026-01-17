@@ -6,7 +6,7 @@ use std::process::Command;
 fn test_list_apps_matches_python_idb() {
     // Get UDID of first booted simulator
     let list_targets_output = Command::new("./target/debug/agent-mobile")
-        .args(&["idb", "list-targets"])
+        .args(["idb", "list-targets"])
         .output()
         .expect("Failed to run list-targets");
 
@@ -23,13 +23,13 @@ fn test_list_apps_matches_python_idb() {
 
     // Run Python idb
     let python_output = Command::new("idb")
-        .args(&["list-apps", "--udid", udid])
+        .args(["list-apps", "--udid", udid])
         .output()
         .expect("Failed to run Python idb. Make sure idb is installed.");
 
     // Run Rust implementation
     let rust_output = Command::new("./target/debug/agent-mobile")
-        .args(&["idb", "list-apps", "--udid", udid])
+        .args(["idb", "list-apps", "--udid", udid])
         .output()
         .expect("Failed to run agent-mobile");
 
@@ -55,7 +55,7 @@ fn test_list_apps_matches_python_idb() {
 #[ignore]
 fn test_list_apps_without_udid() {
     let output = Command::new("./target/debug/agent-mobile")
-        .args(&["idb", "list-apps"])
+        .args(["idb", "list-apps"])
         .output()
         .expect("Failed to run agent-mobile");
 
@@ -80,7 +80,7 @@ fn test_list_apps_without_udid() {
 #[ignore]
 fn test_list_apps_output_format() {
     let output = Command::new("./target/debug/agent-mobile")
-        .args(&["idb", "list-apps"])
+        .args(["idb", "list-apps"])
         .output()
         .expect("Failed to run agent-mobile");
 
