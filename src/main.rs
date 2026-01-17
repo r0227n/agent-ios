@@ -4,7 +4,7 @@ mod grpc;
 mod types;
 
 use clap::Parser;
-use cli::idb::{IdbCommands, LocationCommands};
+use cli::idb::{IdbCommands, LocationCommands, NotificationCommands, UrlCommands};
 use cli::{Cli, Commands};
 
 #[tokio::main]
@@ -100,6 +100,15 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     cli::idb::location::run(latitude, longitude, udid).await?;
                 }
             },
+            IdbCommands::Notification { command } => match command {
+                NotificationCommands::SendNotification {
+                    bundle_id,
+                    json_payload,
+                    udid,
+                } => {
+                    cli::idb::notification::run(bundle_id, json_payload, udid).await?;
+                }
+            },
             IdbCommands::Revoke {
                 bundle_id,
                 permissions,
@@ -118,6 +127,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Terminate { bundle_id, udid } => {
                 cli::idb::terminate::run(bundle_id, udid).await?;
             }
+            IdbCommands::Url { command } => match command {
+                UrlCommands::Open { url, udid } => {
+                    cli::idb::url::run(url, udid).await?;
+                }
+            },
             IdbCommands::XctestList { udid } => {
                 cli::idb::xctest_list::run(udid).await?;
             }

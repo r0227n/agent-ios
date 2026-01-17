@@ -263,20 +263,32 @@ impl IdbClient {
         Ok(())
     }
 
-    /// Approve app permissions
+    /// Approve (grant) app permissions
     pub async fn approve(
         &mut self,
         bundle_id: &str,
-        permissions: Vec<super::idb::approve_request::Permission>,
+        permissions: Vec<i32>,
         scheme: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let permissions_i32: Vec<i32> = permissions.iter().map(|p| *p as i32).collect();
         let request = tonic::Request::new(super::idb::ApproveRequest {
             bundle_id: bundle_id.to_string(),
-            permissions: permissions_i32,
+            permissions,
             scheme: scheme.unwrap_or_default(),
         });
         let response = self.client.approve(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Open a URL on the device
+    pub async fn open_url(
+        &mut self,
+        url: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::OpenUrlRequest {
+            url: url.to_string(),
+        });
+        let response = self.client.open_url(request).await?;
         let _inner = response.into_inner();
         Ok(())
     }
@@ -285,16 +297,30 @@ impl IdbClient {
     pub async fn revoke(
         &mut self,
         bundle_id: &str,
-        permissions: Vec<super::idb::revoke_request::Permission>,
+        permissions: Vec<i32>,
         scheme: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let permissions_i32: Vec<i32> = permissions.iter().map(|p| *p as i32).collect();
         let request = tonic::Request::new(super::idb::RevokeRequest {
             bundle_id: bundle_id.to_string(),
-            permissions: permissions_i32,
+            permissions,
             scheme: scheme.unwrap_or_default(),
         });
         let response = self.client.revoke(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Send a push notification to the device
+    pub async fn send_notification(
+        &mut self,
+        bundle_id: &str,
+        json_payload: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::SendNotificationRequest {
+            bundle_id: bundle_id.to_string(),
+            json_payload: json_payload.to_string(),
+        });
+        let response = self.client.send_notification(request).await?;
         let _inner = response.into_inner();
         Ok(())
     }

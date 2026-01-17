@@ -13,22 +13,23 @@ package idb;
 
 // CompanionService definition
 service CompanionService {
+  rpc approve(ApproveRequest) returns (ApproveResponse) {}
   rpc describe(TargetDescriptionRequest) returns (TargetDescriptionResponse) {}
+  rpc focus(FocusRequest) returns (FocusResponse) {}
   rpc install(stream InstallRequest) returns (stream InstallResponse) {}
   rpc launch(stream LaunchRequest) returns (stream LaunchResponse) {}
-  rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
-  rpc focus(FocusRequest) returns (FocusResponse) {}
-  rpc log(LogRequest) returns (stream LogResponse) {}
-  rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
   rpc list_apps(ListAppsRequest) returns (ListAppsResponse) {}
+  rpc log(LogRequest) returns (stream LogResponse) {}
   rpc mv(MvRequest) returns (MvResponse) {}
-  rpc rm(RmRequest) returns (RmResponse) {}
-  rpc terminate(TerminateRequest) returns (TerminateResponse) {}
-  rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
-  rpc set_location(SetLocationRequest) returns (SetLocationResponse) {}
-  // Permissions
-  rpc approve(ApproveRequest) returns (ApproveResponse) {}
+  rpc open_url(OpenUrlRequest) returns (OpenUrlResponse) {}
   rpc revoke(RevokeRequest) returns (RevokeResponse) {}
+  rpc rm(RmRequest) returns (RmResponse) {}
+  rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
+  rpc send_notification(SendNotificationRequest) returns (SendNotificationResponse) {}
+  rpc set_location(SetLocationRequest) returns (SetLocationResponse) {}
+  rpc terminate(TerminateRequest) returns (TerminateResponse) {}
+  rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
+  rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
 }
 
 message CompanionInfo {
@@ -168,6 +169,44 @@ message UninstallRequest {
 
 message UninstallResponse {}
 
+// ========== Permissions ==========
+
+message ApproveRequest {
+  enum Permission {
+    PHOTOS = 0;
+    CAMERA = 1;
+    CONTACTS = 2;
+    URL = 3;
+    LOCATION = 4;
+    NOTIFICATION = 5;
+    MICROPHONE = 6;
+  }
+  string bundle_id = 1;
+  repeated Permission permissions = 2;
+  string scheme = 3;
+}
+
+message ApproveResponse {}
+
+message RevokeRequest {
+  enum Permission {
+    PHOTOS = 0;
+    CAMERA = 1;
+    CONTACTS = 2;
+    URL = 3;
+    LOCATION = 4;
+    NOTIFICATION = 5;
+    MICROPHONE = 6;
+  }
+  string bundle_id = 1;
+  repeated Permission permissions = 2;
+  string scheme = 3;
+}
+
+message RevokeResponse {}
+
+// ========== Apps ==========
+
 message ListAppsRequest {
   bool suppress_process_state = 1;
 }
@@ -190,6 +229,8 @@ message InstalledAppInfo {
   bool debuggable = 6;
   uint64 process_identifier = 7;
 }
+
+// ========== File Operations ==========
 
 message FileContainer {
   enum Kind {
@@ -231,13 +272,16 @@ message RmRequest {
 
 message RmResponse {}
 
+// ========== App Lifecycle ==========
+
 message TerminateRequest {
   string bundle_id = 1;
 }
 
 message TerminateResponse {}
 
-// XCTest
+// ========== XCTest ==========
+
 message XctestListBundlesRequest {}
 
 message XctestListBundlesResponse {
@@ -262,38 +306,17 @@ message SetLocationRequest {
 
 message SetLocationResponse {}
 
-// ========== Permissions ==========
+// ========== Notifications & URLs ==========
 
-message ApproveRequest {
-  enum Permission {
-    PHOTOS = 0;
-    CAMERA = 1;
-    CONTACTS = 2;
-    URL = 3;
-    LOCATION = 4;
-    NOTIFICATION = 5;
-    MICROPHONE = 6;
-  }
-  string bundle_id = 1;
-  repeated Permission permissions = 2;
-  string scheme = 3;
+message OpenUrlRequest {
+  string url = 1;
 }
 
-message ApproveResponse {}
+message OpenUrlResponse {}
 
-message RevokeRequest {
-  enum Permission {
-    PHOTOS = 0;
-    CAMERA = 1;
-    CONTACTS = 2;
-    URL = 3;
-    LOCATION = 4;
-    NOTIFICATION = 5;
-    MICROPHONE = 6;
-  }
+message SendNotificationRequest {
   string bundle_id = 1;
-  repeated Permission permissions = 2;
-  string scheme = 3;
+  string json_payload = 2;
 }
 
-message RevokeResponse {}
+message SendNotificationResponse {}

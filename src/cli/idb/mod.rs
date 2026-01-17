@@ -4,13 +4,15 @@ pub mod kill;
 pub mod launch;
 pub mod list_apps;
 pub mod list_targets;
-pub mod log;
 pub mod location;
+pub mod log;
+pub mod notification;
 pub mod permissions;
 pub mod rm;
 pub mod screenshot;
 pub mod terminate;
 pub mod uninstall;
+pub mod url;
 pub mod xctest_list;
 
 use clap::Subcommand;
@@ -161,6 +163,13 @@ pub enum IdbCommands {
         command: LocationCommands,
     },
 
+    /// Send push notifications to the device
+    Notification {
+        /// Subcommand for notification operations
+        #[command(subcommand)]
+        command: NotificationCommands,
+    },
+
     /// Revoke app permissions
     Revoke {
         /// Application bundle identifier
@@ -204,6 +213,13 @@ pub enum IdbCommands {
         udid: Option<String>,
     },
 
+    /// Open a URL on the target device
+    Url {
+        /// Subcommand for URL operations
+        #[command(subcommand)]
+        command: UrlCommands,
+    },
+
     /// List installed XCTest bundles
     XctestList {
         /// Target device/simulator UDID
@@ -221,6 +237,35 @@ pub enum LocationCommands {
 
         /// Longitude coordinate
         longitude: f64,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum UrlCommands {
+    /// Open a URL on the device
+    Open {
+        /// URL to open
+        url: String,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum NotificationCommands {
+    /// Send a simulated push notification
+    SendNotification {
+        /// Application bundle identifier
+        bundle_id: String,
+
+        /// JSON payload for the notification
+        json_payload: String,
 
         /// Target device/simulator UDID
         #[arg(short, long)]
