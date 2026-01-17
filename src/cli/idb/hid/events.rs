@@ -251,3 +251,154 @@ fn char_to_events(ch: char) -> Option<Vec<HidEvent>> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::grpc::idb::hid_event::{HidButtonType, HidDirection};
+
+    #[test]
+    fn test_tap_to_events_without_duration() {
+        let events = tap_to_events(100.0, 200.0, None);
+        assert_eq!(events.len(), 2); // DOWN + UP
+
+        // DOWN イベント確認
+        if let Some(Event::Press(press)) = &events[0].event {
+            assert_eq!(press.direction, HidDirection::Down as i32);
+            if let Some(hid_event::hid_press_action::Action::Touch(touch)) =
+                &press.action.as_ref().unwrap().action
+            {
+                assert_eq!(touch.point.as_ref().unwrap().x, 100.0);
+                assert_eq!(touch.point.as_ref().unwrap().y, 200.0);
+            } else {
+                panic!("Expected Touch action");
+            }
+        } else {
+            panic!("Expected Press event");
+        }
+
+        // UP イベント確認
+        if let Some(Event::Press(press)) = &events[1].event {
+            assert_eq!(press.direction, HidDirection::Up as i32);
+        }
+    }
+
+    #[test]
+    fn test_tap_to_events_with_duration() {
+        let events = tap_to_events(100.0, 200.0, Some(0.5));
+        assert_eq!(events.len(), 3); // DOWN + DELAY + UP
+
+        // DELAY イベント確認
+        if let Some(Event::Delay(delay)) = &events[1].event {
+            assert_eq!(delay.duration, 0.5);
+        } else {
+            panic!("Expected Delay event");
+        }
+    }
+
+    #[test]
+    fn test_button_to_events() {
+        let events = button_to_events(HidButtonType::Home, None);
+        assert_eq!(events.len(), 2); // DOWN + UP
+
+        // ボタンタイプ確認
+        if let Some(Event::Press(press)) = &events[0].event {
+            if let Some(hid_event::hid_press_action::Action::Button(button)) =
+                &press.action.as_ref().unwrap().action
+            {
+                assert_eq!(button.button, HidButtonType::Home as i32);
+            }
+        }
+    }
+
+    #[test]
+    fn test_key_to_events() {
+        let events = key_to_events(40, None); // Enter key
+        assert_eq!(events.len(), 2);
+
+        // キーコード確認
+        if let Some(Event::Press(press)) = &events[0].event {
+            if let Some(hid_event::hid_press_action::Action::Key(key)) =
+                &press.action.as_ref().unwrap().action
+            {
+                assert_eq!(key.keycode, 40);
+            }
+        }
+    }
+
+    #[test]
+    fn test_key_sequence_to_events() {
+        let events = key_sequence_to_events(vec![4, 5, 6]); // a, b, c
+        assert_eq!(events.len(), 6); // 各キー DOWN + UP = 3 * 2
+    }
+
+    #[test]
+    fn test_text_to_events_lowercase() {
+        let events = text_to_events("abc").unwrap();
+        assert_eq!(events.len(), 6); // a, b, c 各2イベント
+    }
+
+    #[test]
+    fn test_text_to_events_uppercase() {
+        let events = text_to_events("A").unwrap();
+        assert_eq!(events.len(), 4); // Shift DOWN, A DOWN, A UP, Shift UP
+
+        // Shiftキー(keycode 225)確認
+        if let Some(Event::Press(press)) = &events[0].event {
+            if let Some(hid_event::hid_press_action::Action::Key(key)) =
+                &press.action.as_ref().unwrap().action
+            {
+                assert_eq!(key.keycode, 225); // Left shift
+            }
+        }
+    }
+
+    #[test]
+    fn test_text_to_events_with_numbers() {
+        let events = text_to_events("123").unwrap();
+        assert_eq!(events.len(), 6); // 3文字 × 2イベント
+    }
+
+    #[test]
+    fn test_text_to_events_with_special_chars() {
+        let events = text_to_events("!@#").unwrap();
+        assert_eq!(events.len(), 12); // 3文字 × 4イベント (各文字 shift down/up + key down/up)
+    }
+
+    #[test]
+    fn test_text_to_events_invalid_char() {
+        let result = text_to_events("あ"); // 日本語文字
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No keycode found"));
+    }
+
+    #[test]
+    fn test_swipe_to_events() {
+        let events = swipe_to_events((100.0, 100.0), (200.0, 200.0), Some(0.5), Some(10.0));
+        assert_eq!(events.len(), 1); // HIDSwipe イベント1つ
+
+        // スワイプ内容確認
+        if let Some(Event::Swipe(swipe)) = &events[0].event {
+            assert_eq!(swipe.start.as_ref().unwrap().x, 100.0);
+            assert_eq!(swipe.start.as_ref().unwrap().y, 100.0);
+            assert_eq!(swipe.end.as_ref().unwrap().x, 200.0);
+            assert_eq!(swipe.end.as_ref().unwrap().y, 200.0);
+            assert_eq!(swipe.duration, 0.5);
+            assert_eq!(swipe.delta, 10.0);
+        } else {
+            panic!("Expected Swipe event");
+        }
+    }
+
+    #[test]
+    fn test_swipe_to_events_defaults() {
+        let events = swipe_to_events((0.0, 0.0), (100.0, 100.0), None, None);
+        assert_eq!(events.len(), 1);
+
+        // デフォルト値確認
+        if let Some(Event::Swipe(swipe)) = &events[0].event {
+            assert_eq!(swipe.duration, 0.0);
+            assert_eq!(swipe.delta, 0.0);
+        }
+    }
+}
