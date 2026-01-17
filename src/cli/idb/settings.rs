@@ -1,4 +1,4 @@
-use crate::companion::CompanionResolver;
+use crate::cli::helpers::{with_client, CommandResult};
 use crate::grpc::idb::setting_request::{self, Setting as SettingOneof};
 use crate::grpc::idb::Setting;
 
@@ -9,10 +9,7 @@ pub async fn set(
     value_type: Option<String>,
     domain: Option<String>,
     udid: Option<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
-
+) -> CommandResult {
     let setting = setting_request::StringSetting {
         setting: Setting::Any as i32,
         value,
@@ -21,40 +18,33 @@ pub async fn set(
         value_type: value_type.unwrap_or_else(|| "string".to_string()),
     };
 
-    client
-        .set_setting(SettingOneof::StringSetting(setting))
-        .await?;
-
-    Ok(())
+    with_client(udid.as_deref(), |mut client| async move {
+        client
+            .set_setting(SettingOneof::StringSetting(setting))
+            .await?;
+        Ok(())
+    })
+    .await
 }
 
 /// Get a device setting value
-pub async fn get(
-    name: String,
-    domain: Option<String>,
-    udid: Option<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
-
-    let value = client.get_setting(Setting::Any, Some(name), domain).await?;
-
-    println!("{}", value);
-    Ok(())
+pub async fn get(name: String, domain: Option<String>, udid: Option<String>) -> CommandResult {
+    with_client(udid.as_deref(), |mut client| async move {
+        let value = client.get_setting(Setting::Any, Some(name), domain).await?;
+        println!("{}", value);
+        Ok(())
+    })
+    .await
 }
 
 /// List available locales
-pub async fn list_locale(
-    udid: Option<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
-
-    let locales = client.list_settings(Setting::Locale).await?;
-
-    for locale in locales {
-        println!("{}", locale);
-    }
-
-    Ok(())
+pub async fn list_locale(udid: Option<String>) -> CommandResult {
+    with_client(udid.as_deref(), |mut client| async move {
+        let locales = client.list_settings(Setting::Locale).await?;
+        for locale in locales {
+            println!("{}", locale);
+        }
+        Ok(())
+    })
+    .await
 }

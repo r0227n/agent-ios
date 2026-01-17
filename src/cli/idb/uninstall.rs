@@ -1,16 +1,9 @@
-use crate::companion::CompanionResolver;
+use crate::cli::helpers::{with_client, CommandResult};
 
-pub async fn run(
-    bundle_id: String,
-    udid: Option<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 1. Connect to companion (with auto-spawning if needed)
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
-
-    // 2. Call uninstall RPC
-    client.uninstall(&bundle_id).await?;
-
-    // 3. Success (no output for uninstall command, same as Python idb)
-    Ok(())
+pub async fn run(bundle_id: String, udid: Option<String>) -> CommandResult {
+    with_client(udid.as_deref(), |mut client| async move {
+        client.uninstall(&bundle_id).await?;
+        Ok(())
+    })
+    .await
 }

@@ -1,4 +1,4 @@
-use crate::companion::CompanionResolver;
+use crate::cli::helpers::{setup_ctrl_c_handler, with_client, CommandResult};
 use crate::grpc::LaunchConfig;
 use std::collections::HashMap;
 use tokio::sync::watch;
@@ -11,40 +11,37 @@ pub async fn run(
     foreground_if_running: bool,
     wait_for: bool,
     pid_file: Option<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 1. Connect to companion (with auto-spawning if needed)
-    let resolver = CompanionResolver::new();
-    let mut client = resolver.connect(udid.as_deref()).await?;
+) -> CommandResult {
+    // Setup stop signal for --wait-for
+    let stop_rx = if wait_for {
+        setup_ctrl_c_handler()
+    } else {
+        let (_tx, rx) = watch::channel(false);
+        rx
+    };
 
-    // 2. Setup stop signal for --wait-for
-    let (stop_tx, stop_rx) = watch::channel(false);
-
-    if wait_for {
-        tokio::spawn(async move {
-            tokio::signal::ctrl_c().await.ok();
-            stop_tx.send(true).ok();
-        });
-    }
-
-    // 3. Collect IDB_ env vars
+    // Collect IDB_ env vars
     let env = collect_idb_env();
 
-    // 4. Launch
-    let config = LaunchConfig {
-        bundle_id,
-        app_args: app_arguments,
-        env,
-        foreground_if_running,
-        wait_for_debugger,
-    };
-    let pid = client.launch(config, wait_for, stop_rx).await?;
+    with_client(udid.as_deref(), |mut client| async move {
+        // Launch
+        let config = LaunchConfig {
+            bundle_id,
+            app_args: app_arguments,
+            env,
+            foreground_if_running,
+            wait_for_debugger,
+        };
+        let pid = client.launch(config, wait_for, stop_rx).await?;
 
-    // 5. Write PID file if specified
-    if let (Some(p), Some(ref path)) = (pid, &pid_file) {
-        std::fs::write(path, format!("{}", p))?;
-    }
+        // Write PID file if specified
+        if let (Some(p), Some(ref path)) = (pid, &pid_file) {
+            std::fs::write(path, format!("{}", p))?;
+        }
 
-    Ok(())
+        Ok(())
+    })
+    .await
 }
 
 /// Collect environment variables with IDB_ prefix and strip the prefix
