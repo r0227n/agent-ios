@@ -276,6 +276,19 @@ impl IdbClient {
         Ok(())
     }
 
+    /// Terminate a running application
+    pub async fn terminate(
+        &mut self,
+        bundle_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::TerminateRequest {
+            bundle_id: bundle_id.to_string(),
+        });
+        let response = self.client.terminate(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Tail logs from target or companion (server-side streaming)
     pub async fn log(
         &mut self,
