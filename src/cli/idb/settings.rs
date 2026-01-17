@@ -2,6 +2,7 @@ use crate::companion::CompanionResolver;
 use crate::grpc::idb::setting_request::{self, Setting as SettingOneof};
 use crate::grpc::idb::Setting;
 
+/// Set a device setting
 pub async fn set(
     name: String,
     value: String,
@@ -27,6 +28,7 @@ pub async fn set(
     Ok(())
 }
 
+/// Get a device setting value
 pub async fn get(
     name: String,
     domain: Option<String>,
@@ -35,25 +37,23 @@ pub async fn get(
     let resolver = CompanionResolver::new();
     let mut client = resolver.connect(udid.as_deref()).await?;
 
-    let value = client
-        .get_setting(Setting::Any, Some(name), domain)
-        .await?;
+    let value = client.get_setting(Setting::Any, Some(name), domain).await?;
 
     println!("{}", value);
-
     Ok(())
 }
 
+/// List available locales
 pub async fn list_locale(
     udid: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let resolver = CompanionResolver::new();
     let mut client = resolver.connect(udid.as_deref()).await?;
 
-    let values = client.list_settings(Setting::Locale).await?;
+    let locales = client.list_settings(Setting::Locale).await?;
 
-    for value in values {
-        println!("{}", value);
+    for locale in locales {
+        println!("{}", locale);
     }
 
     Ok(())
