@@ -4,7 +4,10 @@ mod grpc;
 mod types;
 
 use clap::Parser;
-use cli::idb::{file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, SettingsCommands, UrlCommands};
+use cli::idb::{
+    file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, SettingsCommands,
+    UrlCommands,
+};
 use cli::{Cli, Commands};
 
 #[tokio::main]
@@ -183,11 +186,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 } => {
                     cli::idb::settings::set(name, value, value_type, domain, udid).await?;
                 }
-                SettingsCommands::Get {
-                    name,
-                    domain,
-                    udid,
-                } => {
+                SettingsCommands::Get { name, domain, udid } => {
                     cli::idb::settings::get(name, domain, udid).await?;
                 }
                 SettingsCommands::ListLocale { udid } => {

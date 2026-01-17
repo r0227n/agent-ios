@@ -565,7 +565,9 @@ impl IdbClient {
         &mut self,
         name: &str,
     ) -> Result<super::idb::CrashShowResponse, Box<dyn std::error::Error + Send + Sync>> {
-        let request = tonic::Request::new(super::idb::CrashShowRequest { name: name.to_string() });
+        let request = tonic::Request::new(super::idb::CrashShowRequest {
+            name: name.to_string(),
+        });
         let response = self.client.crash_show(request).await?;
         Ok(response.into_inner())
     }

@@ -37,9 +37,7 @@ pub async fn get(
     let resolver = CompanionResolver::new();
     let mut client = resolver.connect(udid.as_deref()).await?;
 
-    let value = client
-        .get_setting(Setting::Any, Some(name), domain)
-        .await?;
+    let value = client.get_setting(Setting::Any, Some(name), domain).await?;
 
     println!("{}", value);
     Ok(())
