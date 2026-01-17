@@ -9,7 +9,7 @@ fn test_hid_tap() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "tap", "100", "200", "--udid", &udid])
+        .args(["idb", "tap", "100", "200", "--udid", &udid])
         .output()
         .expect("Failed to run hid tap");
 
@@ -35,7 +35,6 @@ fn test_hid_tap_with_duration() {
     let output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
-            "hid",
             "tap",
             "100",
             "200",
@@ -56,7 +55,7 @@ fn test_hid_button_home() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "button", "HOME", "--udid", &udid])
+        .args(["idb", "button", "HOME", "--udid", &udid])
         .output()
         .expect("Failed to run hid button");
 
@@ -74,7 +73,7 @@ fn test_hid_button_invalid() {
     let udid = get_available_udid();
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "button", "INVALID_BUTTON", "--udid", &udid])
+        .args(["idb", "button", "INVALID_BUTTON", "--udid", &udid])
         .output()
         .expect("Failed to run hid button");
 
@@ -87,7 +86,7 @@ fn test_hid_key() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "key", "40", "--udid", &udid]) // Enter key
+        .args(["idb", "key", "40", "--udid", &udid]) // Enter key
         .output()
         .expect("Failed to run hid key");
 
@@ -100,7 +99,7 @@ fn test_hid_key_sequence() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "key-sequence", "4", "5", "6", "--udid", &udid]) // a, b, c
+        .args(["idb", "key-sequence", "4", "5", "6", "--udid", &udid]) // a, b, c
         .output()
         .expect("Failed to run hid key-sequence");
 
@@ -113,7 +112,7 @@ fn test_hid_text() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "text", "Hello", "--udid", &udid])
+        .args(["idb", "text", "Hello", "--udid", &udid])
         .output()
         .expect("Failed to run hid text");
 
@@ -132,7 +131,7 @@ fn test_hid_text_with_special_chars() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "text", "Hello123!@#", "--udid", &udid])
+        .args(["idb", "text", "Hello123!@#", "--udid", &udid])
         .output()
         .expect("Failed to run hid text");
 
@@ -144,7 +143,7 @@ fn test_hid_text_invalid_char() {
     let udid = get_available_udid();
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "text", "あいうえお", "--udid", &udid]) // 日本語
+        .args(["idb", "text", "あいうえお", "--udid", &udid]) // 日本語
         .output()
         .expect("Failed to run hid text");
 
@@ -158,9 +157,7 @@ fn test_hid_swipe() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb", "hid", "swipe", "100", "100", "200", "200", "--udid", &udid,
-        ])
+        .args(["idb", "swipe", "100", "100", "200", "200", "--udid", &udid])
         .output()
         .expect("Failed to run hid swipe");
 
@@ -181,7 +178,6 @@ fn test_hid_swipe_with_duration_and_delta() {
     let output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
-            "hid",
             "swipe",
             "100",
             "100",
@@ -204,7 +200,7 @@ fn test_hid_swipe_with_duration_and_delta() {
 fn test_hid_without_udid() {
     // デフォルトターゲットでタップ実行
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "hid", "tap", "100", "200"])
+        .args(["idb", "tap", "100", "200"])
         .output()
         .expect("Failed to run hid tap");
 

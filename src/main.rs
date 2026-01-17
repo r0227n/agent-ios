@@ -5,8 +5,8 @@ mod types;
 
 use clap::Parser;
 use cli::idb::{
-    file, hid, CrashCommands, IdbCommands, LocationCommands, NotificationCommands,
-    SettingsCommands, UrlCommands,
+    file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, SettingsCommands,
+    UrlCommands,
 };
 use cli::{Cli, Commands};
 
@@ -170,50 +170,46 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     cli::idb::file::tail::run(path, udid, bundle_id).await?;
                 }
             },
-            IdbCommands::Hid { command } => match command {
-                hid::HidCommands::Tap {
-                    x,
-                    y,
-                    duration,
-                    udid,
-                } => {
-                    cli::idb::hid::tap::run(x, y, duration, udid).await?;
-                }
-                hid::HidCommands::Button {
-                    button,
-                    duration,
-                    udid,
-                } => {
-                    cli::idb::hid::button::run(button, duration, udid).await?;
-                }
-                hid::HidCommands::Key {
-                    keycode,
-                    duration,
-                    udid,
-                } => {
-                    cli::idb::hid::key::run(keycode, duration, udid).await?;
-                }
-                hid::HidCommands::KeySequence { key_sequence, udid } => {
-                    cli::idb::hid::key_sequence::run(key_sequence, udid).await?;
-                }
-                hid::HidCommands::Text { text, udid } => {
-                    cli::idb::hid::text::run(text, udid).await?;
-                }
-                hid::HidCommands::Swipe {
-                    x_start,
-                    y_start,
-                    x_end,
-                    y_end,
-                    duration,
-                    delta,
-                    udid,
-                } => {
-                    cli::idb::hid::swipe::run(
-                        x_start, y_start, x_end, y_end, duration, delta, udid,
-                    )
+            IdbCommands::Tap {
+                x,
+                y,
+                duration,
+                udid,
+            } => {
+                cli::idb::hid::tap::run(x, y, duration, udid).await?;
+            }
+            IdbCommands::Button {
+                button,
+                duration,
+                udid,
+            } => {
+                cli::idb::hid::button::run(button, duration, udid).await?;
+            }
+            IdbCommands::Key {
+                keycode,
+                duration,
+                udid,
+            } => {
+                cli::idb::hid::key::run(keycode, duration, udid).await?;
+            }
+            IdbCommands::KeySequence { key_sequence, udid } => {
+                cli::idb::hid::key_sequence::run(key_sequence, udid).await?;
+            }
+            IdbCommands::Text { text, udid } => {
+                cli::idb::hid::text::run(text, udid).await?;
+            }
+            IdbCommands::Swipe {
+                x_start,
+                y_start,
+                x_end,
+                y_end,
+                duration,
+                delta,
+                udid,
+            } => {
+                cli::idb::hid::swipe::run(x_start, y_start, x_end, y_end, duration, delta, udid)
                     .await?;
-                }
-            },
+            }
             IdbCommands::ListApps { udid } => {
                 cli::idb::list_apps::run(udid).await?;
             }
