@@ -13,17 +13,33 @@ package idb;
 
 // CompanionService definition
 service CompanionService {
+  rpc approve(ApproveRequest) returns (ApproveResponse) {}
   rpc describe(TargetDescriptionRequest) returns (TargetDescriptionResponse) {}
+  rpc focus(FocusRequest) returns (FocusResponse) {}
   rpc install(stream InstallRequest) returns (stream InstallResponse) {}
   rpc launch(stream LaunchRequest) returns (stream LaunchResponse) {}
-  rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
-  rpc focus(FocusRequest) returns (FocusResponse) {}
+  rpc list_apps(ListAppsRequest) returns (ListAppsResponse) {}
   rpc log(LogRequest) returns (stream LogResponse) {}
-  rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
-  // Settings Operations
+  rpc mv(MvRequest) returns (MvResponse) {}
+  rpc open_url(OpenUrlRequest) returns (OpenUrlResponse) {}
+  rpc revoke(RevokeRequest) returns (RevokeResponse) {}
+  rpc rm(RmRequest) returns (RmResponse) {}
+  rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
+  rpc send_notification(SendNotificationRequest) returns (SendNotificationResponse) {}
+  rpc set_location(SetLocationRequest) returns (SetLocationResponse) {}
   rpc setting(SettingRequest) returns (SettingResponse) {}
   rpc get_setting(GetSettingRequest) returns (GetSettingResponse) {}
   rpc list_settings(ListSettingRequest) returns (ListSettingResponse) {}
+  rpc terminate(TerminateRequest) returns (TerminateResponse) {}
+  rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
+  rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
+  rpc xctest_list_tests(XctestListTestsRequest) returns (XctestListTestsResponse) {}
+  rpc ls(LsRequest) returns (LsResponse) {}
+  rpc mkdir(MkdirRequest) returns (MkdirResponse) {}
+  // Crash Operations
+  rpc crash_delete(CrashLogQuery) returns (CrashLogResponse) {}
+  rpc crash_list(CrashLogQuery) returns (CrashLogResponse) {}
+  rpc crash_show(CrashShowRequest) returns (CrashShowResponse) {}
 }
 
 message CompanionInfo {
@@ -163,7 +179,227 @@ message UninstallRequest {
 
 message UninstallResponse {}
 
-// ========== Settings ==========
+// ========== Permissions ==========
+
+message ApproveRequest {
+  enum Permission {
+    PHOTOS = 0;
+    CAMERA = 1;
+    CONTACTS = 2;
+    URL = 3;
+    LOCATION = 4;
+    NOTIFICATION = 5;
+    MICROPHONE = 6;
+  }
+  string bundle_id = 1;
+  repeated Permission permissions = 2;
+  string scheme = 3;
+}
+
+message ApproveResponse {}
+
+message RevokeRequest {
+  enum Permission {
+    PHOTOS = 0;
+    CAMERA = 1;
+    CONTACTS = 2;
+    URL = 3;
+    LOCATION = 4;
+    NOTIFICATION = 5;
+    MICROPHONE = 6;
+  }
+  string bundle_id = 1;
+  repeated Permission permissions = 2;
+  string scheme = 3;
+}
+
+message RevokeResponse {}
+
+// ========== Apps ==========
+
+message ListAppsRequest {
+  bool suppress_process_state = 1;
+}
+
+message ListAppsResponse {
+  repeated InstalledAppInfo apps = 1;
+}
+
+message InstalledAppInfo {
+  string bundle_id = 1;
+  string name = 2;
+  repeated string architectures = 3;
+  string install_type = 4;
+  enum AppProcessState {
+    UNKNOWN = 0;
+    NOT_RUNNING = 1;
+    RUNNING = 2;
+  }
+  AppProcessState process_state = 5;
+  bool debuggable = 6;
+  uint64 process_identifier = 7;
+}
+
+// ========== File Operations ==========
+
+message FileContainer {
+  enum Kind {
+    NONE = 0;
+    APPLICATION = 1;
+    ROOT = 2;
+    MEDIA = 3;
+    CRASHES = 4;
+    PROVISIONING_PROFILES = 5;
+    MDM_PROFILES = 6;
+    SPRINGBOARD_ICONS = 7;
+    WALLPAPER = 8;
+    DISK_IMAGES = 9;
+    GROUP_CONTAINER = 10;
+    APPLICATION_CONTAINER = 11;
+    AUXILLARY = 12;
+    XCTEST = 13;
+    DYLIB = 14;
+    DSYM = 15;
+    FRAMEWORK = 16;
+    SYMBOLS = 17;
+  }
+  Kind kind = 1;
+  string bundle_id = 2;
+}
+
+message MvRequest {
+  repeated string src_paths = 2;
+  string dst_path = 3;
+  FileContainer container = 4;
+}
+
+message MvResponse {}
+
+message RmRequest {
+  repeated string paths = 2;
+  FileContainer container = 3;
+}
+
+message RmResponse {}
+
+message FileInfo {
+  string path = 1;
+}
+
+message FileListing {
+  FileInfo parent = 1;
+  repeated FileInfo files = 2;
+}
+
+message LsRequest {
+  string path = 2;
+  FileContainer container = 3;
+  repeated string paths = 4;
+}
+
+message LsResponse {
+  repeated FileInfo files = 1;
+  repeated FileListing listings = 2;
+}
+
+message MkdirRequest {
+  string path = 2;
+  FileContainer container = 3;
+}
+
+message MkdirResponse {}
+
+// ========== App Lifecycle ==========
+
+message TerminateRequest {
+  string bundle_id = 1;
+}
+
+message TerminateResponse {}
+
+// ========== XCTest ==========
+
+message XctestListBundlesRequest {}
+
+message XctestListBundlesResponse {
+  message Bundles {
+    string name = 1;
+    string bundle_id = 2;
+    repeated string architectures = 3;
+  }
+  repeated Bundles bundles = 1;
+}
+
+message XctestListTestsRequest {
+  string bundle_name = 1;
+  string app_path = 2;
+}
+
+message XctestListTestsResponse {
+  repeated string names = 1;
+}
+
+// ========== Location ==========
+
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message SetLocationRequest {
+  Location location = 1;
+}
+
+message SetLocationResponse {}
+
+// ========== Notifications & URLs ==========
+
+message OpenUrlRequest {
+  string url = 1;
+}
+
+message OpenUrlResponse {}
+
+message SendNotificationRequest {
+  string bundle_id = 1;
+  string json_payload = 2;
+}
+
+message SendNotificationResponse {}
+
+// ========== Crash Logs ==========
+
+message CrashLogQuery {
+  uint64 since = 1;
+  uint64 before = 2;
+  string bundle_id = 3;
+  string name = 4;
+}
+
+message CrashLogInfo {
+  string name = 1;
+  string bundle_id = 2;
+  string process_name = 3;
+  string parent_process_name = 4;
+  uint64 process_identifier = 5;
+  uint64 parent_process_identifier = 6;
+  uint64 timestamp = 7;
+}
+
+message CrashLogResponse {
+  repeated CrashLogInfo list = 1;
+}
+
+message CrashShowRequest {
+  string name = 1;
+}
+
+message CrashShowResponse {
+  CrashLogInfo info = 1;
+  string contents = 2;
+}
+
+// ========== Settings Operations ==========
 
 enum Setting {
   LOCALE = 0;

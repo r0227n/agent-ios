@@ -15,8 +15,8 @@ use super::idb::log_request::Source as LogSource;
 use super::idb::payload::Source as PayloadSource;
 use super::idb::process_output::Interface;
 use super::idb::{
-    InstallRequest, InstallResponse, LaunchRequest, LogRequest, Payload, ScreenshotRequest,
-    TargetDescriptionRequest,
+    InstallRequest, InstallResponse, LaunchRequest, LogRequest, Payload, RmRequest,
+    ScreenshotRequest, TargetDescriptionRequest,
 };
 
 /// Configuration for launching an application
@@ -263,6 +263,85 @@ impl IdbClient {
         Ok(())
     }
 
+    /// Approve (grant) app permissions
+    pub async fn approve(
+        &mut self,
+        bundle_id: &str,
+        permissions: Vec<i32>,
+        scheme: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::ApproveRequest {
+            bundle_id: bundle_id.to_string(),
+            permissions,
+            scheme: scheme.unwrap_or_default(),
+        });
+        let response = self.client.approve(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Open a URL on the device
+    pub async fn open_url(
+        &mut self,
+        url: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::OpenUrlRequest {
+            url: url.to_string(),
+        });
+        let response = self.client.open_url(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Revoke app permissions
+    pub async fn revoke(
+        &mut self,
+        bundle_id: &str,
+        permissions: Vec<i32>,
+        scheme: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::RevokeRequest {
+            bundle_id: bundle_id.to_string(),
+            permissions,
+            scheme: scheme.unwrap_or_default(),
+        });
+        let response = self.client.revoke(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Send a push notification to the device
+    pub async fn send_notification(
+        &mut self,
+        bundle_id: &str,
+        json_payload: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::SendNotificationRequest {
+            bundle_id: bundle_id.to_string(),
+            json_payload: json_payload.to_string(),
+        });
+        let response = self.client.send_notification(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Set device location
+    pub async fn set_location(
+        &mut self,
+        latitude: f64,
+        longitude: f64,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::SetLocationRequest {
+            location: Some(super::idb::Location {
+                latitude,
+                longitude,
+            }),
+        });
+        let response = self.client.set_location(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Uninstall an application
     pub async fn uninstall(
         &mut self,
@@ -272,6 +351,63 @@ impl IdbClient {
             bundle_id: bundle_id.to_string(),
         });
         let response = self.client.uninstall(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// List installed applications
+    pub async fn list_apps(
+        &mut self,
+    ) -> Result<Vec<super::idb::InstalledAppInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::ListAppsRequest {
+            suppress_process_state: false,
+        });
+        let response = self.client.list_apps(request).await?;
+        let inner = response.into_inner();
+        Ok(inner.apps)
+    }
+
+    /// Terminate a running application
+    pub async fn terminate(
+        &mut self,
+        bundle_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::TerminateRequest {
+            bundle_id: bundle_id.to_string(),
+        });
+        let response = self.client.terminate(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Create a directory on the target
+    pub async fn mkdir(
+        &mut self,
+        path: &str,
+        container: super::idb::FileContainer,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::MkdirRequest {
+            path: path.to_string(),
+            container: Some(container),
+        });
+        let response = self.client.mkdir(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// Move files/directories on the target
+    pub async fn mv(
+        &mut self,
+        src_paths: Vec<String>,
+        dst_path: &str,
+        container: super::idb::FileContainer,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::MvRequest {
+            src_paths,
+            dst_path: dst_path.to_string(),
+            container: Some(container),
+        });
+        let response = self.client.mv(request).await?;
         let _inner = response.into_inner();
         Ok(())
     }
@@ -350,6 +486,110 @@ impl IdbClient {
         Ok(response.into_inner())
     }
 
+    /// Remove files or directories inside a container
+    pub async fn rm(
+        &mut self,
+        paths: Vec<String>,
+        container: Option<super::idb::FileContainer>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(RmRequest { paths, container });
+        let response = self.client.rm(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
+    /// List files on the target device/simulator
+    pub async fn ls(
+        &mut self,
+        path: String,
+        paths: Vec<String>,
+        container: Option<super::idb::FileContainer>,
+    ) -> Result<super::idb::LsResponse, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::LsRequest {
+            path,
+            container,
+            paths,
+        });
+        let response = self.client.ls(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// List installed XCTest bundles
+    pub async fn xctest_list_bundles(
+        &mut self,
+    ) -> Result<
+        Vec<super::idb::xctest_list_bundles_response::Bundles>,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
+        let request = tonic::Request::new(super::idb::XctestListBundlesRequest {});
+        let response = self.client.xctest_list_bundles(request).await?;
+        Ok(response.into_inner().bundles)
+    }
+
+    /// List tests inside an installed test bundle
+    pub async fn xctest_list_tests(
+        &mut self,
+        bundle_name: String,
+        app_path: Option<String>,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::XctestListTestsRequest {
+            bundle_name,
+            app_path: app_path.unwrap_or_default(),
+        });
+        let response = self.client.xctest_list_tests(request).await?;
+        Ok(response.into_inner().names)
+    }
+
+    /// List crash logs
+    pub async fn crash_list(
+        &mut self,
+        since: Option<u64>,
+        before: Option<u64>,
+        bundle_id: Option<String>,
+        name: Option<String>,
+    ) -> Result<Vec<super::idb::CrashLogInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let query = super::idb::CrashLogQuery {
+            since: since.unwrap_or(0),
+            before: before.unwrap_or(0),
+            bundle_id: bundle_id.unwrap_or_default(),
+            name: name.unwrap_or_default(),
+        };
+
+        let request = tonic::Request::new(query);
+        let response = self.client.crash_list(request).await?;
+        Ok(response.into_inner().list)
+    }
+
+    /// Show crash log contents
+    pub async fn crash_show(
+        &mut self,
+        name: &str,
+    ) -> Result<super::idb::CrashShowResponse, Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::CrashShowRequest { name: name.to_string() });
+        let response = self.client.crash_show(request).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Delete crash logs
+    pub async fn crash_delete(
+        &mut self,
+        since: Option<u64>,
+        before: Option<u64>,
+        bundle_id: Option<String>,
+        name: Option<String>,
+    ) -> Result<Vec<super::idb::CrashLogInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let query = super::idb::CrashLogQuery {
+            since: since.unwrap_or(0),
+            before: before.unwrap_or(0),
+            bundle_id: bundle_id.unwrap_or_default(),
+            name: name.unwrap_or_default(),
+        };
+
+        let request = tonic::Request::new(query);
+        let response = self.client.crash_delete(request).await?;
+        Ok(response.into_inner().list)
+    }
+
     /// Set a device setting
     pub async fn set_setting(
         &mut self,
@@ -369,15 +609,15 @@ impl IdbClient {
     pub async fn get_setting(
         &mut self,
         setting: super::idb::Setting,
-        name: String,
-        domain: String,
+        name: Option<String>,
+        domain: Option<String>,
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         use super::idb::GetSettingRequest;
 
         let request = tonic::Request::new(GetSettingRequest {
             setting: setting as i32,
-            name,
-            domain,
+            name: name.unwrap_or_default(),
+            domain: domain.unwrap_or_default(),
         });
 
         let response = self.client.get_setting(request).await?;

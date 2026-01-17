@@ -38,7 +38,7 @@ pub async fn get(
     let mut client = resolver.connect(udid.as_deref()).await?;
 
     let value = client
-        .get_setting(Setting::Any, name, domain.unwrap_or_default())
+        .get_setting(Setting::Any, Some(name), domain)
         .await?;
 
     println!("{}", value);

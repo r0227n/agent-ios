@@ -4,7 +4,7 @@ mod grpc;
 mod types;
 
 use clap::Parser;
-use cli::idb::{IdbCommands, SettingsCommands};
+use cli::idb::{file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, SettingsCommands, UrlCommands};
 use cli::{Cli, Commands};
 
 #[tokio::main]
@@ -80,6 +80,99 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Uninstall { bundle_id, udid } => {
                 cli::idb::uninstall::run(bundle_id, udid).await?;
             }
+            IdbCommands::Approve {
+                bundle_id,
+                permissions,
+                scheme,
+                udid,
+            } => {
+                cli::idb::permissions::approve(bundle_id, permissions, scheme, udid).await?;
+            }
+            IdbCommands::Crash { command } => match command {
+                CrashCommands::List {
+                    since,
+                    before,
+                    bundle_id,
+                    name,
+                    udid,
+                } => {
+                    cli::idb::crash::list(since, before, bundle_id, name, udid).await?;
+                }
+                CrashCommands::Show { name, udid } => {
+                    cli::idb::crash::show(name, udid).await?;
+                }
+                CrashCommands::Delete {
+                    since,
+                    before,
+                    bundle_id,
+                    name,
+                    udid,
+                } => {
+                    cli::idb::crash::delete(since, before, bundle_id, name, udid).await?;
+                }
+            },
+            IdbCommands::File { command } => match command {
+                file::FileCommands::Ls {
+                    paths,
+                    bundle_id,
+                    udid,
+                } => {
+                    cli::idb::file::ls::run(paths, udid, bundle_id).await?;
+                }
+                file::FileCommands::Mkdir {
+                    path,
+                    bundle_id,
+                    root,
+                    udid,
+                } => {
+                    cli::idb::file::mkdir::run(path, bundle_id, root, udid).await?;
+                }
+                file::FileCommands::Mv {
+                    src_paths,
+                    dst_path,
+                    bundle_id,
+                    root,
+                    udid,
+                } => {
+                    cli::idb::file::mv::run(src_paths, dst_path, bundle_id, root, udid).await?;
+                }
+                file::FileCommands::Rm {
+                    paths,
+                    udid,
+                    bundle_id,
+                } => {
+                    cli::idb::file::rm::run(paths, udid, bundle_id).await?;
+                }
+            },
+            IdbCommands::ListApps { udid } => {
+                cli::idb::list_apps::run(udid).await?;
+            }
+            IdbCommands::Location { command } => match command {
+                LocationCommands::SetLocation {
+                    latitude,
+                    longitude,
+                    udid,
+                } => {
+                    cli::idb::location::run(latitude, longitude, udid).await?;
+                }
+            },
+            IdbCommands::Notification { command } => match command {
+                NotificationCommands::SendNotification {
+                    bundle_id,
+                    json_payload,
+                    udid,
+                } => {
+                    cli::idb::notification::run(bundle_id, json_payload, udid).await?;
+                }
+            },
+            IdbCommands::Revoke {
+                bundle_id,
+                permissions,
+                scheme,
+                udid,
+            } => {
+                cli::idb::permissions::revoke(bundle_id, permissions, scheme, udid).await?;
+            }
             IdbCommands::Settings { command } => match command {
                 SettingsCommands::Set {
                     name,
@@ -101,6 +194,24 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     cli::idb::settings::list_locale(udid).await?;
                 }
             },
+            IdbCommands::Terminate { bundle_id, udid } => {
+                cli::idb::terminate::run(bundle_id, udid).await?;
+            }
+            IdbCommands::Url { command } => match command {
+                UrlCommands::Open { url, udid } => {
+                    cli::idb::url::run(url, udid).await?;
+                }
+            },
+            IdbCommands::XctestList { udid } => {
+                cli::idb::xctest_list::run(udid).await?;
+            }
+            IdbCommands::XctestListBundle {
+                bundle_id,
+                app_path,
+                udid,
+            } => {
+                cli::idb::xctest_list_bundle::run(bundle_id, app_path, udid).await?;
+            }
         },
     }
 
