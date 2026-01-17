@@ -734,4 +734,55 @@ impl IdbClient {
         let response = self.client.xctest_run(request).await?;
         Ok(response.into_inner())
     }
+
+    // ========== Settings Operations ==========
+
+    /// Set a device setting
+    pub async fn set_setting(
+        &mut self,
+        setting: super::idb::setting_request::Setting,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::SettingRequest;
+
+        let request = tonic::Request::new(SettingRequest {
+            setting: Some(setting),
+        });
+
+        let _response = self.client.setting(request).await?;
+        Ok(())
+    }
+
+    /// Get a device setting value
+    pub async fn get_setting(
+        &mut self,
+        setting: super::idb::Setting,
+        name: Option<String>,
+        domain: Option<String>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::GetSettingRequest;
+
+        let request = tonic::Request::new(GetSettingRequest {
+            setting: setting as i32,
+            name: name.unwrap_or_default(),
+            domain: domain.unwrap_or_default(),
+        });
+
+        let response = self.client.get_setting(request).await?;
+        Ok(response.into_inner().value)
+    }
+
+    /// List available settings
+    pub async fn list_settings(
+        &mut self,
+        setting: super::idb::Setting,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::ListSettingRequest;
+
+        let request = tonic::Request::new(ListSettingRequest {
+            setting: setting as i32,
+        });
+
+        let response = self.client.list_settings(request).await?;
+        Ok(response.into_inner().values)
+    }
 }

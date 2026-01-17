@@ -11,6 +11,7 @@ pub mod log;
 pub mod notification;
 pub mod permissions;
 pub mod screenshot;
+pub mod settings;
 pub mod terminate;
 pub mod uninstall;
 pub mod url;
@@ -205,6 +206,12 @@ pub enum IdbCommands {
         udid: Option<String>,
     },
 
+    /// Device settings operations
+    Settings {
+        #[command(subcommand)]
+        command: SettingsCommands,
+    },
+
     /// Terminate a running application
     Terminate {
         /// Application bundle identifier
@@ -356,6 +363,51 @@ pub enum NotificationCommands {
         /// JSON payload for the notification
         json_payload: String,
 
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum SettingsCommands {
+    /// Set a device setting
+    Set {
+        /// Setting name
+        name: String,
+
+        /// Setting value
+        value: String,
+
+        /// Value type (string, int, bool, etc.)
+        #[arg(long)]
+        value_type: Option<String>,
+
+        /// Settings domain
+        #[arg(long)]
+        domain: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Get a device setting value
+    Get {
+        /// Setting name
+        name: String,
+
+        /// Settings domain
+        #[arg(long)]
+        domain: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// List available locales
+    ListLocale {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,

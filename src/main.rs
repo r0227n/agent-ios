@@ -5,7 +5,8 @@ mod types;
 
 use clap::Parser;
 use cli::idb::{
-    file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, UrlCommands,
+    file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, SettingsCommands,
+    UrlCommands,
 };
 use cli::{Cli, Commands};
 
@@ -198,6 +199,23 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             } => {
                 cli::idb::permissions::revoke(bundle_id, permissions, scheme, udid).await?;
             }
+            IdbCommands::Settings { command } => match command {
+                SettingsCommands::Set {
+                    name,
+                    value,
+                    value_type,
+                    domain,
+                    udid,
+                } => {
+                    cli::idb::settings::set(name, value, value_type, domain, udid).await?;
+                }
+                SettingsCommands::Get { name, domain, udid } => {
+                    cli::idb::settings::get(name, domain, udid).await?;
+                }
+                SettingsCommands::ListLocale { udid } => {
+                    cli::idb::settings::list_locale(udid).await?;
+                }
+            },
             IdbCommands::Terminate { bundle_id, udid } => {
                 cli::idb::terminate::run(bundle_id, udid).await?;
             }
