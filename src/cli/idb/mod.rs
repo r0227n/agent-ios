@@ -5,6 +5,7 @@ pub mod launch;
 pub mod list_apps;
 pub mod list_targets;
 pub mod log;
+pub mod location;
 pub mod rm;
 pub mod screenshot;
 pub mod terminate;
@@ -134,6 +135,13 @@ pub enum IdbCommands {
         udid: Option<String>,
     },
 
+    /// Set the device location
+    Location {
+        /// Subcommand for location operations
+        #[command(subcommand)]
+        command: LocationCommands,
+    },
+
     /// Remove files or directories inside a container
     Rm {
         /// Paths to remove (directories will be recursively deleted)
@@ -161,6 +169,22 @@ pub enum IdbCommands {
 
     /// List installed XCTest bundles
     XctestList {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum LocationCommands {
+    /// Set device location to specific coordinates
+    SetLocation {
+        /// Latitude coordinate
+        latitude: f64,
+
+        /// Longitude coordinate
+        longitude: f64,
+
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,

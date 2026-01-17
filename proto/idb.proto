@@ -25,6 +25,7 @@ service CompanionService {
   rpc rm(RmRequest) returns (RmResponse) {}
   rpc terminate(TerminateRequest) returns (TerminateResponse) {}
   rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
+  rpc set_location(SetLocationRequest) returns (SetLocationResponse) {}
 }
 
 message CompanionInfo {
@@ -244,3 +245,16 @@ message XctestListBundlesResponse {
   }
   repeated Bundles bundles = 1;
 }
+
+// ========== Location ==========
+
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message SetLocationRequest {
+  Location location = 1;
+}
+
+message SetLocationResponse {}

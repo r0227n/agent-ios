@@ -263,6 +263,23 @@ impl IdbClient {
         Ok(())
     }
 
+    /// Set device location
+    pub async fn set_location(
+        &mut self,
+        latitude: f64,
+        longitude: f64,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = tonic::Request::new(super::idb::SetLocationRequest {
+            location: Some(super::idb::Location {
+                latitude,
+                longitude,
+            }),
+        });
+        let response = self.client.set_location(request).await?;
+        let _inner = response.into_inner();
+        Ok(())
+    }
+
     /// Uninstall an application
     pub async fn uninstall(
         &mut self,
