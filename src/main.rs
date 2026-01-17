@@ -4,7 +4,9 @@ mod grpc;
 mod types;
 
 use clap::Parser;
-use cli::idb::{file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, UrlCommands};
+use cli::idb::{
+    file, CrashCommands, IdbCommands, LocationCommands, NotificationCommands, UrlCommands,
+};
 use cli::{Cli, Commands};
 
 #[tokio::main]
