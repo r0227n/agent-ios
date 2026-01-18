@@ -24,16 +24,22 @@ pub async fn run(
             }
         } else if !response.listings.is_empty() {
             // Multiple paths output - print with directory headers
-            for (idx, listing) in response.listings.iter().enumerate() {
-                if let Some(parent) = &listing.parent {
-                    println!("{}:", parent.path);
-                }
-                for file_info in &listing.files {
-                    println!("{}", file_info.path);
-                }
-                // Add blank line between listings (except after the last one)
-                if idx < response.listings.len() - 1 {
-                    println!();
+            // Re-sort listings to match input paths order (gRPC response order may differ)
+            let listings_map: std::collections::HashMap<&str, &crate::grpc::idb::FileListing> =
+                response
+                    .listings
+                    .iter()
+                    .filter_map(|l| l.parent.as_ref().map(|p| (p.path.as_str(), l)))
+                    .collect();
+
+            for path in &paths {
+                if let Some(listing) = listings_map.get(path.as_str()) {
+                    if let Some(parent) = &listing.parent {
+                        println!("{}:", parent.path);
+                    }
+                    for file_info in &listing.files {
+                        println!("{}", file_info.path);
+                    }
                 }
             }
         }

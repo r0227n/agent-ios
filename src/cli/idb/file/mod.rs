@@ -3,8 +3,10 @@ pub mod mkdir;
 pub mod mv;
 pub mod pull;
 pub mod push;
+pub mod read;
 pub mod rm;
 pub mod tail;
+pub mod write;
 
 use clap::Subcommand;
 
@@ -118,6 +120,34 @@ pub enum FileCommands {
     Tail {
         /// Path to file to tail
         path: String,
+
+        /// Bundle ID for app-specific file container
+        #[arg(long)]
+        bundle_id: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Read a file from the target device and output to stdout
+    Read {
+        /// Source path on device
+        src_path: String,
+
+        /// Bundle ID for app-specific file container
+        #[arg(long)]
+        bundle_id: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Read from stdin and write to a file on the target device
+    Write {
+        /// Destination path on device
+        dst_path: String,
 
         /// Bundle ID for app-specific file container
         #[arg(long)]

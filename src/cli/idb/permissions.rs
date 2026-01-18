@@ -1,3 +1,19 @@
+//! Permission management commands for iOS applications
+//!
+//! # Known Issues
+//!
+//! The `approve` command has a known issue with specific permission types due to
+//! a SQLite schema mismatch in the upstream `idb_companion` daemon:
+//!
+//! **Affected permissions**: `photos`, `camera`, `contacts`
+//! **Error**: "table access has 17 columns but 13 values were supplied"
+//! **Status**: Affects both Python idb and Rust agent-mobile
+//!
+//! **Working permissions**: `location`, `notification`, `url`, `microphone`
+//! **Revoke operations**: All permission types work correctly
+//!
+//! See `docs/KNOWN_ISSUES.md` for detailed information.
+
 use crate::cli::helpers::{with_client, CommandResult};
 use crate::grpc::idb::approve_request::Permission as ApprovePermission;
 use crate::grpc::idb::revoke_request::Permission as RevokePermission;

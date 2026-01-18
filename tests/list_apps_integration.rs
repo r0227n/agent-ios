@@ -1,8 +1,28 @@
 use std::process::Command;
 
+/// Normalize a list-apps output line by sorting the architectures field.
+/// This is needed because Python idb uses set[str] for architectures,
+/// which has non-deterministic ordering when joined.
+fn normalize_list_apps_line(line: &str) -> String {
+    let parts: Vec<&str> = line.split(" | ").collect();
+    if parts.len() != 7 {
+        return line.to_string();
+    }
+
+    // The 4th field (index 3) contains architectures like "arm64, x86_64"
+    let mut archs: Vec<&str> = parts[3].split(", ").collect();
+    archs.sort();
+    let sorted_archs = archs.join(", ");
+
+    // Reconstruct the line with sorted architectures
+    format!(
+        "{} | {} | {} | {} | {} | {} | {}",
+        parts[0], parts[1], parts[2], sorted_archs, parts[4], parts[5], parts[6]
+    )
+}
+
 /// Integration test comparing agent-mobile list-apps output with Python idb
 #[test]
-#[ignore] // Run with: cargo test --test list_apps_integration -- --ignored
 fn test_list_apps_matches_python_idb() {
     // Get UDID of first booted simulator
     let list_targets_output = Command::new("./target/debug/agent-mobile")
@@ -33,12 +53,16 @@ fn test_list_apps_matches_python_idb() {
         .output()
         .expect("Failed to run agent-mobile");
 
-    // Sort both outputs for comparison (order may vary)
+    // Normalize and sort both outputs for comparison
+    // Normalization sorts architectures within each line (Python uses set[str] which has non-deterministic order)
     let python_stdout = String::from_utf8_lossy(&python_output.stdout);
-    let mut python_lines: Vec<&str> = python_stdout.lines().collect();
+    let mut python_lines: Vec<String> = python_stdout
+        .lines()
+        .map(normalize_list_apps_line)
+        .collect();
 
     let rust_stdout = String::from_utf8_lossy(&rust_output.stdout);
-    let mut rust_lines: Vec<&str> = rust_stdout.lines().collect();
+    let mut rust_lines: Vec<String> = rust_stdout.lines().map(normalize_list_apps_line).collect();
 
     python_lines.sort();
     rust_lines.sort();
@@ -52,7 +76,6 @@ fn test_list_apps_matches_python_idb() {
 
 /// Test that list-apps works without UDID when only one target is available
 #[test]
-#[ignore]
 fn test_list_apps_without_udid() {
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "list-apps"])
@@ -77,7 +100,6 @@ fn test_list_apps_without_udid() {
 
 /// Test that output format matches expected structure
 #[test]
-#[ignore]
 fn test_list_apps_output_format() {
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "list-apps"])

@@ -4,7 +4,6 @@ mod common;
 /// Compares Python idb output with agent-mobile output to ensure compatibility
 
 #[test]
-#[ignore] // Run with: cargo test --test file_ls_integration -- --ignored
 fn test_ls_basic_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -18,7 +17,6 @@ fn test_ls_basic_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_ls_multiple_paths_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -29,11 +27,12 @@ fn test_ls_multiple_paths_equivalence() {
     let rust_output =
         common::run_agent_mobile_file_command(&["ls", "/tmp", "/var", "--udid", &udid]);
 
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    // Use order-independent comparison for multi-path ls
+    // (gRPC response order may differ from input order)
+    common::compare_file_ls_multi_path_outputs(&python_output, &rust_output);
 }
 
 #[test]
-#[ignore]
 fn test_ls_with_bundle_id_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -41,14 +40,8 @@ fn test_ls_with_bundle_id_equivalence() {
     let bundle_id = common::get_test_bundle_id();
 
     // Test listing app container with bundle ID
-    let python_output = common::run_idb_file_command(&[
-        "ls",
-        "/",
-        "--bundle-id",
-        &bundle_id,
-        "--udid",
-        &udid,
-    ]);
+    let python_output =
+        common::run_idb_file_command(&["ls", "/", "--bundle-id", &bundle_id, "--udid", &udid]);
     let rust_output = common::run_agent_mobile_file_command(&[
         "ls",
         "/",
@@ -62,7 +55,6 @@ fn test_ls_with_bundle_id_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_ls_nonexistent_path_error() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -71,8 +63,7 @@ fn test_ls_nonexistent_path_error() {
     let nonexistent_path = "/this/path/does/not/exist/12345";
 
     // Both should fail with error
-    let python_output =
-        common::run_idb_file_command(&["ls", nonexistent_path, "--udid", &udid]);
+    let python_output = common::run_idb_file_command(&["ls", nonexistent_path, "--udid", &udid]);
     let rust_output =
         common::run_agent_mobile_file_command(&["ls", nonexistent_path, "--udid", &udid]);
 
@@ -84,7 +75,6 @@ fn test_ls_nonexistent_path_error() {
 }
 
 #[test]
-#[ignore]
 fn test_ls_without_udid() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -99,7 +89,6 @@ fn test_ls_without_udid() {
 }
 
 #[test]
-#[ignore]
 fn test_ls_root_directory() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();

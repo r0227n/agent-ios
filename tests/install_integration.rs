@@ -140,10 +140,12 @@ fn test_install_without_udid() {
             stdout
         );
     } else {
-        // Or fail with "No companions available" if no companion is running
+        // Or fail with companion-related errors
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
-            stderr.contains("No companions available") || stderr.contains("No companion found"),
+            stderr.contains("No companions available")
+                || stderr.contains("No companion found")
+                || stderr.contains("Multiple companions available"),
             "Unexpected error: {}",
             stderr
         );

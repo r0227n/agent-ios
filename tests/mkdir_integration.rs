@@ -4,7 +4,6 @@ mod common;
 /// Compares Python idb output with agent-mobile output to ensure compatibility
 
 #[test]
-#[ignore] // Run with: cargo test --test mkdir_integration -- --ignored
 fn test_mkdir_creates_directory() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -13,20 +12,12 @@ fn test_mkdir_creates_directory() {
     // Create a test directory in root container
     let test_path = format!("/tmp/test_mkdir_{}", std::process::id());
 
-    let output = common::run_agent_mobile_file_command(&[
-        "mkdir",
-        &test_path,
-        "--root",
-        "--udid",
-        &udid,
-    ]);
+    let output =
+        common::run_agent_mobile_file_command(&["mkdir", &test_path, "--root", "--udid", &udid]);
 
     // Should not error
     if !output.status.success() {
-        panic!(
-            "mkdir failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        panic!("mkdir failed: {}", String::from_utf8_lossy(&output.stderr));
     }
 
     // No output on success (matching Python idb behavior)
@@ -41,7 +32,6 @@ fn test_mkdir_creates_directory() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_without_udid() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -53,10 +43,7 @@ fn test_mkdir_without_udid() {
 
     // Should not error if at least one simulator is booted
     if !output.status.success() {
-        panic!(
-            "mkdir failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        panic!("mkdir failed: {}", String::from_utf8_lossy(&output.stderr));
     }
 
     // Cleanup
@@ -64,7 +51,6 @@ fn test_mkdir_without_udid() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_invalid_bundle_id() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -89,7 +75,6 @@ fn test_mkdir_invalid_bundle_id() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_compatibility_with_python_idb() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -107,10 +92,7 @@ fn test_mkdir_compatibility_with_python_idb() {
         common::run_agent_mobile_file_command(&["mkdir", &test_path2, "--root", "--udid", &udid]);
 
     // Both should succeed with no output
-    assert_eq!(
-        python_output.status.success(),
-        rust_output.status.success()
-    );
+    assert_eq!(python_output.status.success(), rust_output.status.success());
     assert_eq!(
         python_output.stdout.is_empty(),
         rust_output.stdout.is_empty()
@@ -125,7 +107,6 @@ fn test_mkdir_compatibility_with_python_idb() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_with_bundle_id_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -178,7 +159,6 @@ fn test_mkdir_with_bundle_id_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_nested_directory_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();

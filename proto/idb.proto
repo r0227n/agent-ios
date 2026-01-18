@@ -13,41 +13,61 @@ package idb;
 
 // CompanionService definition
 service CompanionService {
-  rpc approve(ApproveRequest) returns (ApproveResponse) {}
+  // Management
+  // Note: connect RPC commented out due to naming conflict with tonic's Client::connect()
+  // Target connection will be handled through companion management layer
+  // rpc connect(ConnectRequest) returns (ConnectResponse) {}
+  rpc debugserver(stream DebugServerRequest) returns (stream DebugServerResponse) {}
+  rpc dap(stream DapRequest) returns (stream DapResponse) {}
   rpc describe(TargetDescriptionRequest) returns (TargetDescriptionResponse) {}
-  rpc focus(FocusRequest) returns (FocusResponse) {}
   rpc install(stream InstallRequest) returns (stream InstallResponse) {}
-  rpc launch(stream LaunchRequest) returns (stream LaunchResponse) {}
-  rpc list_apps(ListAppsRequest) returns (ListAppsResponse) {}
+  rpc instruments_run(stream InstrumentsRunRequest) returns (stream InstrumentsRunResponse) {}
   rpc log(LogRequest) returns (stream LogResponse) {}
-  rpc mv(MvRequest) returns (MvResponse) {}
+  rpc xctrace_record(stream XctraceRecordRequest) returns (stream XctraceRecordResponse) {}
+  // Interaction
+  rpc accessibility_info(AccessibilityInfoRequest) returns (AccessibilityInfoResponse) {}
+  rpc focus(FocusRequest) returns (FocusResponse) {}
+  rpc hid(stream HIDEvent) returns (HIDResponse) {}
   rpc open_url(OpenUrlRequest) returns (OpenUrlResponse) {}
-  rpc revoke(RevokeRequest) returns (RevokeResponse) {}
-  rpc rm(RmRequest) returns (RmResponse) {}
-  rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
-  rpc send_notification(SendNotificationRequest) returns (SendNotificationResponse) {}
   rpc set_location(SetLocationRequest) returns (SetLocationResponse) {}
+  rpc send_notification(SendNotificationRequest) returns (SendNotificationResponse) {}
+  rpc simulate_memory_warning(SimulateMemoryWarningRequest) returns (SimulateMemoryWarningResponse) {}
+  // Settings
+  rpc approve(ApproveRequest) returns (ApproveResponse) {}
+  rpc revoke(RevokeRequest) returns (RevokeResponse) {}
+  rpc clear_keychain(ClearKeychainRequest) returns (ClearKeychainResponse) {}
+  rpc contacts_update(ContactsUpdateRequest) returns (ContactsUpdateResponse) {}
+  rpc contacts_clear(ContactsClearRequest) returns (ContactsClearResponse) {}
+  rpc photos_clear(PhotosClearRequest) returns (PhotosClearResponse) {}
   rpc setting(SettingRequest) returns (SettingResponse) {}
   rpc get_setting(GetSettingRequest) returns (GetSettingResponse) {}
   rpc list_settings(ListSettingRequest) returns (ListSettingResponse) {}
+  // App
+  rpc launch(stream LaunchRequest) returns (stream LaunchResponse) {}
+  rpc list_apps(ListAppsRequest) returns (ListAppsResponse) {}
   rpc terminate(TerminateRequest) returns (TerminateResponse) {}
   rpc uninstall(UninstallRequest) returns (UninstallResponse) {}
-  rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
-  rpc xctest_list_tests(XctestListTestsRequest) returns (XctestListTestsResponse) {}
-  rpc ls(LsRequest) returns (LsResponse) {}
-  rpc mkdir(MkdirRequest) returns (MkdirResponse) {}
+  // Video/Audio
+  rpc add_media(stream AddMediaRequest) returns (AddMediaResponse) {}
+  rpc record(stream RecordRequest) returns (stream RecordResponse) {}
+  rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
+  rpc video_stream(stream VideoStreamRequest) returns (stream VideoStreamResponse) {}
   // Crash Operations
   rpc crash_delete(CrashLogQuery) returns (CrashLogResponse) {}
   rpc crash_list(CrashLogQuery) returns (CrashLogResponse) {}
   rpc crash_show(CrashShowRequest) returns (CrashShowResponse) {}
-  // Phase 2: Streaming File Operations
+  // XCTest operations
+  rpc xctest_list_bundles(XctestListBundlesRequest) returns (XctestListBundlesResponse) {}
+  rpc xctest_list_tests(XctestListTestsRequest) returns (XctestListTestsResponse) {}
+  rpc xctest_run(XctestRunRequest) returns (stream XctestRunResponse) {}
+  // File Operations
+  rpc ls(LsRequest) returns (LsResponse) {}
+  rpc mkdir(MkdirRequest) returns (MkdirResponse) {}
+  rpc mv(MvRequest) returns (MvResponse) {}
+  rpc rm(RmRequest) returns (RmResponse) {}
   rpc pull(PullRequest) returns (stream PullResponse) {}
   rpc push(stream PushRequest) returns (PushResponse) {}
   rpc tail(stream TailRequest) returns (stream TailResponse) {}
-  // Phase 2: XCTest Execution
-  rpc xctest_run(XctestRunRequest) returns (stream XctestRunResponse) {}
-  // HID (Human Interface Device)
-  rpc hid(stream HIDEvent) returns (HIDResponse) {}
 }
 
 message CompanionInfo {
@@ -655,3 +675,262 @@ message HIDEvent {
 }
 
 message HIDResponse {}
+
+// ========== Connect ==========
+
+message ConnectRequest {
+  map<string, string> metadata = 1;
+  string local_file_path = 4;
+}
+
+message ConnectResponse {
+  CompanionInfo companion = 1;
+}
+
+// ========== Accessibility ==========
+
+message AccessibilityInfoRequest {
+  enum Format {
+    LEGACY = 0;
+    NESTED = 1;
+  }
+  Point point = 2;
+  Format format = 3;
+}
+
+message AccessibilityInfoResponse {
+  string json = 1;
+}
+
+// ========== Debug Server ==========
+
+message DebugServerRequest {
+  message Start {
+    string bundle_id = 1;
+  }
+  message Status {}
+  message Stop {}
+  message Pipe {
+    bytes data = 1;
+  }
+  oneof control {
+    Start start = 1;
+    Stop stop = 2;
+    Status status = 3;
+    Pipe pipe = 4;
+  }
+}
+
+message DebugServerResponse {
+  message Pipe {
+    bytes data = 1;
+  }
+  message Status {
+    repeated string lldb_bootstrap_commands = 1;
+  }
+  oneof control {
+    Status status = 1;
+    Pipe pipe = 2;
+  }
+}
+
+// ========== DAP (Debug Adapter Protocol) ==========
+
+message DapRequest {
+  message Start {
+    string debugger_pkg_id = 1;
+  }
+  message Pipe {
+    bytes data = 1;
+  }
+  message Stop {}
+  oneof control {
+    Start start = 1;
+    Pipe pipe = 2;
+    Stop stop = 3;
+  }
+}
+
+message DapResponse {
+  message Event {
+    string desc = 1;
+  }
+  message Pipe {
+    bytes data = 1;
+  }
+  oneof output {
+    Event started = 1;
+    Pipe stdout = 2;
+    Event stopped = 3;
+  }
+}
+
+// ========== Media ==========
+
+message AddMediaRequest {
+  Payload payload = 1;
+}
+
+message AddMediaResponse {}
+
+message RecordRequest {
+  message Start {
+    string file_path = 1;
+  }
+  message Stop {}
+  oneof control {
+    Start start = 1;
+    Stop stop = 2;
+  }
+}
+
+message RecordResponse {
+  oneof output {
+    bytes log_output = 1;
+    Payload payload = 2;
+  }
+}
+
+message VideoStreamRequest {
+  enum Format {
+    H264 = 0;
+    RGBA = 1;
+    MJPEG = 2;
+    MINICAP = 3;
+    I420 = 4;
+  }
+  message Start {
+    string file_path = 1;
+    uint64 fps = 2;
+    Format format = 3;
+    double compression_quality = 4;
+    double scale_factor = 5;
+    double avg_bitrate = 6;
+    double key_frame_rate = 7;
+  }
+  message Stop {}
+  oneof control {
+    Start start = 1;
+    Stop stop = 2;
+  }
+}
+
+message VideoStreamResponse {
+  oneof output {
+    bytes log_output = 1;
+    Payload payload = 2;
+  }
+}
+
+// ========== Contacts and Photos ==========
+
+message ContactsUpdateRequest {
+  Payload payload = 1;
+}
+
+message ContactsUpdateResponse {}
+
+message ContactsClearRequest {}
+
+message ContactsClearResponse {}
+
+message PhotosClearRequest {}
+
+message PhotosClearResponse {}
+
+// ========== Keychain ==========
+
+message ClearKeychainRequest {}
+
+message ClearKeychainResponse {}
+
+// ========== Memory ==========
+
+message SimulateMemoryWarningRequest {}
+
+message SimulateMemoryWarningResponse {}
+
+// ========== Instruments ==========
+
+message InstrumentsRunRequest {
+  message InstrumentsTimings {
+    double terminate_timeout = 1;
+    double launch_retry_timeout = 2;
+    double launch_error_timeout = 3;
+    double operation_duration = 4;
+  }
+  message Start {
+    string template_name = 2;
+    string app_bundle_id = 3;
+    map<string, string> environment = 4;
+    repeated string arguments = 5;
+    InstrumentsTimings timings = 6;
+    repeated string tool_arguments = 7;
+  }
+  message Stop {
+    repeated string post_process_arguments = 1;
+  }
+  oneof control {
+    Start start = 1;
+    Stop stop = 2;
+  }
+}
+
+message InstrumentsRunResponse {
+  enum State {
+    UNKNOWN = 0;
+    RUNNING_INSTRUMENTS = 1;
+    POST_PROCESSING = 2;
+  }
+  oneof output {
+    bytes log_output = 1;
+    Payload payload = 2;
+    State state = 3;
+  }
+}
+
+// ========== XCTrace ==========
+
+message XctraceRecordRequest {
+  message LaunchProcess {
+    string process_to_launch = 1;
+    repeated string launch_args = 2;
+    string target_stdin = 3;
+    string target_stdout = 4;
+    map<string, string> process_env = 5;
+  }
+  message Target {
+    oneof target {
+      bool all_processes = 1;
+      string process_to_attach = 2;
+      LaunchProcess launch_process = 3;
+    }
+  }
+  message Start {
+    string template_name = 1;
+    double time_limit = 2;
+    string package = 3;
+    Target target = 4;
+  }
+  message Stop {
+    double timeout = 1;
+    repeated string args = 2;
+  }
+  oneof control {
+    Start start = 1;
+    Stop stop = 2;
+  }
+}
+
+message XctraceRecordResponse {
+  enum State {
+    UNKNOWN = 0;
+    RUNNING = 1;
+    PROCESSING = 2;
+  }
+  oneof output {
+    bytes log = 1;
+    Payload payload = 2;
+    State state = 3;
+  }
+}

@@ -6,6 +6,7 @@ pub async fn run(udid: Option<String>) -> CommandResult {
 
         // Format and output (matching Python idb format)
         for app in apps {
+            // Use architectures in order as returned from gRPC (matching Python idb behavior)
             let arch = app.architectures.join(", ");
             let process_state = match app.process_state() {
                 crate::grpc::idb::installed_app_info::AppProcessState::Unknown => "Unknown",
@@ -38,6 +39,7 @@ pub async fn run(udid: Option<String>) -> CommandResult {
 mod tests {
     #[test]
     fn test_architecture_formatting() {
+        // Architectures are joined in order as returned from gRPC (no sorting)
         let archs = ["x86_64".to_string(), "arm64".to_string()];
         let result = archs.join(", ");
         assert_eq!(result, "x86_64, arm64");

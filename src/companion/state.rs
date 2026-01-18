@@ -69,7 +69,11 @@ impl CompanionState {
                 if contents.trim().is_empty() {
                     return Vec::new();
                 }
-                serde_json::from_str(&contents).unwrap_or_default()
+                let mut companions: Vec<StoredCompanion> =
+                    serde_json::from_str(&contents).unwrap_or_default();
+                // Sort by UDID to match Python idb behavior
+                companions.sort_by(|a, b| a.udid.cmp(&b.udid));
+                companions
             }
             Err(_) => Vec::new(),
         }

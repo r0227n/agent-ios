@@ -6,14 +6,17 @@
 //! - [`file_container`]: FileContainer building utilities
 //! - [`signal`]: Ctrl+C signal handling
 //! - [`output`]: Output destination (stdout/file) abstraction
+//! - [`time`]: Time format parsing utilities
 
 pub mod client;
 pub mod file_container;
 pub mod output;
 pub mod signal;
+pub mod time;
 
 // Re-export commonly used items
 pub use client::{with_client, CommandResult};
 pub use file_container::{file_container, file_container_with_root, DefaultContainer};
 pub use output::OutputWriter;
 pub use signal::setup_ctrl_c_handler;
+pub use time::formatted_time_to_seconds;
