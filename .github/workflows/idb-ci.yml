@@ -5,18 +5,30 @@ on:
     branches: [ main, develop ]
     paths:
       - 'src/cli/idb/**'
+      - 'src/grpc/**'
+      - 'src/platform/ios/**'
+      - 'src/types/**'
+      - 'src/companion/**'
+      - 'src/core/**'
       - 'proto/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
-      - 'tests/**'
+      - 'tests/idb/**'
+      - '.github/workflows/idb-ci.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'src/cli/idb/**'
+      - 'src/grpc/**'
+      - 'src/platform/ios/**'
+      - 'src/types/**'
+      - 'src/companion/**'
+      - 'src/core/**'
       - 'proto/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
-      - 'tests/**'
+      - 'tests/idb/**'
+      - '.github/workflows/idb-ci.yml'
 
 env:
   CARGO_TERM_COLOR: always
@@ -96,4 +108,4 @@ jobs:
       run: mise run test-setup
 
     - name: Run integration tests
-      run: cargo test --tests -- --test-threads=1
+      run: cargo test --test idb -- --test-threads=1
