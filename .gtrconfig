@@ -1,0 +1,122 @@
+# .gtrconfig for agent-mobile
+# Git worktree configuration for parallel development with multiple AI agents
+
+[copy]
+# Include source files and configuration
+include = [
+    "src/**/*",
+    "tests/**/*.rs",
+    "tests/fixtures/MockApp/*.swift",
+    "tests/fixtures/MockApp/*.plist",
+    "tests/fixtures/MockApp/build.sh",
+    "proto/**/*",
+    "*.toml",
+    "*.md",
+    "*.rs",
+    ".github/**/*",
+    ".claude/**/*",
+    ".gitignore",
+    ".gitmodules",
+]
+
+# Exclude build artifacts and generated files
+exclude = [
+    "target/**/*",
+    "tests/fixtures/MockApp.app/**/*",  # Built from source
+    "*.swp",
+    "*.swo",
+    "*~",
+    ".DS_Store",
+]
+
+# Include directories (even if empty)
+includeDirs = [
+    "proto",
+    "tests/fixtures",
+]
+
+# Don't copy these directories at all
+excludeDirs = [
+    "target",           # Cargo build artifacts (1.9GB+)
+    "idb",              # Git submodule - initialized separately
+    ".git",
+    "node_modules",
+]
+
+[hooks]
+# Initialize worktree after creation
+postCreate = """
+#!/bin/bash
+set -e
+
+echo "Initializing agent-mobile worktree..."
+
+# 1. Initialize git submodules (idb reference implementation)
+if [ -f .gitmodules ]; then
+    echo "Initializing git submodules..."
+    git submodule update --init --recursive
+fi
+
+# 2. Install mise tools (Rust, Python, cargo extensions)
+if command -v mise &> /dev/null; then
+    echo "Installing mise tools..."
+    mise install
+else
+    echo "Warning: mise not found. Skipping tool installation."
+fi
+
+# 3. Build the project (compiles protocol buffers)
+echo "Building project..."
+if cargo build; then
+    echo "Build successful."
+else
+    echo "Warning: Build failed. You may need to install additional dependencies."
+fi
+
+# 4. Build test fixtures
+if [ -d tests/fixtures/MockApp ]; then
+    echo "Building MockApp test fixture..."
+    cd tests/fixtures/MockApp && ./build.sh && cd ../../..
+else
+    echo "Warning: MockApp fixture not found."
+fi
+
+echo ""
+echo "=== Worktree setup complete ==="
+echo ""
+echo "To run integration tests, ensure:"
+echo "  1. Python idb is installed: pip install fb-idb"
+echo "  2. idb_companion is installed: brew install idb-companion"
+echo "  3. At least one iOS simulator is booted"
+echo "  4. Run: mise run test-setup"
+echo ""
+echo "Run tests with: cargo test --tests -- --test-threads=1"
+"""
+
+# Cleanup before worktree removal (optional)
+preRemove = """
+#!/bin/bash
+# Kill any running companions started by this worktree
+# pkill -f "idb_companion.*$(basename $PWD)" || true
+"""
+
+# Cleanup after worktree removal (optional)
+postRemove = ""
+
+[defaults]
+# Default tools for this project
+editor = "vscode"  # or "code" for VS Code
+ai = "claude"      # Claude Code is the primary AI tool
+
+[comments]
+# agent-mobile specific notes:
+#
+# - Integration tests require macOS with Xcode/simulators installed
+# - Tests must run sequentially: cargo test --tests -- --test-threads=1
+# - The target/ directory is excluded to save ~2GB per worktree
+# - Each worktree builds independently (increases disk usage but ensures isolation)
+# - Git submodule (idb/) is initialized separately per worktree
+# - Test fixtures are rebuilt per worktree to ensure correct architecture
+#
+# For faster setup, you can modify postCreate to skip the build step and build
+# on-demand when needed.
