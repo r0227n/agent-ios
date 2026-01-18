@@ -2,7 +2,7 @@
 
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
-use std::process::{Child, Command, Output};
+use std::process::{Child, Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -168,6 +168,80 @@ pub fn compare_file_command_outputs(python_output: &Output, rust_output: &Output
     }
 }
 
+/// Parse multi-path ls output into sections (path -> files)
+fn parse_ls_sections(output: &str) -> std::collections::BTreeMap<String, Vec<String>> {
+    let mut sections = std::collections::BTreeMap::new();
+    let mut current_path: Option<String> = None;
+    let mut current_files: Vec<String> = Vec::new();
+
+    for line in output.lines() {
+        if line.ends_with(':') {
+            // Save previous section
+            if let Some(path) = current_path.take() {
+                current_files.sort();
+                sections.insert(path, current_files);
+                current_files = Vec::new();
+            }
+            // Start new section
+            current_path = Some(line.trim_end_matches(':').to_string());
+        } else if !line.is_empty() {
+            current_files.push(line.to_string());
+        }
+    }
+
+    // Save last section
+    if let Some(path) = current_path {
+        current_files.sort();
+        sections.insert(path, current_files);
+    }
+
+    sections
+}
+
+/// Compare multi-path ls outputs (order-independent comparison)
+///
+/// For multi-path ls commands, the gRPC response order may vary.
+/// This function parses sections and compares them regardless of order.
+pub fn compare_file_ls_multi_path_outputs(python_output: &Output, rust_output: &Output) {
+    // Compare exit codes
+    assert_eq!(
+        python_output.status.code(),
+        rust_output.status.code(),
+        "Exit codes differ:\n  Python idb: {:?}\n  agent-mobile: {:?}",
+        python_output.status.code(),
+        rust_output.status.code()
+    );
+
+    let python_stdout = String::from_utf8_lossy(&python_output.stdout);
+    let rust_stdout = String::from_utf8_lossy(&rust_output.stdout);
+
+    // Parse and compare sections
+    let python_sections = parse_ls_sections(&python_stdout);
+    let rust_sections = parse_ls_sections(&rust_stdout);
+
+    assert_eq!(
+        python_sections,
+        rust_sections,
+        "ls output sections differ:\n  Python idb paths: {:?}\n  agent-mobile paths: {:?}",
+        python_sections.keys().collect::<Vec<_>>(),
+        rust_sections.keys().collect::<Vec<_>>()
+    );
+
+    // Check stderr/success status
+    if python_output.status.success() {
+        assert!(
+            rust_output.status.success(),
+            "Python succeeded but Rust failed:\n{}",
+            String::from_utf8_lossy(&rust_output.stderr)
+        );
+    } else {
+        assert!(
+            !rust_output.status.success(),
+            "Python failed but Rust succeeded"
+        );
+    }
+}
+
 /// Build agent-mobile binary (debug mode)
 pub fn build_agent_mobile() {
     let output = Command::new("cargo")
@@ -221,4 +295,61 @@ pub fn compare_command_outputs(python_output: &Output, rust_output: &Output) {
             rust_stdout
         );
     }
+}
+
+/// Ensure the simulator's framebuffer is initialized and ready for screenshots.
+///
+/// This function directly attempts to take a screenshot until it succeeds, which is
+/// the most reliable way to verify framebuffer initialization. The framebuffer/IOSurface
+/// may not be initialized immediately after companion startup, so we retry with delays.
+///
+/// Note: This function does not guarantee framebuffer readiness, as initialization is
+/// environment-dependent. Tests should handle "No Image available to encode" errors
+/// gracefully by skipping when appropriate.
+///
+/// Should be called before screenshot tests or any operations requiring framebuffer access.
+pub fn ensure_framebuffer_ready(udid: &str) {
+    const MAX_ATTEMPTS: u32 = 10;
+    const RETRY_DELAY_MS: u64 = 1000;
+
+    ensure_companion_running(udid);
+
+    // スクリーンショットを直接試行して、フレームバッファが準備できているか確認
+    for attempt in 1..=MAX_ATTEMPTS {
+        let output = Command::new("idb")
+            .args(["screenshot", "--udid", udid, "-"])
+            .stdout(Stdio::null()) // 画像データを破棄
+            .stderr(Stdio::piped())
+            .output()
+            .expect("Failed to execute idb screenshot");
+
+        if output.status.success() {
+            eprintln!("Framebuffer ready after {} attempt(s)", attempt);
+            return;
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("No Image available to encode") {
+            if attempt < MAX_ATTEMPTS {
+                eprintln!(
+                    "Attempt {}/{}: Framebuffer not ready, retrying...",
+                    attempt, MAX_ATTEMPTS
+                );
+                thread::sleep(Duration::from_millis(RETRY_DELAY_MS));
+            }
+        } else {
+            // 異なるエラー - 警告を出して終了
+            eprintln!(
+                "Warning: Failed to initialize framebuffer (unexpected error): {}",
+                stderr
+            );
+            return;
+        }
+    }
+
+    // フレームバッファが初期化できなかったが、テストレベルでスキップ処理が行われる
+    eprintln!(
+        "Warning: Framebuffer failed to initialize after {} attempts. Tests may be skipped.",
+        MAX_ATTEMPTS
+    );
 }

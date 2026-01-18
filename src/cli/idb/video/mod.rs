@@ -11,6 +11,14 @@ pub enum VideoCommands {
         /// Output mp4 file path
         output_file: String,
 
+        /// Format of the video (h264, rbga, mjpeg, minicap, i420)
+        #[arg(long, default_value = "h264")]
+        format: String,
+
+        /// Framerate of the recording
+        #[arg(long)]
+        fps: Option<u64>,
+
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,

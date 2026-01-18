@@ -227,7 +227,7 @@ fn test_accessibility_describe_all_python_compatibility() {
 
     // Python idb
     let python_output = Command::new("idb")
-        .args(["accessibility-describe-all", "--udid", &udid])
+        .args(["ui", "describe-all", "--udid", &udid])
         .output()
         .expect("Failed to execute Python idb");
 
@@ -264,13 +264,7 @@ fn test_accessibility_describe_point_python_compatibility() {
 
     // Python idb
     let python_output = Command::new("idb")
-        .args([
-            "accessibility-describe-point",
-            "100",
-            "100",
-            "--udid",
-            &udid,
-        ])
+        .args(["ui", "describe-point", "100", "100", "--udid", &udid])
         .output()
         .expect("Failed to execute Python idb");
 

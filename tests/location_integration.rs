@@ -297,14 +297,7 @@ fn test_set_location_python_compatibility() {
 
     // Python idb
     let python_output = Command::new("idb")
-        .args([
-            "location",
-            "set-location",
-            "35.6762",
-            "139.6503",
-            "--udid",
-            &udid,
-        ])
+        .args(["set-location", "35.6762", "139.6503", "--udid", &udid])
         .output()
         .expect("Failed to execute Python idb");
 

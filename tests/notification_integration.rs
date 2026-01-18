@@ -15,7 +15,7 @@ fn test_send_notification_simple() {
             "notification",
             "send-notification",
             &bundle_id,
-            r#"{"message":"Hello"}"#,
+            r#"{"aps":{"alert":"Hello"}}"#,
             "--udid",
             &udid,
         ])
@@ -41,7 +41,7 @@ fn test_send_notification_with_title() {
             "notification",
             "send-notification",
             &bundle_id,
-            r#"{"title":"Test Title","message":"Test Message"}"#,
+            r#"{"aps":{"alert":{"title":"Test Title","body":"Test Message"}}}"#,
             "--udid",
             &udid,
         ])
@@ -63,7 +63,7 @@ fn test_send_notification_with_body() {
             "notification",
             "send-notification",
             &bundle_id,
-            r#"{"body":"Notification body text"}"#,
+            r#"{"aps":{"alert":"Notification body text"}}"#,
             "--udid",
             &udid,
         ])
@@ -85,7 +85,7 @@ fn test_send_notification_with_badge() {
             "notification",
             "send-notification",
             &bundle_id,
-            r#"{"badge":5}"#,
+            r#"{"aps":{"badge":5}}"#,
             "--udid",
             &udid,
         ])
@@ -107,7 +107,7 @@ fn test_send_notification_with_sound() {
             "notification",
             "send-notification",
             &bundle_id,
-            r#"{"sound":"default"}"#,
+            r#"{"aps":{"sound":"default"}}"#,
             "--udid",
             &udid,
         ])
@@ -129,7 +129,7 @@ fn test_send_notification_complex() {
             "notification",
             "send-notification",
             &bundle_id,
-            r#"{"title":"Test Title","body":"Test Body","badge":10,"sound":"default"}"#,
+            r#"{"aps":{"alert":{"title":"Test Title","body":"Test Body"},"badge":10,"sound":"default"}}"#,
             "--udid",
             &udid,
         ])
@@ -151,7 +151,7 @@ fn test_send_notification_with_user_info() {
             "notification",
             "send-notification",
             &bundle_id,
-            r#"{"message":"Test","userInfo":{"key":"value"}}"#,
+            r#"{"aps":{"alert":"Test"},"customData":{"key":"value"}}"#,
             "--udid",
             &udid,
         ])
@@ -194,7 +194,7 @@ fn test_send_notification_invalid_bundle_id() {
             "notification",
             "send-notification",
             "com.invalid.nonexistent.app",
-            r#"{"message":"Test"}"#,
+            r#"{"aps":{"alert":"Test"}}"#,
             "--udid",
             &udid,
         ])
@@ -218,15 +218,15 @@ fn test_send_notification_empty_payload() {
             "notification",
             "send-notification",
             &bundle_id,
-            "{}",
+            r#"{"aps":{}}"#,
             "--udid",
             &udid,
         ])
         .output()
         .expect("Failed to run send-notification");
 
-    // 空のペイロードでも成功する可能性がある
-    // （実装依存）
+    // aps キーはあるが内容が空のペイロード
+    // 成功する場合もある（実装依存）
 }
 
 #[test]
@@ -235,13 +235,12 @@ fn test_send_notification_python_compatibility() {
     ensure_companion_running(&udid);
     let bundle_id = get_test_bundle_id();
 
-    // Python idb
+    // Python idb (トップレベルコマンドとして send-notification を使用)
     let python_output = Command::new("idb")
         .args([
-            "notification",
             "send-notification",
             &bundle_id,
-            r#"{"message":"Test"}"#,
+            r#"{"aps":{"alert":"Test"}}"#,
             "--udid",
             &udid,
         ])
@@ -255,7 +254,7 @@ fn test_send_notification_python_compatibility() {
             "notification",
             "send-notification",
             &bundle_id,
-            r#"{"message":"Test"}"#,
+            r#"{"aps":{"alert":"Test"}}"#,
             "--udid",
             &udid,
         ])

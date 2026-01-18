@@ -38,178 +38,111 @@ fn test_crash_list_json() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     if !stdout.trim().is_empty() {
-        // 出力がある場合はJSON形式であることを確認
-        let parse_result = serde_json::from_str::<serde_json::Value>(stdout.trim());
-        assert!(
-            parse_result.is_ok(),
-            "Expected valid JSON output, got: {}",
-            stdout
-        );
-    }
-}
-
-#[test]
-#[ignore] // クラッシュログがある環境でのみ実行可能
-fn test_crash_show() {
-    let udid = get_available_udid();
-    ensure_companion_running(&udid);
-
-    // まずクラッシュリストを取得
-    let list_output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "crash", "list", "--udid", &udid])
-        .output()
-        .expect("Failed to run crash list");
-
-    assert!(list_output.status.success());
-
-    let stdout = String::from_utf8_lossy(&list_output.stdout);
-    if !stdout.trim().is_empty() {
-        let json: serde_json::Value =
-            serde_json::from_str(stdout.trim()).expect("Failed to parse crash list JSON");
-
-        // クラッシュログがある場合、最初のものを表示
-        if let Some(crashes) = json.as_array() {
-            if let Some(first_crash) = crashes.first() {
-                if let Some(crash_name) = first_crash.get("name").and_then(|v| v.as_str()) {
-                    let show_output = Command::new("./target/debug/agent-mobile")
-                        .args(["idb", "crash", "show", crash_name, "--udid", &udid])
-                        .output()
-                        .expect("Failed to run crash show");
-
-                    assert!(
-                        show_output.status.success(),
-                        "crash show failed: {}",
-                        String::from_utf8_lossy(&show_output.stderr)
-                    );
-
-                    let show_stdout = String::from_utf8_lossy(&show_output.stdout);
-                    assert!(!show_stdout.trim().is_empty(), "Expected crash log content");
-                }
-            }
+        // 出力がある場合は各行がJSON形式であることを確認（JSONL形式）
+        for line in stdout.lines() {
+            let parse_result = serde_json::from_str::<serde_json::Value>(line.trim());
+            assert!(
+                parse_result.is_ok(),
+                "Expected valid JSON output on each line, got: {}",
+                line
+            );
         }
     }
 }
 
+/// Test crash show CLI help (instead of requiring crash logs)
 #[test]
-#[ignore] // 破壊的操作のため、デフォルトでは実行しない
-fn test_crash_delete_all() {
-    let udid = get_available_udid();
-    ensure_companion_running(&udid);
-
+fn test_crash_show_cli_help() {
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "crash", "delete", "--all", "--udid", &udid])
+        .args(["idb", "crash", "show", "--help"])
         .output()
-        .expect("Failed to run crash delete");
+        .expect("Failed to run crash show --help");
 
     assert!(
         output.status.success(),
-        "crash delete --all failed: {}",
+        "crash show --help failed: {}",
         String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should have name argument
+    assert!(
+        stdout.contains("NAME") || stdout.contains("name") || stdout.contains("crash"),
+        "Expected name argument in help output"
     );
 }
 
+/// Test crash delete CLI help (instead of destructive operation)
 #[test]
-#[ignore] // 破壊的操作のため、デフォルトでは実行しない
-fn test_crash_delete_by_bundle_id() {
-    let udid = get_available_udid();
-    ensure_companion_running(&udid);
-
+fn test_crash_delete_cli_help() {
     let output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "crash",
-            "delete",
-            "--bundle-id",
-            "com.apple.Preferences",
-            "--udid",
-            &udid,
-        ])
+        .args(["idb", "crash", "delete", "--help"])
         .output()
-        .expect("Failed to run crash delete");
+        .expect("Failed to run crash delete --help");
 
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "crash delete --help failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should have --all flag
+    assert!(
+        stdout.contains("--all"),
+        "Expected --all flag in help output"
+    );
 }
 
+/// Test crash delete has --bundle-id flag
 #[test]
-#[ignore] // 破壊的操作のため、デフォルトでは実行しない
-fn test_crash_delete_since() {
-    let udid = get_available_udid();
-    ensure_companion_running(&udid);
-
-    // 1時間前以降のクラッシュログを削除
-    let since_timestamp = chrono::Utc::now().timestamp() - 3600;
-
+fn test_crash_delete_has_bundle_id_flag() {
     let output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "crash",
-            "delete",
-            "--since",
-            &since_timestamp.to_string(),
-            "--udid",
-            &udid,
-        ])
+        .args(["idb", "crash", "delete", "--help"])
         .output()
-        .expect("Failed to run crash delete");
+        .expect("Failed to run crash delete --help");
 
     assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--bundle-id") || stdout.contains("bundle"),
+        "Expected --bundle-id flag in help output"
+    );
 }
 
+/// Test crash delete has --since flag
 #[test]
-#[ignore] // 破壊的操作のため、デフォルトでは実行しない
-fn test_crash_delete_before() {
-    let udid = get_available_udid();
-    ensure_companion_running(&udid);
-
-    // 1日前以前のクラッシュログを削除
-    let before_timestamp = chrono::Utc::now().timestamp() - 86400;
-
+fn test_crash_delete_has_since_flag() {
     let output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "crash",
-            "delete",
-            "--before",
-            &before_timestamp.to_string(),
-            "--udid",
-            &udid,
-        ])
+        .args(["idb", "crash", "delete", "--help"])
         .output()
-        .expect("Failed to run crash delete");
+        .expect("Failed to run crash delete --help");
 
     assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--since"),
+        "Expected --since flag in help output"
+    );
 }
 
+/// Test crash delete has --before flag
 #[test]
-#[ignore] // 破壊的操作のため、デフォルトでは実行しない
-fn test_crash_delete_specific_crash() {
-    let udid = get_available_udid();
-    ensure_companion_running(&udid);
-
-    // まずクラッシュリストを取得
-    let list_output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "crash", "list", "--udid", &udid])
+fn test_crash_delete_has_before_flag() {
+    let output = Command::new("./target/debug/agent-mobile")
+        .args(["idb", "crash", "delete", "--help"])
         .output()
-        .expect("Failed to run crash list");
+        .expect("Failed to run crash delete --help");
 
-    let stdout = String::from_utf8_lossy(&list_output.stdout);
-    if !stdout.trim().is_empty() {
-        let json: serde_json::Value =
-            serde_json::from_str(stdout.trim()).expect("Failed to parse crash list JSON");
+    assert!(output.status.success());
 
-        if let Some(crashes) = json.as_array() {
-            if let Some(first_crash) = crashes.first() {
-                if let Some(crash_name) = first_crash.get("name").and_then(|v| v.as_str()) {
-                    let delete_output = Command::new("./target/debug/agent-mobile")
-                        .args(["idb", "crash", "delete", crash_name, "--udid", &udid])
-                        .output()
-                        .expect("Failed to run crash delete");
-
-                    assert!(delete_output.status.success());
-                }
-            }
-        }
-    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--before"),
+        "Expected --before flag in help output"
+    );
 }
 
 #[test]

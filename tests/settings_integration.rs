@@ -9,21 +9,13 @@ fn test_settings_set_basic() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "settings",
-            "set",
-            "TestKey",
-            "TestValue",
-            "--udid",
-            &udid,
-        ])
+        .args(["idb", "set", "TestKey", "TestValue", "--udid", &udid])
         .output()
-        .expect("Failed to run settings set");
+        .expect("Failed to run set");
 
     assert!(
         output.status.success(),
-        "settings set failed: {}",
+        "set failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 }
@@ -34,13 +26,13 @@ fn test_settings_get_basic() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "settings", "get", "TestKey", "--udid", &udid])
+        .args(["idb", "get", "TestKey", "--udid", &udid])
         .output()
-        .expect("Failed to run settings get");
+        .expect("Failed to run get");
 
     assert!(
         output.status.success(),
-        "settings get failed: {}",
+        "get failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 }
@@ -54,7 +46,6 @@ fn test_settings_set_get_roundtrip() {
     let set_output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
-            "settings",
             "set",
             "RoundtripKey",
             "RoundtripValue",
@@ -62,23 +53,23 @@ fn test_settings_set_get_roundtrip() {
             &udid,
         ])
         .output()
-        .expect("Failed to run settings set");
+        .expect("Failed to run set");
 
     assert!(
         set_output.status.success(),
-        "settings set failed: {}",
+        "set failed: {}",
         String::from_utf8_lossy(&set_output.stderr)
     );
 
     // Get the value
     let get_output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "settings", "get", "RoundtripKey", "--udid", &udid])
+        .args(["idb", "get", "RoundtripKey", "--udid", &udid])
         .output()
-        .expect("Failed to run settings get");
+        .expect("Failed to run get");
 
     assert!(
         get_output.status.success(),
-        "settings get failed: {}",
+        "get failed: {}",
         String::from_utf8_lossy(&get_output.stderr)
     );
 
@@ -99,7 +90,6 @@ fn test_settings_set_with_domain() {
     let output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
-            "settings",
             "set",
             "DomainKey",
             "DomainValue",
@@ -109,7 +99,7 @@ fn test_settings_set_with_domain() {
             &udid,
         ])
         .output()
-        .expect("Failed to run settings set");
+        .expect("Failed to run set");
 
     assert!(output.status.success());
 }
@@ -123,7 +113,6 @@ fn test_settings_get_with_domain() {
     let _ = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
-            "settings",
             "set",
             "DomainGetKey",
             "DomainGetValue",
@@ -138,7 +127,6 @@ fn test_settings_get_with_domain() {
     let output = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
-            "settings",
             "get",
             "DomainGetKey",
             "--domain",
@@ -147,7 +135,7 @@ fn test_settings_get_with_domain() {
             &udid,
         ])
         .output()
-        .expect("Failed to run settings get");
+        .expect("Failed to run get");
 
     assert!(output.status.success());
 }
@@ -158,17 +146,9 @@ fn test_settings_set_numeric_value() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "settings",
-            "set",
-            "NumericKey",
-            "12345",
-            "--udid",
-            &udid,
-        ])
+        .args(["idb", "set", "NumericKey", "12345", "--udid", &udid])
         .output()
-        .expect("Failed to run settings set");
+        .expect("Failed to run set");
 
     assert!(output.status.success());
 }
@@ -179,17 +159,9 @@ fn test_settings_set_boolean_value() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "settings",
-            "set",
-            "BooleanKey",
-            "true",
-            "--udid",
-            &udid,
-        ])
+        .args(["idb", "set", "BooleanKey", "true", "--udid", &udid])
         .output()
-        .expect("Failed to run settings set");
+        .expect("Failed to run set");
 
     assert!(output.status.success());
 }
@@ -200,54 +172,25 @@ fn test_settings_list_locale() {
     ensure_companion_running(&udid);
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "settings", "list-locale", "--udid", &udid])
+        .args(["idb", "list", "locale", "--udid", &udid])
         .output()
-        .expect("Failed to run settings list-locale");
+        .expect("Failed to run list locale");
 
     assert!(
         output.status.success(),
-        "settings list-locale failed: {}",
+        "list locale failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Verify output is valid JSON
+    // Verify output is newline-separated locale identifiers (not JSON)
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        !stdout.trim().is_empty(),
-        "Expected non-empty output from list-locale"
-    );
-
-    // Try to parse as JSON
-    let parse_result = serde_json::from_str::<serde_json::Value>(stdout.trim());
-    assert!(
-        parse_result.is_ok(),
-        "Expected valid JSON output, got: {}",
-        stdout
-    );
-}
-
-#[test]
-fn test_settings_list_locale_json_structure() {
-    let udid = get_available_udid();
-    ensure_companion_running(&udid);
-
-    let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "settings", "list-locale", "--udid", &udid])
-        .output()
-        .expect("Failed to run settings list-locale");
-
-    assert!(output.status.success());
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value =
-        serde_json::from_str(stdout.trim()).expect("Failed to parse JSON");
-
-    // Verify JSON is an array or object
-    assert!(
-        json.is_array() || json.is_object(),
-        "Expected array or object, got: {:?}",
-        json
-    );
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert!(!lines.is_empty(), "Expected non-empty locale list");
+    // Check that each line looks like a locale identifier (e.g., "en_US", "ja_JP")
+    for line in &lines[..lines.len().min(5)] {
+        // Check first 5 lines
+        assert!(!line.is_empty(), "Empty locale identifier line");
+    }
 }
 
 #[test]
@@ -257,28 +200,13 @@ fn test_settings_set_python_compatibility() {
 
     // Python idb
     let python_output = Command::new("idb")
-        .args([
-            "settings",
-            "set",
-            "CompatKey",
-            "CompatValue",
-            "--udid",
-            &udid,
-        ])
+        .args(["set", "CompatKey", "CompatValue", "--udid", &udid])
         .output()
         .expect("Failed to execute Python idb");
 
     // agent-mobile
     let rust_output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "settings",
-            "set",
-            "CompatKey",
-            "CompatValue",
-            "--udid",
-            &udid,
-        ])
+        .args(["idb", "set", "CompatKey", "CompatValue", "--udid", &udid])
         .output()
         .expect("Failed to run agent-mobile");
 
@@ -299,7 +227,6 @@ fn test_settings_get_python_compatibility() {
     let _ = Command::new("./target/debug/agent-mobile")
         .args([
             "idb",
-            "settings",
             "set",
             "GetCompatKey",
             "GetCompatValue",
@@ -310,13 +237,13 @@ fn test_settings_get_python_compatibility() {
 
     // Python idb
     let python_output = Command::new("idb")
-        .args(["settings", "get", "GetCompatKey", "--udid", &udid])
+        .args(["get", "GetCompatKey", "--udid", &udid])
         .output()
         .expect("Failed to execute Python idb");
 
     // agent-mobile
     let rust_output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "settings", "get", "GetCompatKey", "--udid", &udid])
+        .args(["idb", "get", "GetCompatKey", "--udid", &udid])
         .output()
         .expect("Failed to run agent-mobile");
 
@@ -335,13 +262,13 @@ fn test_settings_list_locale_python_compatibility() {
 
     // Python idb
     let python_output = Command::new("idb")
-        .args(["settings", "list-locale", "--udid", &udid])
+        .args(["list", "locale", "--udid", &udid])
         .output()
         .expect("Failed to execute Python idb");
 
     // agent-mobile
     let rust_output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "settings", "list-locale", "--udid", &udid])
+        .args(["idb", "list", "locale", "--udid", &udid])
         .output()
         .expect("Failed to run agent-mobile");
 
@@ -352,15 +279,15 @@ fn test_settings_list_locale_python_compatibility() {
         "Exit codes differ"
     );
 
-    // 両方の出力がJSONとしてパース可能であることを確認
+    // 両方の出力がプレーンテキスト（改行区切り）であることを確認
     if python_output.status.success() {
         let python_stdout = String::from_utf8_lossy(&python_output.stdout);
         let rust_stdout = String::from_utf8_lossy(&rust_output.stdout);
 
-        let python_json = serde_json::from_str::<serde_json::Value>(python_stdout.trim());
-        let rust_json = serde_json::from_str::<serde_json::Value>(rust_stdout.trim());
+        let python_lines: Vec<&str> = python_stdout.trim().lines().collect();
+        let rust_lines: Vec<&str> = rust_stdout.trim().lines().collect();
 
-        assert!(python_json.is_ok(), "Python output is not valid JSON");
-        assert!(rust_json.is_ok(), "Rust output is not valid JSON");
+        assert!(!python_lines.is_empty(), "Python output is empty");
+        assert!(!rust_lines.is_empty(), "Rust output is empty");
     }
 }

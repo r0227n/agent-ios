@@ -3,7 +3,6 @@ mod common;
 use std::process::Command;
 
 #[test]
-#[ignore]
 fn test_file_write_and_read() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -62,7 +61,6 @@ fn test_file_write_and_read() {
 }
 
 #[test]
-#[ignore]
 fn test_file_read_nonexistent() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -80,7 +78,6 @@ fn test_file_read_nonexistent() {
 }
 
 #[test]
-#[ignore]
 fn test_file_write_binary_data() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();

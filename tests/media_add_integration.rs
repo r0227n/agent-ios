@@ -3,7 +3,6 @@ mod common;
 use std::process::Command;
 
 #[test]
-#[ignore]
 fn test_media_add_basic() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -24,15 +23,9 @@ fn test_media_add_basic() {
     let temp_file = std::env::temp_dir().join("test_media_image.png");
     std::fs::write(&temp_file, &test_image_data).expect("Failed to create test image");
 
-    // Run Python idb media add-media
+    // Run Python idb add-media (top-level command in Python idb)
     let python_output = Command::new("idb")
-        .args([
-            "media",
-            "add-media",
-            temp_file.to_str().unwrap(),
-            "--udid",
-            &udid,
-        ])
+        .args(["add-media", temp_file.to_str().unwrap(), "--udid", &udid])
         .output()
         .expect("Failed to run Python idb");
 
@@ -75,7 +68,6 @@ fn test_media_add_basic() {
 }
 
 #[test]
-#[ignore]
 fn test_media_add_multiple_files() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -123,7 +115,6 @@ fn test_media_add_multiple_files() {
 }
 
 #[test]
-#[ignore]
 fn test_media_add_nonexistent_file() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -131,9 +122,9 @@ fn test_media_add_nonexistent_file() {
 
     let nonexistent_file = format!("/tmp/nonexistent_media_file_{}.png", std::process::id());
 
-    // Run Python idb media add-media
+    // Run Python idb add-media (top-level command in Python idb)
     let python_output = Command::new("idb")
-        .args(["media", "add-media", &nonexistent_file, "--udid", &udid])
+        .args(["add-media", &nonexistent_file, "--udid", &udid])
         .output()
         .expect("Failed to run Python idb");
 

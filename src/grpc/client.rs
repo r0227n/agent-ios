@@ -292,9 +292,12 @@ impl IdbClient {
 
     /// Record video to a file (bidirectional streaming)
     /// The recording continues until stop_rx receives a signal
+    /// Note: format and fps parameters are accepted for CLI compatibility but not used by gRPC
     pub async fn record_video(
         &mut self,
         output_file: String,
+        _format: String,
+        _fps: Option<u64>,
         mut stop_rx: watch::Receiver<bool>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         use super::idb::record_request::{Control, Start, Stop};
@@ -714,6 +717,100 @@ impl IdbClient {
         Ok(response.into_inner())
     }
 
+    /// Install a dSYM bundle
+    pub async fn install_dsym(
+        &mut self,
+        dsym_path: &str,
+        bundle_id: Option<String>,
+        compression: Option<Compression>,
+    ) -> Result<tonic::Streaming<InstallResponse>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut requests: Vec<InstallRequest> = Vec::new();
+
+        // 1. Destination request (DSYM)
+        requests.push(InstallRequest {
+            value: Some(install_request::Value::Destination(
+                Destination::Dsym as i32,
+            )),
+        });
+
+        // 2. Payload with file path
+        requests.push(InstallRequest {
+            value: Some(install_request::Value::Payload(Payload {
+                source: Some(PayloadSource::FilePath(dsym_path.to_string())),
+            })),
+        });
+
+        // 3. Optional: bundle_id (link to app container)
+        if let Some(bid) = bundle_id {
+            requests.push(InstallRequest {
+                value: Some(install_request::Value::NameHint(bid)),
+            });
+        }
+
+        // 4. Optional: compression
+        if let Some(comp) = compression {
+            let compression_enum = match comp {
+                Compression::Gzip => super::idb::payload::Compression::Gzip,
+                Compression::Zstd => super::idb::payload::Compression::Zstd,
+            };
+            requests.push(InstallRequest {
+                value: Some(install_request::Value::Payload(Payload {
+                    source: Some(PayloadSource::Compression(compression_enum as i32)),
+                })),
+            });
+        }
+
+        let request_stream = tokio_stream::iter(requests);
+        let response = self.client.install(request_stream).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Install a dylib
+    pub async fn install_dylib(
+        &mut self,
+        dylib_path: &str,
+    ) -> Result<tonic::Streaming<InstallResponse>, Box<dyn std::error::Error + Send + Sync>> {
+        let requests: Vec<InstallRequest> = vec![
+            InstallRequest {
+                value: Some(install_request::Value::Destination(
+                    Destination::Dylib as i32,
+                )),
+            },
+            InstallRequest {
+                value: Some(install_request::Value::Payload(Payload {
+                    source: Some(PayloadSource::FilePath(dylib_path.to_string())),
+                })),
+            },
+        ];
+
+        let request_stream = tokio_stream::iter(requests);
+        let response = self.client.install(request_stream).await?;
+        Ok(response.into_inner())
+    }
+
+    /// Install a framework
+    pub async fn install_framework(
+        &mut self,
+        framework_path: &str,
+    ) -> Result<tonic::Streaming<InstallResponse>, Box<dyn std::error::Error + Send + Sync>> {
+        let requests: Vec<InstallRequest> = vec![
+            InstallRequest {
+                value: Some(install_request::Value::Destination(
+                    Destination::Framework as i32,
+                )),
+            },
+            InstallRequest {
+                value: Some(install_request::Value::Payload(Payload {
+                    source: Some(PayloadSource::FilePath(framework_path.to_string())),
+                })),
+            },
+        ];
+
+        let request_stream = tokio_stream::iter(requests);
+        let response = self.client.install(request_stream).await?;
+        Ok(response.into_inner())
+    }
+
     pub async fn install(
         &mut self,
         bundle_path: &str,
@@ -988,13 +1085,18 @@ impl IdbClient {
 
                 // Process response stream
                 response = response_stream.message() => {
-                    match response? {
-                        Some(tail_response) => {
+                    match response {
+                        Ok(Some(tail_response)) => {
                             // Write tail data to stdout
                             std::io::stdout().write_all(&tail_response.data)?;
                             std::io::stdout().flush()?;
                         }
-                        None => break, // Stream ended
+                        Ok(None) => break, // Stream ended normally
+                        Err(e) => {
+                            // gRPC error - likely file not found or permission denied
+                            eprintln!("Error: {}", e.message());
+                            return Err(e.into());
+                        }
                     }
                 }
             }
@@ -1210,6 +1312,7 @@ impl IdbClient {
     pub async fn dap(
         &mut self,
         pkg_id: String,
+        _port: Option<u16>,
         mut stop_rx: watch::Receiver<bool>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         use super::idb::dap_request::{Control, Pipe, Start, Stop};
@@ -1309,6 +1412,332 @@ impl IdbClient {
 
         Ok(())
     }
+
+    // ========== Instruments Profiling ==========
+
+    /// Run instruments profiling (bidirectional streaming)
+    ///
+    /// Returns a list of trace file paths written to disk
+    #[allow(clippy::too_many_arguments)]
+    pub async fn instruments_run(
+        &mut self,
+        template_name: String,
+        app_bundle_id: Option<String>,
+        environment: HashMap<String, String>,
+        arguments: Vec<String>,
+        timings: Option<InstrumentsTimings>,
+        post_process_arguments: Vec<String>,
+        trace_basename: String,
+        mut stop_rx: watch::Receiver<bool>,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::instruments_run_request::{self, Control, Start, Stop};
+        use super::idb::instruments_run_response::Output;
+        use super::idb::InstrumentsRunRequest;
+        use std::io::Write;
+
+        let (tx, rx) = mpsc::channel::<InstrumentsRunRequest>(4);
+        let request_stream = ReceiverStream::new(rx);
+
+        // Start the bidirectional stream first
+        let response = self.client.instruments_run(request_stream).await?;
+        let mut stream = response.into_inner();
+
+        // Build timings message if provided
+        let timings_msg = timings.map(|t| instruments_run_request::InstrumentsTimings {
+            operation_duration: t.operation_duration.unwrap_or(0.0),
+            terminate_timeout: t.terminate_timeout.unwrap_or(0.0),
+            launch_retry_timeout: t.launch_retry_timeout.unwrap_or(0.0),
+            launch_error_timeout: t.launch_error_timeout.unwrap_or(0.0),
+        });
+
+        // Send start request
+        tx.send(InstrumentsRunRequest {
+            control: Some(Control::Start(Start {
+                template_name,
+                app_bundle_id: app_bundle_id.unwrap_or_default(),
+                environment,
+                arguments,
+                timings: timings_msg,
+                tool_arguments: vec![],
+            })),
+        })
+        .await?;
+
+        // Wait for RUNNING_INSTRUMENTS state, then process logs until stop signal
+        let mut payload_data: Vec<u8> = Vec::new();
+        let mut received_running = false;
+
+        loop {
+            tokio::select! {
+                _ = stop_rx.changed() => {
+                    if *stop_rx.borrow() {
+                        // Send stop request
+                        tx.send(InstrumentsRunRequest {
+                            control: Some(Control::Stop(Stop {
+                                post_process_arguments: post_process_arguments.clone(),
+                            })),
+                        }).await?;
+                    }
+                }
+                msg = stream.message() => {
+                    match msg? {
+                        Some(response) => {
+                            match response.output {
+                                Some(Output::State(state)) => {
+                                    use super::idb::instruments_run_response::State;
+                                    match State::try_from(state) {
+                                        Ok(State::RunningInstruments) => {
+                                            received_running = true;
+                                            eprintln!("Instruments running...");
+                                        }
+                                        Ok(State::PostProcessing) => {
+                                            eprintln!("Post-processing...");
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Some(Output::LogOutput(data)) => {
+                                    // Write log output to stderr
+                                    std::io::stderr().write_all(&data)?;
+                                    std::io::stderr().flush()?;
+                                }
+                                Some(Output::Payload(payload)) => {
+                                    // Collect payload data
+                                    if let Some(super::idb::payload::Source::Data(data)) = payload.source {
+                                        payload_data.extend(data);
+                                    }
+                                }
+                                None => {}
+                            }
+                        }
+                        None => break, // Stream ended
+                    }
+                }
+            }
+
+            // Check if we should exit (received running state but haven't sent stop yet)
+            if received_running && !*stop_rx.borrow() {
+                continue;
+            }
+        }
+
+        // Drop tx to close the request stream
+        drop(tx);
+
+        // Extract trace files from payload
+        let trace_files = extract_trace_files(&payload_data, &trace_basename)?;
+
+        Ok(trace_files)
+    }
+
+    // ========== XCTrace Recording ==========
+
+    /// Record xctrace (bidirectional streaming)
+    ///
+    /// Returns a list of trace file paths written to disk
+    #[allow(clippy::too_many_arguments)]
+    pub async fn xctrace_record(
+        &mut self,
+        template_name: String,
+        time_limit: Option<f64>,
+        package: Option<String>,
+        target: XctraceTarget,
+        stop_timeout: Option<f64>,
+        post_args: Vec<String>,
+        trace_basename: String,
+        mut stop_rx: watch::Receiver<bool>,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        use super::idb::xctrace_record_request::{self, Control, Start, Stop, Target};
+        use super::idb::xctrace_record_response::Output;
+        use super::idb::XctraceRecordRequest;
+        use std::io::Write;
+
+        let (tx, rx) = mpsc::channel::<XctraceRecordRequest>(4);
+        let request_stream = ReceiverStream::new(rx);
+
+        // Start the bidirectional stream first
+        let response = self.client.xctrace_record(request_stream).await?;
+        let mut stream = response.into_inner();
+
+        // Build target message
+        let target_msg = match target {
+            XctraceTarget::AllProcesses => Target {
+                target: Some(xctrace_record_request::target::Target::AllProcesses(true)),
+            },
+            XctraceTarget::Attach(process) => Target {
+                target: Some(xctrace_record_request::target::Target::ProcessToAttach(
+                    process,
+                )),
+            },
+            XctraceTarget::Launch {
+                process,
+                args,
+                stdin,
+                stdout,
+                env,
+            } => Target {
+                target: Some(xctrace_record_request::target::Target::LaunchProcess(
+                    xctrace_record_request::LaunchProcess {
+                        process_to_launch: process,
+                        launch_args: args,
+                        target_stdin: stdin.unwrap_or_default(),
+                        target_stdout: stdout.unwrap_or_default(),
+                        process_env: env,
+                    },
+                )),
+            },
+        };
+
+        // Send start request
+        tx.send(XctraceRecordRequest {
+            control: Some(Control::Start(Start {
+                template_name,
+                time_limit: time_limit.unwrap_or(0.0),
+                package: package.unwrap_or_default(),
+                target: Some(target_msg),
+            })),
+        })
+        .await?;
+
+        // Wait for RUNNING state, then process logs until stop signal
+        let mut payload_data: Vec<u8> = Vec::new();
+        let mut received_running = false;
+
+        loop {
+            tokio::select! {
+                _ = stop_rx.changed() => {
+                    if *stop_rx.borrow() {
+                        // Send stop request
+                        tx.send(XctraceRecordRequest {
+                            control: Some(Control::Stop(Stop {
+                                timeout: stop_timeout.unwrap_or(0.0),
+                                args: post_args.clone(),
+                            })),
+                        }).await?;
+                    }
+                }
+                msg = stream.message() => {
+                    match msg? {
+                        Some(response) => {
+                            match response.output {
+                                Some(Output::State(state)) => {
+                                    use super::idb::xctrace_record_response::State;
+                                    match State::try_from(state) {
+                                        Ok(State::Running) => {
+                                            received_running = true;
+                                            eprintln!("XCTrace recording...");
+                                        }
+                                        Ok(State::Processing) => {
+                                            eprintln!("Processing...");
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Some(Output::Log(data)) => {
+                                    // Write log output to stderr
+                                    std::io::stderr().write_all(&data)?;
+                                    std::io::stderr().flush()?;
+                                }
+                                Some(Output::Payload(payload)) => {
+                                    // Collect payload data
+                                    if let Some(super::idb::payload::Source::Data(data)) = payload.source {
+                                        payload_data.extend(data);
+                                    }
+                                }
+                                None => {}
+                            }
+                        }
+                        None => break, // Stream ended
+                    }
+                }
+            }
+
+            // Check if we should exit
+            if received_running && !*stop_rx.borrow() {
+                continue;
+            }
+        }
+
+        // Drop tx to close the request stream
+        drop(tx);
+
+        // Extract trace files from payload
+        let trace_files = extract_trace_files(&payload_data, &trace_basename)?;
+
+        Ok(trace_files)
+    }
+}
+
+/// Timings configuration for instruments
+pub struct InstrumentsTimings {
+    pub operation_duration: Option<f64>,
+    pub terminate_timeout: Option<f64>,
+    pub launch_retry_timeout: Option<f64>,
+    pub launch_error_timeout: Option<f64>,
+}
+
+/// Target specification for xctrace
+pub enum XctraceTarget {
+    AllProcesses,
+    Attach(String),
+    Launch {
+        process: String,
+        args: Vec<String>,
+        stdin: Option<String>,
+        stdout: Option<String>,
+        env: HashMap<String, String>,
+    },
+}
+
+/// Extract trace files from tar payload data
+fn extract_trace_files(
+    payload_data: &[u8],
+    trace_basename: &str,
+) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    use flate2::read::GzDecoder;
+    use std::fs;
+    use std::io::Cursor;
+    use tar::Archive;
+
+    if payload_data.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // Create temp dir to extract to
+    let temp_dir = tempfile::tempdir()?;
+
+    // Try to extract as gzipped tar
+    let cursor = Cursor::new(payload_data);
+    let gz = GzDecoder::new(cursor);
+    let mut archive = Archive::new(gz);
+
+    // Extract all files
+    archive.unpack(temp_dir.path())?;
+
+    // Look for trace files or instrument_data directory
+    let mut trace_files = Vec::new();
+
+    // Check if there's an instrument_data directory (Instruments format)
+    let instrument_data_path = temp_dir.path().join("instrument_data");
+    if instrument_data_path.exists() {
+        // Copy as .trace directory
+        let trace_path = format!("{}.trace", trace_basename);
+        fs::rename(&instrument_data_path, &trace_path)?;
+        trace_files.push(trace_path);
+    } else {
+        // Look for individual trace files
+        for entry in fs::read_dir(temp_dir.path())? {
+            let entry = entry?;
+            let path = entry.path();
+            if let Some(name) = path.file_name() {
+                let dest = format!("{}", name.to_string_lossy());
+                fs::rename(&path, &dest)?;
+                trace_files.push(dest);
+            }
+        }
+    }
+
+    Ok(trace_files)
 }
 
 /// Read a DAP protocol message from a reader

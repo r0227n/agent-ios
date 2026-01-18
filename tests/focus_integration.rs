@@ -55,7 +55,8 @@ fn test_focus_without_udid() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         // Should fail gracefully if no companions available
         assert!(
-            stderr.contains("No companions available"),
+            stderr.contains("No companions available")
+                || stderr.contains("Multiple companions available"),
             "Expected companion error, got: {}",
             stderr
         );

@@ -6,7 +6,6 @@ use std::fs;
 /// Compares Python idb output with agent-mobile output to ensure compatibility
 
 #[test]
-#[ignore] // Run with: cargo test --test file_push_integration -- --ignored
 fn test_push_file_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -78,7 +77,6 @@ fn test_push_file_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_push_with_bundle_id_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -143,7 +141,6 @@ fn test_push_with_bundle_id_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_push_binary_file_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -215,7 +212,6 @@ fn test_push_binary_file_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_push_nonexistent_source_error() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -242,7 +238,6 @@ fn test_push_nonexistent_source_error() {
 }
 
 #[test]
-#[ignore]
 fn test_push_overwrite_existing_file_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();

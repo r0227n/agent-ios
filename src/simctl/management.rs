@@ -72,12 +72,9 @@ pub fn erase(udid: &str) -> Result<()> {
 
 /// Create a new simulator
 /// Returns the UDID of the created simulator
-pub fn create(device_type: &str, runtime: &str) -> Result<String> {
-    // Generate a default name based on device type
-    let name = format!("idb-{}", device_type.replace(" ", "-"));
-
+pub fn create(name: &str, device_type: &str, runtime: &str) -> Result<String> {
     let output = Command::new("xcrun")
-        .args(["simctl", "create", &name, device_type, runtime])
+        .args(["simctl", "create", name, device_type, runtime])
         .output()?;
 
     if !output.status.success() {

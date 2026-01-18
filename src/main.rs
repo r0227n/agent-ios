@@ -6,8 +6,9 @@ mod types;
 
 use clap::Parser;
 use cli::idb::{
-    debugserver, file, target, CrashCommands, IdbCommands, LocationCommands, NotificationCommands,
-    SettingsCommands, UrlCommands,
+    debugserver, file, target, CrashCommands, DsymCommands, DylibCommands, FrameworkCommands,
+    IdbCommands, ListCommands, LocationCommands, NotificationCommands, UrlCommands,
+    XctraceCommands,
 };
 use cli::{Cli, Commands};
 
@@ -110,9 +111,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     before,
                     bundle_id,
                     name,
+                    all,
                     udid,
                 } => {
-                    cli::idb::crash::delete(since, before, bundle_id, name, udid).await?;
+                    cli::idb::crash::delete(since, before, bundle_id, name, all, udid).await?;
                 }
             },
             IdbCommands::File { command } => match command {
@@ -254,20 +256,20 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             } => {
                 cli::idb::permissions::revoke(bundle_id, permissions, scheme, udid).await?;
             }
-            IdbCommands::Settings { command } => match command {
-                SettingsCommands::Set {
-                    name,
-                    value,
-                    value_type,
-                    domain,
-                    udid,
-                } => {
-                    cli::idb::settings::set(name, value, value_type, domain, udid).await?;
-                }
-                SettingsCommands::Get { name, domain, udid } => {
-                    cli::idb::settings::get(name, domain, udid).await?;
-                }
-                SettingsCommands::ListLocale { udid } => {
+            IdbCommands::Set {
+                name,
+                value,
+                value_type,
+                domain,
+                udid,
+            } => {
+                cli::idb::settings::set(name, value, value_type, domain, udid).await?;
+            }
+            IdbCommands::Get { name, domain, udid } => {
+                cli::idb::settings::get(name, domain, udid).await?;
+            }
+            IdbCommands::List { command } => match command {
+                ListCommands::Locale { udid } => {
                     cli::idb::settings::list_locale(udid).await?;
                 }
             },
@@ -285,8 +287,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
             },
             IdbCommands::Video { command } => match command {
-                cli::idb::video::VideoCommands::RecordVideo { output_file, udid } => {
-                    cli::idb::video::record::run(output_file, udid).await?;
+                cli::idb::video::VideoCommands::RecordVideo {
+                    output_file,
+                    format,
+                    fps,
+                    udid,
+                } => {
+                    cli::idb::video::record::run(output_file, format, fps, udid).await?;
                 }
                 cli::idb::video::VideoCommands::VideoStream {
                     output_file,
@@ -325,7 +332,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::KeychainClear { udid } => {
                 cli::idb::keychain::clear(udid).await?;
             }
-            IdbCommands::MemoryWarning { udid } => {
+            IdbCommands::SimulateMemoryWarning { udid } => {
                 cli::idb::memory::simulate_warning(udid).await?;
             }
             IdbCommands::XctestInstall {
@@ -372,19 +379,17 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     cli::idb::target::erase::run(udid).await?;
                 }
                 target::TargetCommands::Create {
+                    name,
                     device_type,
                     os_version,
                 } => {
-                    cli::idb::target::create::run(device_type, os_version).await?;
+                    cli::idb::target::create::run(name, device_type, os_version).await?;
                 }
                 target::TargetCommands::Clone { udid } => {
                     cli::idb::target::clone::run(udid).await?;
                 }
-                target::TargetCommands::Delete { udid } => {
-                    cli::idb::target::delete::run(Some(udid), false).await?;
-                }
-                target::TargetCommands::DeleteAll => {
-                    cli::idb::target::delete::run(None, true).await?;
+                target::TargetCommands::Delete { udid, all } => {
+                    cli::idb::target::delete::run(udid, all).await?;
                 }
                 target::TargetCommands::Connect { host, port, udid } => {
                     cli::idb::target::connect::run(host, port, udid).await?;
@@ -407,8 +412,104 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     cli::idb::debugserver::status::run(udid).await?;
                 }
             },
-            IdbCommands::Dap { dap_pkg_path, udid } => {
-                cli::idb::dap::run(dap_pkg_path, udid).await?;
+            IdbCommands::Dap { bundle, port, udid } => {
+                cli::idb::dap::run(bundle, port, udid).await?;
+            }
+            IdbCommands::Dsym { command } => match command {
+                DsymCommands::Install {
+                    dsym_path,
+                    bundle_id,
+                    compression,
+                    json,
+                    udid,
+                } => {
+                    cli::idb::dsym::install(dsym_path, bundle_id, compression, json, udid).await?;
+                }
+            },
+            IdbCommands::Dylib { command } => match command {
+                DylibCommands::Install {
+                    dylib_path,
+                    json,
+                    udid,
+                } => {
+                    cli::idb::dylib::install(dylib_path, json, udid).await?;
+                }
+            },
+            IdbCommands::Framework { command } => match command {
+                FrameworkCommands::Install {
+                    framework_path,
+                    json,
+                    udid,
+                } => {
+                    cli::idb::framework::install(framework_path, json, udid).await?;
+                }
+            },
+            IdbCommands::Instruments {
+                template,
+                app_bundle_id,
+                app_args,
+                app_env,
+                output,
+                post_args,
+                operation_duration,
+                terminate_timeout,
+                launch_retry_timeout,
+                launch_error_timeout,
+                udid,
+            } => {
+                cli::idb::instruments::run(
+                    template,
+                    app_bundle_id,
+                    app_args,
+                    app_env,
+                    output,
+                    post_args,
+                    operation_duration,
+                    terminate_timeout,
+                    launch_retry_timeout,
+                    launch_error_timeout,
+                    udid,
+                )
+                .await?;
+            }
+            IdbCommands::Xctrace { command } => match command {
+                XctraceCommands::Record {
+                    template,
+                    all_processes,
+                    attach,
+                    launch,
+                    launch_args,
+                    output,
+                    time_limit,
+                    package,
+                    target_stdin,
+                    target_stdout,
+                    env,
+                    stop_timeout,
+                    post_args,
+                    udid,
+                } => {
+                    cli::idb::xctrace::record(
+                        template,
+                        all_processes,
+                        attach,
+                        launch,
+                        launch_args,
+                        output,
+                        time_limit,
+                        package,
+                        target_stdin,
+                        target_stdout,
+                        env,
+                        stop_timeout,
+                        post_args,
+                        udid,
+                    )
+                    .await?;
+                }
+            },
+            IdbCommands::Shell { no_prompt, udid } => {
+                cli::idb::shell::run(no_prompt, udid).await?;
             }
         },
     }

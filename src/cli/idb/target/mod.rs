@@ -41,6 +41,9 @@ pub enum TargetCommands {
 
     /// Create a new simulator
     Create {
+        /// Simulator name
+        name: String,
+
         /// Device type (e.g., "iPhone 15 Pro")
         device_type: String,
 
@@ -57,11 +60,13 @@ pub enum TargetCommands {
     /// Delete a simulator
     Delete {
         /// Simulator UDID to delete
-        udid: String,
-    },
+        #[arg(short, long)]
+        udid: Option<String>,
 
-    /// Delete all simulators
-    DeleteAll,
+        /// Delete all simulators
+        #[arg(long)]
+        all: bool,
+    },
 
     /// Connect to a companion
     Connect {

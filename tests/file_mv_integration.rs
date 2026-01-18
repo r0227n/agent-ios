@@ -4,7 +4,6 @@ mod common;
 /// Compares Python idb output with agent-mobile output to ensure compatibility
 
 #[test]
-#[ignore] // Run with: cargo test --test file_mv_integration -- --ignored
 fn test_mv_basic_file_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -35,7 +34,6 @@ fn test_mv_basic_file_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_mv_multiple_files_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -70,7 +68,6 @@ fn test_mv_multiple_files_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_mv_with_root_flag_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -104,7 +101,6 @@ fn test_mv_with_root_flag_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_mv_source_not_found_error() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -126,7 +122,6 @@ fn test_mv_source_not_found_error() {
 }
 
 #[test]
-#[ignore]
 fn test_mv_rename_file_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();

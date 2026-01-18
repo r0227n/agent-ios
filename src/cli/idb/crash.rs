@@ -12,16 +12,8 @@ pub async fn list(
         let crashes = client.crash_list(since, before, bundle_id, name).await?;
 
         for crash in crashes {
-            println!(
-                "{} | {} | {} | {} | {} | {} | {}",
-                crash.name,
-                crash.bundle_id,
-                crash.process_name,
-                crash.parent_process_name,
-                crash.process_identifier,
-                crash.parent_process_identifier,
-                crash.timestamp
-            );
+            let json = serde_json::to_string(&crash)?;
+            println!("{}", json);
         }
 
         Ok(())
@@ -56,8 +48,14 @@ pub async fn delete(
     before: Option<u64>,
     bundle_id: Option<String>,
     name: Option<String>,
+    all: bool,
     udid: Option<String>,
 ) -> CommandResult {
+    // Validate: must pass --all if no other arguments specified
+    if !all && name.is_none() && since.is_none() && before.is_none() && bundle_id.is_none() {
+        return Err("Must pass --all if no other arguments specified".into());
+    }
+
     with_client(udid.as_deref(), |mut client| async move {
         let deleted = client.crash_delete(since, before, bundle_id, name).await?;
         println!("Deleted {} crash log(s)", deleted.len());

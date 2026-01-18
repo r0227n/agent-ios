@@ -3,10 +3,14 @@ pub mod contacts;
 pub mod crash;
 pub mod dap;
 pub mod debugserver;
+pub mod dsym;
+pub mod dylib;
 pub mod file;
 pub mod focus;
+pub mod framework;
 pub mod hid;
 pub mod install;
+pub mod instruments;
 pub mod keychain;
 pub mod kill;
 pub mod launch;
@@ -21,6 +25,7 @@ pub mod permissions;
 pub mod photos;
 pub mod screenshot;
 pub mod settings;
+pub mod shell;
 pub mod target;
 pub mod terminate;
 pub mod uninstall;
@@ -30,6 +35,7 @@ pub mod xctest_install;
 pub mod xctest_list;
 pub mod xctest_list_bundle;
 pub mod xctest_run;
+pub mod xctrace;
 
 use clap::Subcommand;
 
@@ -296,10 +302,45 @@ pub enum IdbCommands {
         udid: Option<String>,
     },
 
-    /// Device settings operations
-    Settings {
+    /// Set a device setting
+    Set {
+        /// Setting name
+        name: String,
+
+        /// Setting value
+        value: String,
+
+        /// Value type (string, int, bool, etc.)
+        #[arg(long = "type")]
+        value_type: Option<String>,
+
+        /// Settings domain
+        #[arg(long)]
+        domain: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// Get a device setting value
+    Get {
+        /// Setting name
+        name: String,
+
+        /// Settings domain
+        #[arg(long)]
+        domain: Option<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// List values from the target
+    List {
         #[command(subcommand)]
-        command: SettingsCommands,
+        command: ListCommands,
     },
 
     /// Terminate a running application
@@ -391,7 +432,8 @@ pub enum IdbCommands {
     },
 
     /// Simulate memory warning
-    MemoryWarning {
+    #[command(name = "simulate-memory-warning")]
+    SimulateMemoryWarning {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
@@ -468,13 +510,175 @@ pub enum IdbCommands {
 
     /// Spawn a debug server using VSCode DAP protocol
     Dap {
-        /// Path of the DAP package to install
-        dap_pkg_path: String,
+        /// Bundle ID or path of the DAP package
+        bundle: String,
+
+        /// Port to listen on
+        #[arg(long)]
+        port: Option<u16>,
 
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
     },
+
+    /// Install dSYM symbols
+    Dsym {
+        #[command(subcommand)]
+        command: DsymCommands,
+    },
+
+    /// Install dylib
+    Dylib {
+        #[command(subcommand)]
+        command: DylibCommands,
+    },
+
+    /// Install framework
+    Framework {
+        #[command(subcommand)]
+        command: FrameworkCommands,
+    },
+
+    /// Run Instruments profiling on the device
+    Instruments {
+        /// Template to run (e.g., Time Profiler, Allocations, etc.)
+        #[arg(long, required = true)]
+        template: String,
+
+        /// App to run instruments on
+        #[arg(long)]
+        app_bundle_id: Option<String>,
+
+        /// Arguments to be passed to the app being profiled
+        #[arg(long)]
+        app_args: Vec<String>,
+
+        /// Environment key/value pairs for the app being profiled (KEY=VALUE)
+        #[arg(long, value_parser = parse_key_val::<String, String>)]
+        app_env: Vec<(String, String)>,
+
+        /// Output path / base name where the trace file will be saved
+        #[arg(long)]
+        output: Option<String>,
+
+        /// Post processing arguments to process the Instruments trace
+        #[arg(long)]
+        post_args: Vec<String>,
+
+        /// Maximum running time for Instruments (seconds)
+        #[arg(long)]
+        operation_duration: Option<f64>,
+
+        /// Maximum time to terminate Instruments (seconds)
+        #[arg(long)]
+        terminate_timeout: Option<f64>,
+
+        /// Retry timeout for Instruments launch failures (seconds)
+        #[arg(long)]
+        launch_retry_timeout: Option<f64>,
+
+        /// Wait time for Instruments error message (seconds)
+        #[arg(long)]
+        launch_error_timeout: Option<f64>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+
+    /// XCTrace operations
+    Xctrace {
+        #[command(subcommand)]
+        command: XctraceCommands,
+    },
+
+    /// Interactive shell for chaining multiple IDB commands
+    Shell {
+        /// Don't print the input prompt (useful for automation)
+        #[arg(long)]
+        no_prompt: bool,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum XctraceCommands {
+    /// Record a trace
+    Record {
+        /// Record using given trace template name or path
+        #[arg(long, required = true)]
+        template: String,
+
+        /// Record all processes
+        #[arg(long, conflicts_with_all = &["attach", "launch"])]
+        all_processes: bool,
+
+        /// Attach and record process with the given name or pid
+        #[arg(long, conflicts_with_all = &["all_processes", "launch"])]
+        attach: Option<String>,
+
+        /// Launch process with the given name or path
+        #[arg(long, conflicts_with_all = &["all_processes", "attach"])]
+        launch: Option<String>,
+
+        /// Arguments for the launched process
+        #[arg(trailing_var_arg = true)]
+        launch_args: Vec<String>,
+
+        /// Output .trace file to the given path
+        #[arg(long)]
+        output: Option<String>,
+
+        /// Limit recording time (e.g., 10s, 5m, 1h)
+        #[arg(long)]
+        time_limit: Option<String>,
+
+        /// Load Instruments Package from given path
+        #[arg(long)]
+        package: Option<String>,
+
+        /// Redirect target stdin (only "-" is supported)
+        #[arg(long)]
+        target_stdin: Option<String>,
+
+        /// Redirect target stdout (only "-" is supported)
+        #[arg(long)]
+        target_stdout: Option<String>,
+
+        /// Environment variables (VAR=value format)
+        #[arg(long, value_parser = parse_key_val::<String, String>)]
+        env: Vec<(String, String)>,
+
+        /// Timeout for stopping recording (e.g., 10s, 5m, 1h)
+        #[arg(long)]
+        stop_timeout: Option<String>,
+
+        /// Post-processing arguments
+        #[arg(long)]
+        post_args: Vec<String>,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+/// Parse a key-value pair from a string in the form KEY=VALUE
+fn parse_key_val<K, V>(s: &str) -> Result<(K, V), Box<dyn std::error::Error + Send + Sync>>
+where
+    K: std::str::FromStr,
+    K::Err: std::error::Error + Send + Sync + 'static,
+    V: std::str::FromStr,
+    V::Err: std::error::Error + Send + Sync + 'static,
+{
+    let pos = s
+        .find('=')
+        .ok_or_else(|| format!("invalid KEY=value: no '=' found in '{}'", s))?;
+    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
 #[derive(Subcommand)]
@@ -530,6 +734,10 @@ pub enum CrashCommands {
         #[arg(long)]
         name: Option<String>,
 
+        /// Delete all crash logs
+        #[arg(long)]
+        all: bool,
+
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
@@ -541,9 +749,11 @@ pub enum LocationCommands {
     /// Set device location to specific coordinates
     SetLocation {
         /// Latitude coordinate
+        #[arg(allow_hyphen_values = true)]
         latitude: f64,
 
         /// Longitude coordinate
+        #[arg(allow_hyphen_values = true)]
         longitude: f64,
 
         /// Target device/simulator UDID
@@ -582,44 +792,68 @@ pub enum NotificationCommands {
 }
 
 #[derive(Subcommand)]
-pub enum SettingsCommands {
-    /// Set a device setting
-    Set {
-        /// Setting name
-        name: String,
-
-        /// Setting value
-        value: String,
-
-        /// Value type (string, int, bool, etc.)
-        #[arg(long)]
-        value_type: Option<String>,
-
-        /// Settings domain
-        #[arg(long)]
-        domain: Option<String>,
-
-        /// Target device/simulator UDID
-        #[arg(short, long)]
-        udid: Option<String>,
-    },
-
-    /// Get a device setting value
-    Get {
-        /// Setting name
-        name: String,
-
-        /// Settings domain
-        #[arg(long)]
-        domain: Option<String>,
-
-        /// Target device/simulator UDID
-        #[arg(short, long)]
-        udid: Option<String>,
-    },
-
+pub enum ListCommands {
     /// List available locales
-    ListLocale {
+    Locale {
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum DsymCommands {
+    /// Install dSYM(s) to the target
+    Install {
+        /// Path to dSYM(s) to install
+        dsym_path: String,
+
+        /// If specified, install debug symbols inside the app container
+        #[arg(long)]
+        bundle_id: Option<String>,
+
+        /// Compression format (gzip or zstd)
+        #[arg(long)]
+        compression: Option<String>,
+
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum DylibCommands {
+    /// Install a dylib to the target
+    Install {
+        /// Path to the dylib to install
+        dylib_path: String,
+
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+
+        /// Target device/simulator UDID
+        #[arg(short, long)]
+        udid: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum FrameworkCommands {
+    /// Install a framework to the target
+    Install {
+        /// Path to the .framework to install
+        framework_path: String,
+
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,

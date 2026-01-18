@@ -1,7 +1,7 @@
 [tools]
 # Rust toolchain
 rust = "1.92.0"
-python = "3.9.6"
+python = "3.12.12"
 
 # Build tools
 "cargo:cargo-watch" = "8.5.3"

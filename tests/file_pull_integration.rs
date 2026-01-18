@@ -7,7 +7,6 @@ use std::path::Path;
 /// Compares Python idb output with agent-mobile output to ensure compatibility
 
 #[test]
-#[ignore] // Run with: cargo test --test file_pull_integration -- --ignored
 fn test_pull_file_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -54,7 +53,6 @@ fn test_pull_file_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_pull_to_stdout_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -90,7 +88,6 @@ fn test_pull_to_stdout_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_pull_with_bundle_id_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -163,7 +160,6 @@ fn test_pull_with_bundle_id_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_pull_nonexistent_file_error() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -193,7 +189,6 @@ fn test_pull_nonexistent_file_error() {
 }
 
 #[test]
-#[ignore]
 fn test_pull_binary_file_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();

@@ -4,7 +4,6 @@ mod common;
 /// Compares Python idb output with agent-mobile output to ensure compatibility
 
 #[test]
-#[ignore] // Run with: cargo test --test mkdir_integration -- --ignored
 fn test_mkdir_creates_directory() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -33,7 +32,6 @@ fn test_mkdir_creates_directory() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_without_udid() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -53,7 +51,6 @@ fn test_mkdir_without_udid() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_invalid_bundle_id() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -78,7 +75,6 @@ fn test_mkdir_invalid_bundle_id() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_compatibility_with_python_idb() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -111,7 +107,6 @@ fn test_mkdir_compatibility_with_python_idb() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_with_bundle_id_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -164,7 +159,6 @@ fn test_mkdir_with_bundle_id_equivalence() {
 }
 
 #[test]
-#[ignore]
 fn test_mkdir_nested_directory_equivalence() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();

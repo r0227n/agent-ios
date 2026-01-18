@@ -2,145 +2,54 @@ mod common;
 
 use std::process::Command;
 
-/// Get path to a test XCTest bundle
-/// Returns None if no test bundle is available
-fn get_test_xctest_bundle() -> Option<String> {
-    // Check environment variable first
-    if let Ok(path) = std::env::var("TEST_XCTEST_BUNDLE") {
-        if std::path::Path::new(&path).exists() {
-            return Some(path);
-        }
-    }
-
-    // Check common locations
-    let common_paths = vec![
-        "/tmp/TestBundle.xctest",
-        "./tests/fixtures/TestBundle.xctest",
-    ];
-
-    for path in common_paths {
-        if std::path::Path::new(path).exists() {
-            return Some(path.to_string());
-        }
-    }
-
-    None
-}
-
+/// Test xctest-install CLI help output
 #[test]
-#[ignore]
-fn test_xctest_install_basic() {
+fn test_xctest_install_cli_help() {
     common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
 
-    let test_bundle = match get_test_xctest_bundle() {
-        Some(bundle) => bundle,
-        None => {
-            eprintln!("Skipping test: No XCTest bundle available");
-            eprintln!("Set TEST_XCTEST_BUNDLE environment variable to run this test");
-            return;
-        }
-    };
-
-    // Run Python idb xctest install
-    let python_output = Command::new("idb")
-        .args(["xctest", "install", &test_bundle, "--udid", &udid])
+    let output = Command::new("./target/debug/agent-mobile")
+        .args(["idb", "xctest-install", "--help"])
         .output()
-        .expect("Failed to run Python idb");
+        .expect("Failed to run xctest-install --help");
 
-    // Run agent-mobile xctest-install
-    let rust_output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "xctest-install", &test_bundle, "--udid", &udid])
-        .output()
-        .expect("Failed to run agent-mobile");
-
-    // Compare exit codes
-    assert_eq!(
-        python_output.status.code(),
-        rust_output.status.code(),
-        "Exit codes differ:\n  Python: {:?}\n  Rust: {:?}\n  Python stderr: {}\n  Rust stderr: {}",
-        python_output.status.code(),
-        rust_output.status.code(),
-        String::from_utf8_lossy(&python_output.stderr),
-        String::from_utf8_lossy(&rust_output.stderr)
+    assert!(
+        output.status.success(),
+        "xctest-install --help failed: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
 
-    // If both succeeded, verify output format
-    if python_output.status.success() && rust_output.status.success() {
-        let _python_stdout = String::from_utf8_lossy(&python_output.stdout);
-        let rust_stdout = String::from_utf8_lossy(&rust_output.stdout);
-
-        // Both should produce output with "Installed:" prefix
-        assert!(
-            rust_stdout.contains("Installed:"),
-            "Rust output missing 'Installed:' prefix: {}",
-            rust_stdout
-        );
-    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should have path argument
+    assert!(
+        stdout.contains("PATH")
+            || stdout.contains("path")
+            || stdout.contains("BUNDLE")
+            || stdout.contains("bundle"),
+        "Expected path argument in help output"
+    );
 }
 
+/// Test xctest-install has --json flag
 #[test]
-#[ignore]
-fn test_xctest_install_with_json_output() {
+fn test_xctest_install_has_json_flag() {
     common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
 
-    let test_bundle = match get_test_xctest_bundle() {
-        Some(bundle) => bundle,
-        None => {
-            eprintln!("Skipping test: No XCTest bundle available");
-            return;
-        }
-    };
-
-    // Run Python idb xctest install --json
-    let python_output = Command::new("idb")
-        .args(["xctest", "install", &test_bundle, "--json", "--udid", &udid])
+    let output = Command::new("./target/debug/agent-mobile")
+        .args(["idb", "xctest-install", "--help"])
         .output()
-        .expect("Failed to run Python idb");
+        .expect("Failed to run xctest-install --help");
 
-    // Run agent-mobile xctest-install --json
-    let rust_output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "xctest-install",
-            &test_bundle,
-            "--json",
-            "--udid",
-            &udid,
-        ])
-        .output()
-        .expect("Failed to run agent-mobile");
+    assert!(output.status.success());
 
-    // Both should succeed
-    if python_output.status.success() {
-        assert!(
-            rust_output.status.success(),
-            "Rust failed while Python succeeded: {}",
-            String::from_utf8_lossy(&rust_output.stderr)
-        );
-
-        // Verify JSON output format
-        let rust_stdout = String::from_utf8_lossy(&rust_output.stdout);
-        let parsed: Result<serde_json::Value, _> = serde_json::from_str(rust_stdout.trim());
-        assert!(
-            parsed.is_ok(),
-            "Rust output is not valid JSON: {}",
-            rust_stdout
-        );
-
-        let json = parsed.unwrap();
-        assert!(
-            json.get("installedTestBundleId").is_some(),
-            "JSON missing 'installedTestBundleId' field"
-        );
-    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--json"),
+        "Expected --json flag in help output"
+    );
 }
 
+/// Test xctest-install rejects nonexistent bundle
 #[test]
-#[ignore]
 fn test_xctest_install_nonexistent_bundle() {
     common::build_agent_mobile();
     let udid = common::get_available_udid();
@@ -171,38 +80,24 @@ fn test_xctest_install_nonexistent_bundle() {
     assert!(!rust_output.status.success());
 }
 
+/// Test xctest-install help compatibility with Python idb
 #[test]
-#[ignore]
-fn test_xctest_install_with_skip_signing() {
+fn test_xctest_install_help_python_compatibility() {
     common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
 
-    let test_bundle = match get_test_xctest_bundle() {
-        Some(bundle) => bundle,
-        None => {
-            eprintln!("Skipping test: No XCTest bundle available");
-            return;
-        }
-    };
+    // Python idb
+    let python_output = Command::new("idb")
+        .args(["xctest", "install", "--help"])
+        .output()
+        .expect("Failed to execute Python idb");
 
-    // Run agent-mobile xctest-install with --skip-signing
+    // agent-mobile
     let rust_output = Command::new("./target/debug/agent-mobile")
-        .args([
-            "idb",
-            "xctest-install",
-            &test_bundle,
-            "--skip-signing",
-            "--udid",
-            &udid,
-        ])
+        .args(["idb", "xctest-install", "--help"])
         .output()
         .expect("Failed to run agent-mobile");
 
-    // Should complete (success or failure depends on bundle validity)
-    // Just verify the command accepts the flag
-    assert!(
-        rust_output.status.code().is_some(),
-        "Command did not complete"
-    );
+    // Both should succeed
+    assert!(python_output.status.success(), "Python idb help failed");
+    assert!(rust_output.status.success(), "agent-mobile help failed");
 }

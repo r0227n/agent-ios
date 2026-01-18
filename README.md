@@ -79,6 +79,44 @@ mise run format
 - `.mise.toml` - Tool version and task configuration
 - `.github/workflows/` - CI/CD configurations
 
+## Known Issues
+
+### Permission Approval for Photos, Camera, and Contacts
+
+The `idb approve` command fails for `photos`, `camera`, and `contacts` permissions with a SQLite error from the `idb_companion` daemon:
+
+```
+table access has 17 columns but 13 values were supplied
+```
+
+**Root Cause**: SQLite schema mismatch in the upstream `idb_companion` daemon (Swift/Objective-C), not in the Rust implementation.
+
+**Impact**:
+- Both Python `idb` and Rust `agent-mobile` exhibit the same error
+- `approve` operations fail for: `photos`, `camera`, `contacts`
+- `revoke` operations work correctly for all permission types
+- Other permissions work: `location`, `notification`, `url`, `microphone`
+
+**Status**: Tests for affected permissions are marked with `#[ignore]` to prevent CI failures. See `docs/KNOWN_ISSUES.md` for detailed information.
+
+### Screenshot "No Image available to encode"
+
+The `screenshot` command may fail with `No Image available to encode` error when the simulator's framebuffer is not yet initialized.
+
+**Root Cause**: Framebuffer initialization timing issue in the upstream `idb_companion` daemon (Swift/Objective-C), not in the Rust implementation.
+
+**Solution**: agent-mobile includes automatic retry logic (3 attempts with exponential backoff). If retries fail:
+1. Wait a moment after booting the simulator
+2. Run `idb ui describe-all --udid <udid>` to trigger framebuffer initialization
+3. Retry the screenshot command
+
+**Status**: Mitigated with retry logic and test warmup helper. See `docs/KNOWN_ISSUES.md` for detailed information.
+
+## Troubleshooting
+
+For detailed information on known issues and their solutions, see:
+- [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) - Comprehensive list of known issues with technical details and workarounds
+
 ## CI/CD
 
 The project uses GitHub Actions for continuous integration:

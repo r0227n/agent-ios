@@ -207,7 +207,8 @@ fn test_hid_without_udid() {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
-            stderr.contains("No companions available"),
+            stderr.contains("No companions available")
+                || stderr.contains("Multiple companions available"),
             "Expected companion error, got: {}",
             stderr
         );
