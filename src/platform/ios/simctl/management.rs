@@ -1,4 +1,4 @@
-//! Simulator management commands via xcrun simctl
+//! Simulator management commands via xcrun simctl.
 //!
 //! This module provides direct access to simulator lifecycle operations
 //! without going through idb_companion.
@@ -70,8 +70,8 @@ pub fn erase(udid: &str) -> Result<()> {
     Ok(())
 }
 
-/// Create a new simulator
-/// Returns the UDID of the created simulator
+/// Create a new simulator.
+/// Returns the UDID of the created simulator.
 pub fn create(name: &str, device_type: &str, runtime: &str) -> Result<String> {
     let output = Command::new("xcrun")
         .args(["simctl", "create", name, device_type, runtime])
@@ -92,8 +92,8 @@ pub fn create(name: &str, device_type: &str, runtime: &str) -> Result<String> {
     Ok(udid)
 }
 
-/// Clone a simulator
-/// Returns the UDID of the cloned simulator
+/// Clone a simulator.
+/// Returns the UDID of the cloned simulator.
 pub fn clone(udid: &str) -> Result<String> {
     let name = format!("Clone of {}", udid);
 

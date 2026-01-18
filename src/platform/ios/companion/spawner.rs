@@ -1,3 +1,7 @@
+//! Companion spawning functionality.
+//!
+//! This module handles spawning new idb_companion daemon processes.
+
 use crate::types::TargetType;
 use serde::Deserialize;
 use std::io::{BufRead, BufReader};

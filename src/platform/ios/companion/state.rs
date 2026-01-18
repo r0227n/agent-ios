@@ -1,3 +1,7 @@
+//! State file management for companion daemons.
+//!
+//! The idb_companion stores state in /tmp/idb/state as JSON.
+
 use crate::types::Address;
 use serde::{Deserialize, Serialize};
 use std::fs;

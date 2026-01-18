@@ -1,8 +1,10 @@
-//! Direct xcrun simctl integration
+//! Direct xcrun simctl integration.
 //!
-//! This module provides direct access to iOS Simulator management
-//! through the `xcrun simctl` command line tool.
+//! This module re-exports from `platform::ios::simctl` for backward compatibility.
+//! New code should use `crate::platform::ios::simctl` directly.
 
-pub mod management;
+// Re-export submodules from the new location
+pub use crate::platform::ios::simctl::management;
 
-pub use management::{boot, clone, create, delete, delete_all, erase, shutdown};
+// Re-export functions
+pub use crate::platform::ios::simctl::{boot, clone, create, delete, delete_all, erase, shutdown};

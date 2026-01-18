@@ -1,6 +1,8 @@
 mod cli;
 mod companion;
+mod core;
 mod grpc;
+mod platform;
 mod simctl;
 mod types;
 
@@ -512,6 +514,34 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 cli::idb::shell::run(no_prompt, udid).await?;
             }
         },
+        Commands::Screenshot { path, udid } => {
+            cli::agent::screenshot::run(path, udid).await?;
+        }
+        Commands::Tap { x, y, udid } => {
+            cli::agent::tap::run(x, y, udid).await?;
+        }
+        Commands::Swipe {
+            x_start,
+            y_start,
+            x_end,
+            y_end,
+            duration,
+            udid,
+        } => {
+            cli::agent::swipe::run(x_start, y_start, x_end, y_end, duration, udid).await?;
+        }
+        Commands::TypeText { text, udid } => {
+            cli::agent::type_text::run(text, udid).await?;
+        }
+        Commands::Launch { bundle_id, udid } => {
+            cli::agent::launch::run(bundle_id, udid).await?;
+        }
+        Commands::Install { bundle_path, udid } => {
+            cli::agent::install::run(bundle_path, udid).await?;
+        }
+        Commands::Accessibility { nested, udid } => {
+            cli::agent::accessibility::run(nested, udid).await?;
+        }
     }
 
     Ok(())

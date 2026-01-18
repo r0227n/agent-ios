@@ -1,4 +1,8 @@
-use crate::grpc::IdbClient;
+//! Companion resolution functionality.
+//!
+//! This module handles finding and connecting to the appropriate companion daemon.
+
+use crate::platform::ios::grpc::IdbClient;
 use crate::types::{Address, TargetType};
 
 use super::spawner::{CompanionSpawnConfig, CompanionSpawner, SpawnError};

@@ -1,3 +1,7 @@
+//! Companion listing functionality.
+//!
+//! This module uses idb_companion --list to enumerate local targets.
+
 use crate::types::{TargetDescription, TargetType};
 use serde::Deserialize;
 use std::process::Command;

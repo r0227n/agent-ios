@@ -1,10 +1,11 @@
-pub mod client;
+//! gRPC client for iOS companion communication.
+//!
+//! This module re-exports from `platform::ios::grpc` for backward compatibility.
+//! New code should use `crate::platform::ios::grpc` directly.
 
-pub use client::{IdbClient, LaunchConfig, XctraceTarget};
+// Re-export everything from the new location
+pub use crate::platform::ios::grpc::client;
+pub use crate::platform::ios::grpc::{IdbClient, LaunchConfig, XctraceTarget};
 
-// Include generated proto code
-#[allow(dead_code)]
-#[allow(clippy::enum_variant_names)]
-pub mod idb {
-    tonic::include_proto!("idb");
-}
+// Re-export proto types for backward compatibility
+pub use crate::platform::ios::proto::idb;
