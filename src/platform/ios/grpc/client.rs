@@ -6,7 +6,9 @@
 use crate::types::Address;
 use hyper_util::rt::TokioIo;
 use std::collections::HashMap;
+use std::time::Duration;
 use tokio::net::UnixStream;
+use tokio::time::sleep;
 use tonic::transport::{Channel, Endpoint, Uri};
 use tower::service_fn;
 
@@ -48,14 +50,48 @@ pub struct IdbClient {
 }
 
 impl IdbClient {
-    /// Connect to idb_companion via Unix Domain Socket
+    /// 接続タイムアウト（秒）
+    const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+    /// リクエストタイムアウト（秒）
+    const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+    /// 最大リトライ回数
+    const MAX_RETRIES: u32 = 3;
+
+    /// Connect to idb_companion via Unix Domain Socket (with retry)
     pub async fn connect_uds(
+        socket_path: &str,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let mut last_error = None;
+
+        for attempt in 0..Self::MAX_RETRIES {
+            if attempt > 0 {
+                // 指数バックオフ: 1秒, 2秒, 4秒...
+                let delay = Duration::from_secs(1 << (attempt - 1));
+                sleep(delay).await;
+            }
+
+            match Self::try_connect_uds(socket_path).await {
+                Ok(client) => return Ok(client),
+                Err(e) => {
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| "Connection failed".into()))
+    }
+
+    /// UDS接続の実際の試行
+    async fn try_connect_uds(
         socket_path: &str,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let socket_path_owned = socket_path.to_string();
 
-        // For Unix Domain Sockets, we need a dummy URI but real socket connection
-        let channel = Endpoint::try_from("http://[::]:50051")?
+        let endpoint = Endpoint::try_from("http://[::]:50051")?
+            .connect_timeout(Self::DEFAULT_CONNECT_TIMEOUT)
+            .timeout(Self::DEFAULT_REQUEST_TIMEOUT);
+
+        let channel = endpoint
             .connect_with_connector(service_fn(move |_: Uri| {
                 let path = socket_path_owned.clone();
                 async move {
@@ -75,13 +111,42 @@ impl IdbClient {
         })
     }
 
-    /// Connect to idb_companion via TCP
+    /// Connect to idb_companion via TCP (with retry)
     pub async fn connect_tcp(
         host: &str,
         port: u16,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let mut last_error = None;
+
+        for attempt in 0..Self::MAX_RETRIES {
+            if attempt > 0 {
+                // 指数バックオフ: 1秒, 2秒, 4秒...
+                let delay = Duration::from_secs(1 << (attempt - 1));
+                sleep(delay).await;
+            }
+
+            match Self::try_connect_tcp(host, port).await {
+                Ok(client) => return Ok(client),
+                Err(e) => {
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| "Connection failed".into()))
+    }
+
+    /// TCP接続の実際の試行
+    async fn try_connect_tcp(
+        host: &str,
+        port: u16,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let addr = format!("http://{}:{}", host, port);
-        let channel = Channel::from_shared(addr)?.connect().await?;
+        let channel = Channel::from_shared(addr)?
+            .connect_timeout(Self::DEFAULT_CONNECT_TIMEOUT)
+            .timeout(Self::DEFAULT_REQUEST_TIMEOUT)
+            .connect()
+            .await?;
         let client = CompanionServiceClient::new(channel);
 
         Ok(Self {
