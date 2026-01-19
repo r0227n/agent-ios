@@ -1,5 +1,4 @@
-pub mod add_media;
-
+use crate::cli::helpers::{with_client, CommandResult};
 use clap::Subcommand;
 
 #[derive(Subcommand)]
@@ -14,4 +13,12 @@ pub enum MediaCommands {
         #[arg(short, long)]
         udid: Option<String>,
     },
+}
+
+pub async fn add_media(file_paths: Vec<String>, udid: Option<String>) -> CommandResult {
+    with_client(udid.as_deref(), |mut client| async move {
+        client.add_media(file_paths).await?;
+        Ok(())
+    })
+    .await
 }
