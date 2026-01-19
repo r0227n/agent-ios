@@ -42,14 +42,13 @@
 //!
 //! - `api` - High-level programmatic API
 //! - `platform::ios` - iOS-specific implementations (gRPC, companion, simctl)
-//! - `core` - Shared types, errors, and traits
+//! - `types` - Shared type definitions
 //! - `cli` - CLI command implementations
 
 // Re-export modules for library use
 pub mod api;
 pub mod cli;
 pub mod companion;
-pub mod core;
 pub mod grpc;
 pub mod platform;
 pub mod simctl;

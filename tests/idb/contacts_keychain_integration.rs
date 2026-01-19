@@ -1,5 +1,3 @@
-mod common;
-
 use std::process::Command;
 
 /// Test keychain-clear CLI help output

@@ -1,11 +1,9 @@
-mod common;
-
 use std::process::Command;
 
 /// Test dylib install CLI help output
 #[test]
 fn test_dylib_install_cli_help() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "dylib", "install", "--help"])
@@ -34,7 +32,7 @@ fn test_dylib_install_cli_help() {
 /// Test dylib install help compatibility with Python idb
 #[test]
 fn test_dylib_install_help_python_compatibility() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     // Python idb
     let python_output = Command::new("idb")
@@ -56,9 +54,9 @@ fn test_dylib_install_help_python_compatibility() {
 /// Test dylib install rejects nonexistent path
 #[test]
 fn test_dylib_install_nonexistent_path() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let nonexistent_dylib = format!("/tmp/nonexistent_dylib_{}.dylib", std::process::id());
 

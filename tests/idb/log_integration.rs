@@ -1,6 +1,4 @@
-mod common;
-
-use common::{get_available_udid, wait_with_timeout};
+use crate::common::{get_available_udid, wait_with_timeout};
 use std::process::{Command, Stdio};
 
 #[test]

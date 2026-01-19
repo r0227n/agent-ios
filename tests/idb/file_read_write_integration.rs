@@ -1,12 +1,10 @@
-mod common;
-
 use std::process::Command;
 
 #[test]
 fn test_file_write_and_read() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let test_content = "Hello from agent-mobile test!";
     let test_path = "/tmp/agent_mobile_test_file.txt";
@@ -37,8 +35,9 @@ fn test_file_write_and_read() {
     );
 
     // Test 2: Read file to stdout
-    let python_read = common::run_idb_file_command(&["read", test_path, "--udid", &udid]);
-    let rust_read = common::run_agent_mobile_file_command(&["read", test_path, "--udid", &udid]);
+    let python_read = crate::common::run_idb_file_command(&["read", test_path, "--udid", &udid]);
+    let rust_read =
+        crate::common::run_agent_mobile_file_command(&["read", test_path, "--udid", &udid]);
 
     assert_eq!(
         python_read.status.code(),
@@ -57,20 +56,21 @@ fn test_file_write_and_read() {
     );
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", test_path, "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", test_path, "--udid", &udid]);
 }
 
 #[test]
 fn test_file_read_nonexistent() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let nonexistent_path = format!("/tmp/nonexistent_file_{}.txt", std::process::id());
 
-    let python_output = common::run_idb_file_command(&["read", &nonexistent_path, "--udid", &udid]);
+    let python_output =
+        crate::common::run_idb_file_command(&["read", &nonexistent_path, "--udid", &udid]);
     let rust_output =
-        common::run_agent_mobile_file_command(&["read", &nonexistent_path, "--udid", &udid]);
+        crate::common::run_agent_mobile_file_command(&["read", &nonexistent_path, "--udid", &udid]);
 
     // Both should fail
     assert!(!python_output.status.success());
@@ -79,9 +79,9 @@ fn test_file_read_nonexistent() {
 
 #[test]
 fn test_file_write_binary_data() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let test_path = "/tmp/agent_mobile_test_binary.bin";
     let binary_data = vec![0u8, 1, 2, 3, 255, 254, 253];
@@ -105,13 +105,14 @@ fn test_file_write_binary_data() {
     assert!(rust_write.status.success(), "Binary write failed");
 
     // Read back
-    let rust_read = common::run_agent_mobile_file_command(&["read", test_path, "--udid", &udid]);
+    let rust_read =
+        crate::common::run_agent_mobile_file_command(&["read", test_path, "--udid", &udid]);
     assert!(rust_read.status.success(), "Binary read failed");
 
     // Verify binary content
     assert_eq!(rust_read.stdout, binary_data, "Binary data mismatch");
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", test_path, "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", test_path, "--udid", &udid]);
     let _ = std::fs::remove_file(temp_file);
 }

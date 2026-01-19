@@ -1,6 +1,4 @@
-mod common;
-
-use common::{get_available_udid, get_test_bundle_id};
+use crate::common::{get_available_udid, get_test_bundle_id};
 use std::process::Command;
 
 #[test]

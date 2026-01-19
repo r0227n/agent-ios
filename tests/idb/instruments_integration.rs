@@ -1,11 +1,9 @@
-mod common;
-
 use std::process::Command;
 
 /// Test instruments CLI help output
 #[test]
 fn test_instruments_cli_help() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "instruments", "--help"])
@@ -44,7 +42,7 @@ fn test_instruments_cli_help() {
 /// Test instruments requires --template
 #[test]
 fn test_instruments_requires_template() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "instruments"])
@@ -67,7 +65,7 @@ fn test_instruments_requires_template() {
 /// Test instruments help compatibility with Python idb
 #[test]
 fn test_instruments_help_python_compatibility() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     // Python idb
     let python_output = Command::new("idb")

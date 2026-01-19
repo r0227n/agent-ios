@@ -1,5 +1,3 @@
-mod common;
-
 use std::process::Command;
 
 /// Test target create CLI help output

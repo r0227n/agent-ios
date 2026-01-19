@@ -1,5 +1,3 @@
-mod common;
-
 use std::process::Command;
 
 /// Test DAP CLI help output
@@ -100,7 +98,7 @@ fn test_dap_has_udid_flag() {
 #[test]
 fn test_dap_without_udid() {
     // UDIDなしで実行（デフォルトターゲット使用）
-    let bundle_id = common::get_test_bundle_id();
+    let bundle_id = crate::common::get_test_bundle_id();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "dap", &bundle_id])

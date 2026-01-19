@@ -1,6 +1,4 @@
-mod common;
-
-use common::{get_available_udid, get_test_app_path};
+use crate::common::{get_available_udid, get_test_app_path};
 use std::process::Command;
 
 #[test]

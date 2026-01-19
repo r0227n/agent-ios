@@ -1,12 +1,10 @@
-mod common;
-
 use std::process::Command;
 
 #[test]
 fn test_media_add_basic() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     // Create a small test image (1x1 PNG)
     let test_image_data = vec![
@@ -69,9 +67,9 @@ fn test_media_add_basic() {
 
 #[test]
 fn test_media_add_multiple_files() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     // Create multiple test images
     let test_image_data = vec![
@@ -116,9 +114,9 @@ fn test_media_add_multiple_files() {
 
 #[test]
 fn test_media_add_nonexistent_file() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let nonexistent_file = format!("/tmp/nonexistent_media_file_{}.png", std::process::id());
 

@@ -1,11 +1,9 @@
-mod common;
-
 use std::process::Command;
 
 /// Test xctrace record CLI help output
 #[test]
 fn test_xctrace_record_cli_help() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "xctrace", "record", "--help"])
@@ -47,7 +45,7 @@ fn test_xctrace_record_cli_help() {
 /// Test xctrace record requires --template
 #[test]
 fn test_xctrace_record_requires_template() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "xctrace", "record", "--all-processes"])
@@ -70,7 +68,7 @@ fn test_xctrace_record_requires_template() {
 /// Test xctrace record requires target option
 #[test]
 fn test_xctrace_record_requires_target() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "xctrace", "record", "--template", "Time Profiler"])
@@ -96,7 +94,7 @@ fn test_xctrace_record_requires_target() {
 /// Test xctrace record help compatibility with Python idb
 #[test]
 fn test_xctrace_record_help_python_compatibility() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     // Python idb
     let python_output = Command::new("idb")

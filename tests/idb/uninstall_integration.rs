@@ -1,6 +1,4 @@
-mod common;
-
-use common::get_available_udid;
+use crate::common::get_available_udid;
 use std::process::Command;
 
 #[test]

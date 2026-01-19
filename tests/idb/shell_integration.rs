@@ -1,12 +1,10 @@
-mod common;
-
 use std::io::Write;
 use std::process::{Command, Stdio};
 
 /// Test shell CLI help output
 #[test]
 fn test_shell_cli_help() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "shell", "--help"])
@@ -35,7 +33,7 @@ fn test_shell_cli_help() {
 /// Test shell help compatibility with Python idb
 #[test]
 fn test_shell_help_python_compatibility() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     // Python idb
     let python_output = Command::new("idb")
@@ -70,7 +68,7 @@ fn test_shell_help_python_compatibility() {
 /// Test shell exits on 'exit' command
 #[test]
 fn test_shell_exit_command() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let mut child = Command::new("./target/debug/agent-mobile")
         .args(["idb", "shell", "--no-prompt"])
@@ -99,7 +97,7 @@ fn test_shell_exit_command() {
 /// Test shell runs help command
 #[test]
 fn test_shell_help_command() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let mut child = Command::new("./target/debug/agent-mobile")
         .args(["idb", "shell", "--no-prompt"])

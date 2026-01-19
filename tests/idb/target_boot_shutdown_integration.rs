@@ -1,6 +1,4 @@
-mod common;
-
-use common::{ensure_companion_running, get_available_udid};
+use crate::common::{ensure_companion_running, get_available_udid};
 use std::process::Command;
 
 /// Get a shutdown simulator UDID for testing

@@ -1,6 +1,4 @@
-mod common;
-
-use common::{ensure_companion_running, get_available_udid, wait_with_timeout};
+use crate::common::{ensure_companion_running, get_available_udid, wait_with_timeout};
 use std::process::{Command, Stdio};
 
 /// Test video record-video CLI help output

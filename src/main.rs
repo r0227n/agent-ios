@@ -1,6 +1,5 @@
 mod cli;
 mod companion;
-mod core;
 mod grpc;
 mod platform;
 mod simctl;
@@ -26,7 +25,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Idb { command } => match command {
+        Commands::Idb { command } => match *command {
             IdbCommands::ListTargets { only, human } => {
                 cli::idb::list_targets::run(only, human).await?;
             }

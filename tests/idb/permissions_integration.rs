@@ -1,6 +1,4 @@
-mod common;
-
-use common::{ensure_companion_running, get_available_udid, get_test_bundle_id};
+use crate::common::{ensure_companion_running, get_available_udid, get_test_bundle_id};
 use std::process::Command;
 
 // ==========================================

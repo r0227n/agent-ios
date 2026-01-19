@@ -9,7 +9,3 @@ pub mod companion;
 pub mod grpc;
 pub mod proto;
 pub mod simctl;
-
-// Re-export commonly used types
-pub use companion::{CompanionLister, CompanionResolver, CompanionState};
-pub use grpc::{IdbClient, LaunchConfig, XctraceTarget};

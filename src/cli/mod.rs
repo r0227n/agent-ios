@@ -18,7 +18,7 @@ pub enum Commands {
     /// IDB-compatible commands (full idb CLI compatibility)
     Idb {
         #[command(subcommand)]
-        command: idb::IdbCommands,
+        command: Box<idb::IdbCommands>,
     },
 
     // AI-optimized commands (top-level)

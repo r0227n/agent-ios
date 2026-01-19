@@ -1,19 +1,18 @@
-mod common;
-
 /// Integration tests for mkdir command
 /// Compares Python idb output with agent-mobile output to ensure compatibility
 
 #[test]
 fn test_mkdir_creates_directory() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     // Create a test directory in root container
     let test_path = format!("/tmp/test_mkdir_{}", std::process::id());
 
-    let output =
-        common::run_agent_mobile_file_command(&["mkdir", &test_path, "--root", "--udid", &udid]);
+    let output = crate::common::run_agent_mobile_file_command(&[
+        "mkdir", &test_path, "--root", "--udid", &udid,
+    ]);
 
     // Should not error
     if !output.status.success() {
@@ -28,18 +27,18 @@ fn test_mkdir_creates_directory() {
     );
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &test_path, "--root", "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &test_path, "--root", "--udid", &udid]);
 }
 
 #[test]
 fn test_mkdir_without_udid() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let test_path = format!("/tmp/test_mkdir_no_udid_{}", std::process::id());
 
-    let output = common::run_agent_mobile_file_command(&["mkdir", &test_path, "--root"]);
+    let output = crate::common::run_agent_mobile_file_command(&["mkdir", &test_path, "--root"]);
 
     // Should not error if at least one simulator is booted
     if !output.status.success() {
@@ -47,18 +46,18 @@ fn test_mkdir_without_udid() {
     }
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &test_path, "--root", "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &test_path, "--root", "--udid", &udid]);
 }
 
 #[test]
 fn test_mkdir_invalid_bundle_id() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let test_path = "/tmp/test_invalid";
 
-    let output = common::run_agent_mobile_file_command(&[
+    let output = crate::common::run_agent_mobile_file_command(&[
         "mkdir",
         test_path,
         "--bundle-id",
@@ -76,20 +75,25 @@ fn test_mkdir_invalid_bundle_id() {
 
 #[test]
 fn test_mkdir_compatibility_with_python_idb() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let test_path1 = format!("/tmp/test_python_mkdir1_{}", std::process::id());
     let test_path2 = format!("/tmp/test_python_mkdir2_{}", std::process::id());
 
     // Run Python idb
     let python_output =
-        common::run_idb_file_command(&["mkdir", &test_path1, "--root", "--udid", &udid]);
+        crate::common::run_idb_file_command(&["mkdir", &test_path1, "--root", "--udid", &udid]);
 
     // Run Rust implementation
-    let rust_output =
-        common::run_agent_mobile_file_command(&["mkdir", &test_path2, "--root", "--udid", &udid]);
+    let rust_output = crate::common::run_agent_mobile_file_command(&[
+        "mkdir",
+        &test_path2,
+        "--root",
+        "--udid",
+        &udid,
+    ]);
 
     // Both should succeed with no output
     assert_eq!(python_output.status.success(), rust_output.status.success());
@@ -99,25 +103,25 @@ fn test_mkdir_compatibility_with_python_idb() {
     );
 
     // Compare outputs
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    crate::common::compare_file_command_outputs(&python_output, &rust_output);
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &test_path1, "--root", "--udid", &udid]);
-    let _ = common::run_idb_file_command(&["rm", &test_path2, "--root", "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &test_path1, "--root", "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &test_path2, "--root", "--udid", &udid]);
 }
 
 #[test]
 fn test_mkdir_with_bundle_id_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
-    let bundle_id = common::get_test_bundle_id();
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
+    let bundle_id = crate::common::get_test_bundle_id();
 
     let test_path_python = format!("/tmp/test_mkdir_bundle_python_{}", std::process::id());
     let test_path_rust = format!("/tmp/test_mkdir_bundle_rust_{}", std::process::id());
 
     // Run Python idb
-    let python_output = common::run_idb_file_command(&[
+    let python_output = crate::common::run_idb_file_command(&[
         "mkdir",
         &test_path_python,
         "--bundle-id",
@@ -127,7 +131,7 @@ fn test_mkdir_with_bundle_id_equivalence() {
     ]);
 
     // Run Rust implementation
-    let rust_output = common::run_agent_mobile_file_command(&[
+    let rust_output = crate::common::run_agent_mobile_file_command(&[
         "mkdir",
         &test_path_rust,
         "--bundle-id",
@@ -137,10 +141,10 @@ fn test_mkdir_with_bundle_id_equivalence() {
     ]);
 
     // Compare outputs
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    crate::common::compare_file_command_outputs(&python_output, &rust_output);
 
     // Cleanup
-    let _ = common::run_idb_file_command(&[
+    let _ = crate::common::run_idb_file_command(&[
         "rm",
         &test_path_python,
         "--bundle-id",
@@ -148,7 +152,7 @@ fn test_mkdir_with_bundle_id_equivalence() {
         "--udid",
         &udid,
     ]);
-    let _ = common::run_idb_file_command(&[
+    let _ = crate::common::run_idb_file_command(&[
         "rm",
         &test_path_rust,
         "--bundle-id",
@@ -160,9 +164,9 @@ fn test_mkdir_with_bundle_id_equivalence() {
 
 #[test]
 fn test_mkdir_nested_directory_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let pid = std::process::id();
     let parent_dir_python = format!("/tmp/test_mkdir_nested_python_{}", pid);
@@ -171,9 +175,14 @@ fn test_mkdir_nested_directory_equivalence() {
     let nested_path_rust = format!("{}/nested/deep/path", parent_dir_rust);
 
     // Create parent directories first
-    let _python_parent =
-        common::run_idb_file_command(&["mkdir", &parent_dir_python, "--root", "--udid", &udid]);
-    let _rust_parent = common::run_agent_mobile_file_command(&[
+    let _python_parent = crate::common::run_idb_file_command(&[
+        "mkdir",
+        &parent_dir_python,
+        "--root",
+        "--udid",
+        &udid,
+    ]);
+    let _rust_parent = crate::common::run_agent_mobile_file_command(&[
         "mkdir",
         &parent_dir_rust,
         "--root",
@@ -182,11 +191,16 @@ fn test_mkdir_nested_directory_equivalence() {
     ]);
 
     // Create nested path with Python idb
-    let python_output =
-        common::run_idb_file_command(&["mkdir", &nested_path_python, "--root", "--udid", &udid]);
+    let python_output = crate::common::run_idb_file_command(&[
+        "mkdir",
+        &nested_path_python,
+        "--root",
+        "--udid",
+        &udid,
+    ]);
 
     // Create nested path with agent-mobile
-    let rust_output = common::run_agent_mobile_file_command(&[
+    let rust_output = crate::common::run_agent_mobile_file_command(&[
         "mkdir",
         &nested_path_rust,
         "--root",
@@ -195,9 +209,11 @@ fn test_mkdir_nested_directory_equivalence() {
     ]);
 
     // Compare outputs
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    crate::common::compare_file_command_outputs(&python_output, &rust_output);
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &parent_dir_python, "--root", "--udid", &udid]);
-    let _ = common::run_idb_file_command(&["rm", &parent_dir_rust, "--root", "--udid", &udid]);
+    let _ =
+        crate::common::run_idb_file_command(&["rm", &parent_dir_python, "--root", "--udid", &udid]);
+    let _ =
+        crate::common::run_idb_file_command(&["rm", &parent_dir_rust, "--root", "--udid", &udid]);
 }

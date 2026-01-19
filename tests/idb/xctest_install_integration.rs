@@ -1,11 +1,9 @@
-mod common;
-
 use std::process::Command;
 
 /// Test xctest-install CLI help output
 #[test]
 fn test_xctest_install_cli_help() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "xctest-install", "--help"])
@@ -32,7 +30,7 @@ fn test_xctest_install_cli_help() {
 /// Test xctest-install has --json flag
 #[test]
 fn test_xctest_install_has_json_flag() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "xctest-install", "--help"])
@@ -51,9 +49,9 @@ fn test_xctest_install_has_json_flag() {
 /// Test xctest-install rejects nonexistent bundle
 #[test]
 fn test_xctest_install_nonexistent_bundle() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let nonexistent_bundle = format!("/tmp/nonexistent_test_bundle_{}.xctest", std::process::id());
 
@@ -83,7 +81,7 @@ fn test_xctest_install_nonexistent_bundle() {
 /// Test xctest-install help compatibility with Python idb
 #[test]
 fn test_xctest_install_help_python_compatibility() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     // Python idb
     let python_output = Command::new("idb")

@@ -1,6 +1,4 @@
-mod common;
-
-use common::{ensure_framebuffer_ready, get_available_udid};
+use crate::common::{ensure_framebuffer_ready, get_available_udid};
 use std::fs;
 use std::process::Command;
 use tempfile::NamedTempFile;

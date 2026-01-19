@@ -1,5 +1,3 @@
-mod common;
-
 use std::fs;
 use std::path::Path;
 
@@ -8,9 +6,9 @@ use std::path::Path;
 
 #[test]
 fn test_pull_file_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let pid = std::process::id();
     let device_path = format!("/tmp/test_pull_source_{}", pid);
@@ -21,18 +19,24 @@ fn test_pull_file_equivalence() {
     let test_content = b"test content for pull";
     let temp_local = format!("/tmp/test_pull_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push =
+        crate::common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Pull with Python idb
     let python_output =
-        common::run_idb_file_command(&["pull", &device_path, &python_dest, "--udid", &udid]);
+        crate::common::run_idb_file_command(&["pull", &device_path, &python_dest, "--udid", &udid]);
 
     // Pull with agent-mobile
-    let rust_output =
-        common::run_agent_mobile_file_command(&["pull", &device_path, &rust_dest, "--udid", &udid]);
+    let rust_output = crate::common::run_agent_mobile_file_command(&[
+        "pull",
+        &device_path,
+        &rust_dest,
+        "--udid",
+        &udid,
+    ]);
 
     // Compare command outputs
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    crate::common::compare_file_command_outputs(&python_output, &rust_output);
 
     // Compare pulled file contents
     if python_output.status.success() {
@@ -46,7 +50,7 @@ fn test_pull_file_equivalence() {
     }
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
     let _ = fs::remove_file(&temp_local);
     let _ = fs::remove_file(&python_dest);
     let _ = fs::remove_file(&rust_dest);
@@ -54,9 +58,9 @@ fn test_pull_file_equivalence() {
 
 #[test]
 fn test_pull_to_stdout_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let pid = std::process::id();
     let device_path = format!("/tmp/test_pull_stdout_{}", pid);
@@ -65,17 +69,19 @@ fn test_pull_to_stdout_equivalence() {
     let test_content = b"stdout test content";
     let temp_local = format!("/tmp/test_pull_stdout_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push =
+        crate::common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Pull to stdout with Python idb
-    let python_output = common::run_idb_file_command(&["pull", &device_path, "-", "--udid", &udid]);
+    let python_output =
+        crate::common::run_idb_file_command(&["pull", &device_path, "-", "--udid", &udid]);
 
     // Pull to stdout with agent-mobile
     let rust_output =
-        common::run_agent_mobile_file_command(&["pull", &device_path, "-", "--udid", &udid]);
+        crate::common::run_agent_mobile_file_command(&["pull", &device_path, "-", "--udid", &udid]);
 
     // Compare outputs (stdout should contain file content)
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    crate::common::compare_file_command_outputs(&python_output, &rust_output);
 
     if python_output.status.success() {
         assert_eq!(python_output.stdout, test_content);
@@ -83,16 +89,16 @@ fn test_pull_to_stdout_equivalence() {
     }
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
     let _ = fs::remove_file(&temp_local);
 }
 
 #[test]
 fn test_pull_with_bundle_id_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
-    let bundle_id = common::get_test_bundle_id();
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
+    let bundle_id = crate::common::get_test_bundle_id();
 
     let pid = std::process::id();
     let device_path = format!("/tmp/test_pull_bundle_{}", pid);
@@ -103,7 +109,7 @@ fn test_pull_with_bundle_id_equivalence() {
     let test_content = b"bundle test content";
     let temp_local = format!("/tmp/test_pull_bundle_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push = common::run_idb_file_command(&[
+    let _push = crate::common::run_idb_file_command(&[
         "push",
         &temp_local,
         &device_path,
@@ -114,7 +120,7 @@ fn test_pull_with_bundle_id_equivalence() {
     ]);
 
     // Pull with Python idb
-    let python_output = common::run_idb_file_command(&[
+    let python_output = crate::common::run_idb_file_command(&[
         "pull",
         &device_path,
         &python_dest,
@@ -125,7 +131,7 @@ fn test_pull_with_bundle_id_equivalence() {
     ]);
 
     // Pull with agent-mobile
-    let rust_output = common::run_agent_mobile_file_command(&[
+    let rust_output = crate::common::run_agent_mobile_file_command(&[
         "pull",
         &device_path,
         &rust_dest,
@@ -136,7 +142,7 @@ fn test_pull_with_bundle_id_equivalence() {
     ]);
 
     // Compare command outputs
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    crate::common::compare_file_command_outputs(&python_output, &rust_output);
 
     // Compare pulled file contents
     if python_output.status.success() {
@@ -146,7 +152,7 @@ fn test_pull_with_bundle_id_equivalence() {
     }
 
     // Cleanup
-    let _ = common::run_idb_file_command(&[
+    let _ = crate::common::run_idb_file_command(&[
         "rm",
         &device_path,
         "--bundle-id",
@@ -161,17 +167,22 @@ fn test_pull_with_bundle_id_equivalence() {
 
 #[test]
 fn test_pull_nonexistent_file_error() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let nonexistent_path = "/tmp/this_file_does_not_exist_12345";
     let dest_path = "/tmp/test_pull_error_dest";
 
     // Both should fail
-    let python_output =
-        common::run_idb_file_command(&["pull", nonexistent_path, dest_path, "--udid", &udid]);
-    let rust_output = common::run_agent_mobile_file_command(&[
+    let python_output = crate::common::run_idb_file_command(&[
+        "pull",
+        nonexistent_path,
+        dest_path,
+        "--udid",
+        &udid,
+    ]);
+    let rust_output = crate::common::run_agent_mobile_file_command(&[
         "pull",
         nonexistent_path,
         dest_path,
@@ -182,7 +193,7 @@ fn test_pull_nonexistent_file_error() {
     assert!(!python_output.status.success());
     assert!(!rust_output.status.success());
 
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    crate::common::compare_file_command_outputs(&python_output, &rust_output);
 
     // Ensure no files were created
     assert!(!Path::new(dest_path).exists());
@@ -190,9 +201,9 @@ fn test_pull_nonexistent_file_error() {
 
 #[test]
 fn test_pull_binary_file_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let pid = std::process::id();
     let device_path = format!("/tmp/test_pull_binary_{}", pid);
@@ -203,18 +214,24 @@ fn test_pull_binary_file_equivalence() {
     let test_content: Vec<u8> = (0..256).map(|i| i as u8).collect();
     let temp_local = format!("/tmp/test_pull_binary_local_{}", pid);
     fs::write(&temp_local, &test_content).expect("Failed to create local test file");
-    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push =
+        crate::common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Pull with Python idb
     let python_output =
-        common::run_idb_file_command(&["pull", &device_path, &python_dest, "--udid", &udid]);
+        crate::common::run_idb_file_command(&["pull", &device_path, &python_dest, "--udid", &udid]);
 
     // Pull with agent-mobile
-    let rust_output =
-        common::run_agent_mobile_file_command(&["pull", &device_path, &rust_dest, "--udid", &udid]);
+    let rust_output = crate::common::run_agent_mobile_file_command(&[
+        "pull",
+        &device_path,
+        &rust_dest,
+        "--udid",
+        &udid,
+    ]);
 
     // Compare command outputs
-    common::compare_file_command_outputs(&python_output, &rust_output);
+    crate::common::compare_file_command_outputs(&python_output, &rust_output);
 
     // Compare pulled file contents
     if python_output.status.success() {
@@ -228,7 +245,7 @@ fn test_pull_binary_file_equivalence() {
     }
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
     let _ = fs::remove_file(&temp_local);
     let _ = fs::remove_file(&python_dest);
     let _ = fs::remove_file(&rust_dest);

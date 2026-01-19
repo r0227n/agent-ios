@@ -1,11 +1,9 @@
-mod common;
-
 use std::process::Command;
 
 /// Test photos-clear CLI help output
 #[test]
 fn test_photos_clear_cli_help() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "photos-clear", "--help"])
@@ -31,7 +29,7 @@ fn test_photos_clear_cli_help() {
 /// This test validates agent-mobile's implementation only.
 #[test]
 fn test_photos_clear_help_agent_mobile_only() {
-    common::build_agent_mobile();
+    crate::common::build_agent_mobile();
 
     // agent-mobile (Python idb does not have "photos clear" in released versions)
     let rust_output = Command::new("./target/debug/agent-mobile")

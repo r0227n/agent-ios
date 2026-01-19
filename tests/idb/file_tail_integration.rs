@@ -1,5 +1,3 @@
-mod common;
-
 use std::fs;
 use std::process::Command;
 
@@ -8,9 +6,9 @@ use std::process::Command;
 
 #[test]
 fn test_tail_existing_file_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let pid = std::process::id();
     let device_path = format!("/tmp/test_tail_{}", pid);
@@ -19,7 +17,8 @@ fn test_tail_existing_file_equivalence() {
     let test_content = b"line 1\nline 2\nline 3\n";
     let temp_local = format!("/tmp/test_tail_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push =
+        crate::common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Tail with agent-mobile (spawn and terminate after brief period)
     let rust_child = Command::new("./target/debug/agent-mobile")
@@ -27,7 +26,7 @@ fn test_tail_existing_file_equivalence() {
         .spawn()
         .expect("Failed to spawn agent-mobile tail");
 
-    let rust_output = common::wait_with_timeout(rust_child, 5);
+    let rust_output = crate::common::wait_with_timeout(rust_child, 5);
 
     // Verify agent-mobile can start and be terminated
     // Note: Python idb has a bug handling SIGTERM in tail, so we only test agent-mobile
@@ -38,16 +37,16 @@ fn test_tail_existing_file_equivalence() {
     let _ = rust_stdout; // Process started and terminated successfully
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
     let _ = fs::remove_file(&temp_local);
 }
 
 #[test]
 fn test_tail_with_bundle_id_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
-    let bundle_id = common::get_test_bundle_id();
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
+    let bundle_id = crate::common::get_test_bundle_id();
 
     let pid = std::process::id();
     let device_path = format!("/tmp/test_tail_bundle_{}", pid);
@@ -56,7 +55,7 @@ fn test_tail_with_bundle_id_equivalence() {
     let test_content = b"app log line 1\napp log line 2\n";
     let temp_local = format!("/tmp/test_tail_bundle_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push = common::run_idb_file_command(&[
+    let _push = crate::common::run_idb_file_command(&[
         "push",
         &temp_local,
         &device_path,
@@ -81,13 +80,13 @@ fn test_tail_with_bundle_id_equivalence() {
         .spawn()
         .expect("Failed to spawn agent-mobile tail");
 
-    let rust_output = common::wait_with_timeout(rust_child, 5);
+    let rust_output = crate::common::wait_with_timeout(rust_child, 5);
 
     // Verify agent-mobile can start and be terminated cleanly
     let _ = rust_output.status;
 
     // Cleanup
-    let _ = common::run_idb_file_command(&[
+    let _ = crate::common::run_idb_file_command(&[
         "rm",
         &device_path,
         "--bundle-id",
@@ -100,9 +99,9 @@ fn test_tail_with_bundle_id_equivalence() {
 
 #[test]
 fn test_tail_nonexistent_file_error() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let nonexistent_path = "/tmp/this_file_does_not_exist_12345";
 
@@ -112,14 +111,14 @@ fn test_tail_nonexistent_file_error() {
         .args(["file", "tail", nonexistent_path, "--udid", &udid])
         .spawn()
         .expect("Failed to spawn Python idb tail");
-    let python_output = common::wait_with_timeout(python_child, 5);
+    let python_output = crate::common::wait_with_timeout(python_child, 5);
 
     // Rust: spawn and wait with timeout
     let rust_child = Command::new("./target/debug/agent-mobile")
         .args(["idb", "file", "tail", nonexistent_path, "--udid", &udid])
         .spawn()
         .expect("Failed to spawn agent-mobile tail");
-    let rust_output = common::wait_with_timeout(rust_child, 5);
+    let rust_output = crate::common::wait_with_timeout(rust_child, 5);
 
     // Both should error (either by exit code or signal)
     // Note: May be terminated by timeout rather than immediate error
@@ -135,9 +134,9 @@ fn test_tail_nonexistent_file_error() {
 
 #[test]
 fn test_tail_empty_file_equivalence() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let pid = std::process::id();
     let device_path = format!("/tmp/test_tail_empty_{}", pid);
@@ -145,7 +144,8 @@ fn test_tail_empty_file_equivalence() {
     // Create empty file on device
     let temp_local = format!("/tmp/test_tail_empty_local_{}", pid);
     fs::write(&temp_local, b"").expect("Failed to create local test file");
-    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push =
+        crate::common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Tail with agent-mobile (Python idb has a bug handling SIGTERM in tail)
     let rust_child = Command::new("./target/debug/agent-mobile")
@@ -153,7 +153,7 @@ fn test_tail_empty_file_equivalence() {
         .spawn()
         .expect("Failed to spawn agent-mobile tail");
 
-    let rust_output = common::wait_with_timeout(rust_child, 5);
+    let rust_output = crate::common::wait_with_timeout(rust_child, 5);
 
     // Verify agent-mobile can handle empty file and be terminated cleanly
     // Should have empty or minimal output for empty file
@@ -163,15 +163,15 @@ fn test_tail_empty_file_equivalence() {
     );
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
     let _ = fs::remove_file(&temp_local);
 }
 
 #[test]
 fn test_tail_signal_handling() {
-    common::build_agent_mobile();
-    let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    crate::common::build_agent_mobile();
+    let udid = crate::common::get_available_udid();
+    crate::common::ensure_companion_running(&udid);
 
     let pid = std::process::id();
     let device_path = format!("/tmp/test_tail_signal_{}", pid);
@@ -180,7 +180,8 @@ fn test_tail_signal_handling() {
     let test_content = b"test content\n";
     let temp_local = format!("/tmp/test_tail_signal_local_{}", pid);
     fs::write(&temp_local, test_content).expect("Failed to create local test file");
-    let _push = common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
+    let _push =
+        crate::common::run_idb_file_command(&["push", &temp_local, &device_path, "--udid", &udid]);
 
     // Test that agent-mobile handles SIGTERM gracefully
     // Note: Python idb has a bug handling SIGTERM in tail command
@@ -189,13 +190,13 @@ fn test_tail_signal_handling() {
         .spawn()
         .expect("Failed to spawn agent-mobile tail");
 
-    let rust_output = common::wait_with_timeout(rust_child, 5);
+    let rust_output = crate::common::wait_with_timeout(rust_child, 5);
 
     // Verify the process was terminated (by signal or exit)
     // On Unix, signal termination results in code() returning None
     let _ = rust_output.status;
 
     // Cleanup
-    let _ = common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
+    let _ = crate::common::run_idb_file_command(&["rm", &device_path, "--udid", &udid]);
     let _ = fs::remove_file(&temp_local);
 }
