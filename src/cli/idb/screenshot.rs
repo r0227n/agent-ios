@@ -17,7 +17,7 @@ pub async fn run(dest_path: String, udid: Option<String>) -> CommandResult {
 
         match try_screenshot(&dest_path, udid.as_deref()).await {
             Ok(()) => return Ok(()),
-            Err(e) if should_retry(&e, attempt) => {
+            Err(e) if should_retry(e.as_ref(), attempt) => {
                 // Exponential backoff: 500ms, 1000ms, 2000ms
                 let delay_ms = INITIAL_RETRY_DELAY_MS * (1 << (attempt - 1));
                 eprintln!(
@@ -28,7 +28,7 @@ pub async fn run(dest_path: String, udid: Option<String>) -> CommandResult {
             }
             Err(e) => {
                 // Non-retryable error or max retries exceeded
-                if is_framebuffer_error(&e) && attempt >= MAX_RETRIES {
+                if is_framebuffer_error(e.as_ref()) && attempt >= MAX_RETRIES {
                     return Err(format!(
                         "Screenshot failed after {} attempts: {}\n\
                         \n\
@@ -60,7 +60,7 @@ async fn try_screenshot(dest_path: &str, udid: Option<&str>) -> CommandResult {
 }
 
 /// Determine if an error is retryable (framebuffer not ready)
-fn should_retry(error: &Box<dyn std::error::Error + Send + Sync>, attempt: u32) -> bool {
+fn should_retry(error: &dyn std::error::Error, attempt: u32) -> bool {
     if attempt >= MAX_RETRIES {
         return false;
     }
@@ -69,7 +69,7 @@ fn should_retry(error: &Box<dyn std::error::Error + Send + Sync>, attempt: u32) 
 }
 
 /// Check if error is related to framebuffer initialization
-fn is_framebuffer_error(error: &Box<dyn std::error::Error + Send + Sync>) -> bool {
+fn is_framebuffer_error(error: &dyn std::error::Error) -> bool {
     let error_msg = error.to_string();
     error_msg.contains("No Image available to encode")
 }
@@ -95,9 +95,9 @@ mod tests {
     #[test]
     fn test_framebuffer_error_detection() {
         let error: Box<dyn std::error::Error + Send + Sync> = "No Image available to encode".into();
-        assert!(is_framebuffer_error(&error));
+        assert!(is_framebuffer_error(error.as_ref()));
 
         let error: Box<dyn std::error::Error + Send + Sync> = "Some other error".into();
-        assert!(!is_framebuffer_error(&error));
+        assert!(!is_framebuffer_error(error.as_ref()));
     }
 }

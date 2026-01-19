@@ -1,8 +1,7 @@
-pub mod lister;
-pub mod resolver;
-pub mod spawner;
-pub mod state;
+//! Companion daemon management.
+//!
+//! This module re-exports from `platform::ios::companion` for backward compatibility.
+//! New code should use `crate::platform::ios::companion` directly.
 
-pub use lister::CompanionLister;
-pub use resolver::CompanionResolver;
-pub use state::CompanionState;
+// Re-export main types
+pub use crate::platform::ios::companion::{CompanionLister, CompanionResolver, CompanionState};
