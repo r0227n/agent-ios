@@ -284,7 +284,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             },
             IdbCommands::Media { command } => match command {
                 cli::idb::media::MediaCommands::AddMedia { file_paths, udid } => {
-                    cli::idb::media::add_media::run(file_paths, udid).await?;
+                    cli::idb::media::add_media(file_paths, udid).await?;
                 }
             },
             IdbCommands::Video { command } => match command {
