@@ -16,10 +16,6 @@ runs:
       run: brew install protobuf
       shell: bash
 
-    - name: Install SwiftProtobuf
-      run: brew install protobuf swift-protobuf
-      shell: bash
-
     - name: Install XcodeGen
       run: brew install xcodegen
       shell: bash
