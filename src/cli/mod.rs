@@ -1,6 +1,14 @@
-pub mod agent;
+pub mod accessibility;
+pub mod app;
+pub mod clipboard;
+pub mod device;
+pub mod gesture;
 pub mod helpers;
 pub mod idb;
+pub mod keyboard;
+pub mod navigator;
+pub mod privacy;
+pub mod screen;
 
 use clap::{Parser, Subcommand};
 
@@ -21,18 +29,30 @@ pub enum Commands {
         command: Box<idb::IdbCommands>,
     },
 
-    /// Suggest best simulators/emulators for testing (AI-optimized)
-    SuggestSimulator {
-        /// Target platform (ios or android, default: ios)
-        #[arg(short = 'p', long, default_value = "ios")]
-        platform: String,
+    /// Touch gesture operations (tap, swipe, scroll, long-press)
+    Gesture(gesture::GestureArgs),
 
-        /// Number of suggestions (1-10)
-        #[arg(long, default_value = "4", value_parser = clap::value_parser!(u8).range(1..=10))]
-        count: u8,
+    /// Keyboard input operations (text, keys, buttons)
+    Keyboard(keyboard::KeyboardArgs),
 
-        /// Output in human-readable format (default: JSON)
-        #[arg(long)]
-        human: bool,
-    },
+    /// Element navigation and interaction
+    Navigator(navigator::NavigatorArgs),
+
+    /// Screen analysis (accessibility dump, summary, hints)
+    Screen(screen::ScreenArgs),
+
+    /// Application management (launch, terminate, install, list)
+    App(app::AppArgs),
+
+    /// Device management (list, boot, shutdown)
+    Device(device::DeviceArgs),
+
+    /// Clipboard operations (copy, paste)
+    Clipboard(clipboard::ClipboardArgs),
+
+    /// Privacy/permission management (grant, revoke, reset)
+    Privacy(privacy::PrivacyArgs),
+
+    /// Accessibility audit
+    Accessibility(accessibility::AccessibilityArgs),
 }

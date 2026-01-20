@@ -13,5 +13,5 @@ pub use error::{Error, Result};
 #[allow(unused_imports)]
 pub use types::{
     human_format_target, json_format_target, merge_connected_targets, Address, CompanionInfo,
-    Compression, InstalledArtifact, TargetDescription, TargetType,
+    Compression, InstalledArtifact, Platform, ScrollDirection, TargetDescription, TargetType,
 };

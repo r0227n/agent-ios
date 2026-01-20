@@ -1,6 +1,6 @@
 //! dsym install command implementation
 
-use crate::cli::helpers::{with_client, CommandResult};
+use crate::cli::helpers::{with_client, CommandResult, OutputFormat};
 use crate::types::Compression;
 use serde_json::json;
 
@@ -9,9 +9,10 @@ pub async fn install(
     dsym_path: String,
     bundle_id: Option<String>,
     compression: Option<String>,
-    json_output: bool,
+    output: OutputFormat,
     udid: Option<String>,
 ) -> CommandResult {
+    let json_output = output.is_json();
     // Parse compression option
     let compression = compression.map(|s| s.parse::<Compression>()).transpose()?;
 

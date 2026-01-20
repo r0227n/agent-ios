@@ -1,10 +1,15 @@
 //! dylib install command implementation
 
-use crate::cli::helpers::{with_client, CommandResult};
+use crate::cli::helpers::{with_client, CommandResult, OutputFormat};
 use serde_json::json;
 
 /// Install a dylib to the target
-pub async fn install(dylib_path: String, json_output: bool, udid: Option<String>) -> CommandResult {
+pub async fn install(
+    dylib_path: String,
+    output: OutputFormat,
+    udid: Option<String>,
+) -> CommandResult {
+    let json_output = output.is_json();
     with_client(udid.as_deref(), |mut client| async move {
         // Call install_dylib RPC
         let mut response_stream = client.install_dylib(&dylib_path).await?;
