@@ -28,6 +28,7 @@ pub mod settings;
 pub mod shell;
 pub mod target;
 pub mod terminate;
+pub mod ui;
 pub mod uninstall;
 pub mod url;
 pub mod video;
@@ -602,6 +603,12 @@ pub enum IdbCommands {
         /// Target device/simulator UDID
         #[arg(short, long)]
         udid: Option<String>,
+    },
+
+    /// UI operations (tap, swipe, accessibility, etc.)
+    Ui {
+        #[command(subcommand)]
+        command: ui::UiCommands,
     },
 }
 

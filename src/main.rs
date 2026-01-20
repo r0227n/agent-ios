@@ -7,7 +7,7 @@ mod types;
 
 use clap::Parser;
 use cli::idb::{
-    debugserver, file, target, CrashCommands, DsymCommands, DylibCommands, FrameworkCommands,
+    debugserver, file, target, ui, CrashCommands, DsymCommands, DylibCommands, FrameworkCommands,
     IdbCommands, ListCommands, LocationCommands, NotificationCommands, UrlCommands,
     XctraceCommands,
 };
@@ -512,6 +512,54 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Shell { no_prompt, udid } => {
                 cli::idb::shell::run(no_prompt, udid).await?;
             }
+            IdbCommands::Ui { command } => match command {
+                ui::UiCommands::DescribeAll { nested, udid } => {
+                    cli::idb::ui::describe_all::run(nested, udid).await?;
+                }
+                ui::UiCommands::DescribePoint { x, y, nested, udid } => {
+                    cli::idb::ui::describe_point::run(x, y, nested, udid).await?;
+                }
+                ui::UiCommands::Tap {
+                    x,
+                    y,
+                    duration,
+                    udid,
+                } => {
+                    cli::idb::ui::tap::run(x, y, duration, udid).await?;
+                }
+                ui::UiCommands::Button {
+                    button,
+                    duration,
+                    udid,
+                } => {
+                    cli::idb::ui::button::run(button, duration, udid).await?;
+                }
+                ui::UiCommands::Text { text, udid } => {
+                    cli::idb::ui::text::run(text, udid).await?;
+                }
+                ui::UiCommands::Key {
+                    keycode,
+                    duration,
+                    udid,
+                } => {
+                    cli::idb::ui::key::run(keycode, duration, udid).await?;
+                }
+                ui::UiCommands::KeySequence { key_sequence, udid } => {
+                    cli::idb::ui::key_sequence::run(key_sequence, udid).await?;
+                }
+                ui::UiCommands::Swipe {
+                    x_start,
+                    y_start,
+                    x_end,
+                    y_end,
+                    duration,
+                    delta,
+                    udid,
+                } => {
+                    cli::idb::ui::swipe::run(x_start, y_start, x_end, y_end, duration, delta, udid)
+                        .await?;
+                }
+            },
         },
         Commands::SuggestSimulator {
             platform,

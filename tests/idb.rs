@@ -118,6 +118,9 @@ mod target_create_delete_integration;
 #[path = "idb/terminate_integration.rs"]
 mod terminate_integration;
 
+#[path = "idb/ui_integration.rs"]
+mod ui_integration;
+
 #[path = "idb/uninstall_integration.rs"]
 mod uninstall_integration;
 
