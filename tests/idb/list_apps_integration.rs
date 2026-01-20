@@ -1,8 +1,8 @@
 use std::process::Command;
 
-/// Normalize a list-apps output line by sorting the architectures field.
-/// This is needed because Python idb uses set[str] for architectures,
-/// which has non-deterministic ordering when joined.
+/// Normalize a list-apps output line for comparison.
+/// - Sorts the architectures field (Python idb uses set[str] with non-deterministic order)
+/// - Excludes process_state (index 4) and pid (index 6) as they can change between command runs
 fn normalize_list_apps_line(line: &str) -> String {
     let parts: Vec<&str> = line.split(" | ").collect();
     if parts.len() != 7 {
@@ -14,10 +14,11 @@ fn normalize_list_apps_line(line: &str) -> String {
     archs.sort();
     let sorted_archs = archs.join(", ");
 
-    // Reconstruct the line with sorted architectures
+    // Exclude process_state (index 4) and pid (index 6) as they are dynamic
+    // Only compare: bundle_id | name | install_type | arch | debuggable
     format!(
-        "{} | {} | {} | {} | {} | {} | {}",
-        parts[0], parts[1], parts[2], sorted_archs, parts[4], parts[5], parts[6]
+        "{} | {} | {} | {} | {}",
+        parts[0], parts[1], parts[2], sorted_archs, parts[5]
     )
 }
 

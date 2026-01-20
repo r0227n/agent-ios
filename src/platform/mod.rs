@@ -3,10 +3,8 @@
 //! This module contains platform-specific code for communicating with
 //! mobile devices. Currently supports iOS, with Android support planned.
 
+pub mod android;
 pub mod ios;
-
-// Future: Android support
-// pub mod android;
 
 use async_trait::async_trait;
 use serde::Serialize;

@@ -39,21 +39,31 @@ fn test_kill_command() {
 
 #[test]
 fn test_kill_no_companions() {
-    // Temporarily move state file if it exists
-    let backup = if std::path::Path::new("/tmp/idb/state").exists() {
-        Some(fs::read_to_string("/tmp/idb/state").unwrap())
+    use std::path::Path;
+
+    let state_path = Path::new("/tmp/idb/state");
+    let backup_path = Path::new("/tmp/idb/state.backup.kill_test");
+
+    // Backup state file by renaming (atomic operation)
+    let had_state_file = if state_path.exists() {
+        fs::rename(state_path, backup_path).is_ok()
     } else {
-        None
+        false
     };
 
-    // Remove state file
-    fs::remove_file("/tmp/idb/state").ok();
+    // Ensure state file is removed
+    fs::remove_file(state_path).ok();
 
     // Run kill command
     let output = Command::new("./target/debug/agent-mobile")
         .args(["idb", "kill"])
         .output()
         .expect("Failed to run kill command");
+
+    // Restore backup before assertions (ensure cleanup on failure)
+    if had_state_file && backup_path.exists() {
+        fs::rename(backup_path, state_path).ok();
+    }
 
     // Should still succeed with no companions
     assert!(
@@ -64,11 +74,7 @@ fn test_kill_no_companions() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("No companions to kill"),
-        "Should report no companions to kill"
+        "Should report no companions to kill, got: {}",
+        stderr
     );
-
-    // Restore backup if needed
-    if let Some(backup_content) = backup {
-        fs::write("/tmp/idb/state", backup_content).ok();
-    }
 }

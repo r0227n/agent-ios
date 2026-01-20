@@ -5,6 +5,7 @@
 //!
 //! Supports progressive disclosure with concise summaries by default.
 
+use crate::platform::android::EmulatorLister;
 use crate::platform::ios::SimulatorLister;
 use crate::platform::{DeviceSuggester, DeviceSuggestion};
 
@@ -17,10 +18,10 @@ pub async fn run(
     // Select platform-specific implementation
     let suggester: Box<dyn DeviceSuggester> = match platform {
         "ios" => Box::new(SimulatorLister::new()?),
-        "android" => {
-            eprintln!("Android support is not yet implemented");
-            return Ok(());
-        }
+        "android" => Box::new(
+            EmulatorLister::new()
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?,
+        ),
         _ => {
             eprintln!("Invalid platform: {}. Use 'ios' or 'android'", platform);
             std::process::exit(1);
