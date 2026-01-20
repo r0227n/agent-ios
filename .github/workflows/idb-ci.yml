@@ -74,6 +74,11 @@ jobs:
     - name: Setup Rust
       uses: ./.github/actions/setup-rust
 
+    - name: Install idb-companion via Homebrew
+      run: |
+        brew tap facebook/fb
+        brew install idb-companion
+
     - name: Run unit tests
       run: cargo test --verbose --bins
 
@@ -90,6 +95,11 @@ jobs:
 
     - name: Setup Rust
       uses: ./.github/actions/setup-rust
+
+    - name: Install idb-companion via Homebrew
+      run: |
+        brew tap facebook/fb
+        brew install idb-companion
 
     - name: Install Python idb CLI
       run: pip install fb-idb
