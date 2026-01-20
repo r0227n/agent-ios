@@ -23,7 +23,3 @@ runs:
     - name: Install XcodeGen
       run: brew install xcodegen
       shell: bash
-
-    - name: Create IDBGRPCSwift directory for XcodeGen
-      run: mkdir -p idb/IDBGRPCSwift
-      shell: bash
