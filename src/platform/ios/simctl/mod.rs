@@ -5,4 +5,4 @@
 
 pub mod management;
 
-pub use management::{boot, clone, create, delete, delete_all, erase, shutdown};
+pub use management::{boot, clone, create, delete, delete_all, erase, list_devices_json, shutdown};

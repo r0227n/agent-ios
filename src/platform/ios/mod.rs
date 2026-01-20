@@ -9,3 +9,6 @@ pub mod companion;
 pub mod grpc;
 pub mod proto;
 pub mod simctl;
+pub mod simulator_list;
+
+pub use simulator_list::SimulatorLister;

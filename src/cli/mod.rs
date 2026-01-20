@@ -97,4 +97,19 @@ pub enum Commands {
         #[arg(short, long)]
         udid: Option<String>,
     },
+
+    /// Suggest best simulators/emulators for testing (AI-optimized)
+    SuggestSimulator {
+        /// Target platform (ios or android, default: ios)
+        #[arg(long, default_value = "ios")]
+        platform: String,
+
+        /// Number of suggestions (1-10)
+        #[arg(long, default_value = "4", value_parser = clap::value_parser!(u8).range(1..=10))]
+        count: u8,
+
+        /// Output in human-readable format (default: JSON)
+        #[arg(long)]
+        human: bool,
+    },
 }

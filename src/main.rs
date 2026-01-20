@@ -541,6 +541,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Accessibility { nested, udid } => {
             cli::agent::accessibility::run(nested, udid).await?;
         }
+        Commands::SuggestSimulator {
+            platform,
+            count,
+            human,
+        } => {
+            cli::agent::suggest_simulator::run(&platform, count as usize, !human).await?;
+        }
     }
 
     Ok(())
