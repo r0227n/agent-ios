@@ -144,6 +144,20 @@ pub fn delete_all() -> Result<()> {
     Ok(())
 }
 
+/// List all simulator devices as JSON string.
+pub fn list_devices_json() -> Result<String> {
+    let output = Command::new("xcrun")
+        .args(["simctl", "list", "devices", "--json"])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(SimctlError::CommandFailed(stderr.to_string()));
+    }
+
+    String::from_utf8(output.stdout).map_err(|e| SimctlError::InvalidOutput(e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
