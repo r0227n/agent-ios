@@ -101,7 +101,7 @@ pub enum Commands {
     /// Suggest best simulators/emulators for testing (AI-optimized)
     SuggestSimulator {
         /// Target platform (ios or android, default: ios)
-        #[arg(long, default_value = "ios")]
+        #[arg(short = 'p', long, default_value = "ios")]
         platform: String,
 
         /// Number of suggestions (1-10)
