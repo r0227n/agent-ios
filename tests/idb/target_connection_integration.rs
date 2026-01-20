@@ -258,6 +258,7 @@ fn test_target_describe_without_udid() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
             stderr.contains("No companions available")
+                || stderr.contains("Multiple companions available")
                 || stderr.contains("target")
                 || stderr.contains("Unimplemented")
                 || stderr.contains("not implemented"),

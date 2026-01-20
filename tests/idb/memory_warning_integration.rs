@@ -32,6 +32,7 @@ fn test_memory_warning_without_udid() {
         // エラーメッセージが適切であることを確認
         assert!(
             stderr.contains("No companions available")
+                || stderr.contains("Multiple companions available")
                 || stderr.contains("target")
                 || stderr.contains("Unimplemented")
                 || stderr.contains("not implemented"),

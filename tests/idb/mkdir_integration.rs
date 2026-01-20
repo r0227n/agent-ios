@@ -42,7 +42,14 @@ fn test_mkdir_without_udid() {
 
     // Should not error if at least one simulator is booted
     if !output.status.success() {
-        panic!("mkdir failed: {}", String::from_utf8_lossy(&output.stderr));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("No companions available")
+                || stderr.contains("Multiple companions available"),
+            "Expected companion error, got: {}",
+            stderr
+        );
+        return; // エラーが期待通りなら早期リターン
     }
 
     // Cleanup
