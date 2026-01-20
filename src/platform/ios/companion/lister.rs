@@ -78,10 +78,7 @@ impl CompanionLister {
         }
 
         // Check common installation locations
-        let common_paths = [
-            "/usr/local/bin/idb_companion",
-            "/opt/homebrew/bin/idb_companion",
-        ];
+        let common_paths = ["idb/build/Build/Products/Release/idb_companion"];
 
         for path in &common_paths {
             if std::path::Path::new(path).exists() {
