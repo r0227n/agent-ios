@@ -117,6 +117,7 @@ impl RawElement {
 pub fn is_interactive_type(element_type: &str) -> bool {
     matches!(
         element_type,
+        // iOS interactive types
         "Button"
             | "Link"
             | "TextField"
@@ -142,6 +143,34 @@ pub fn is_interactive_type(element_type: &str) -> bool {
             | "DecrementArrow"
             | "Cell"
             | "PageControl"
+            // Android interactive types - Buttons
+            | "ImageButton"
+            | "FloatingActionButton"
+            | "MaterialButton"
+            // Android interactive types - Text input
+            | "EditText"
+            | "AutoCompleteTextView"
+            | "TextInputEditText"
+            | "TextInputLayout"
+            // Android interactive types - Toggle/Selection
+            | "ToggleButton"
+            | "CheckBox"
+            | "SwitchCompat"
+            | "MaterialSwitch"
+            | "CompoundButton"
+            // Android interactive types - Adjustable
+            | "SeekBar"
+            | "RatingBar"
+            // Android interactive types - Selection/Navigation
+            | "Spinner"
+            | "SearchView"
+            | "TabItem"
+            | "TabLayout"
+            | "BottomNavigationView"
+            | "NavigationBarView"
+            // Android interactive types - Clickable containers (commonly used as buttons)
+            | "CardView"
+            | "MaterialCardView"
     )
 }
 

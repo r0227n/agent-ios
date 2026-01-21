@@ -219,13 +219,13 @@ agent-mobile scroll down
 agent-mobile scroll down --in @e5    # 特定のスクロールビュー内
 ```
 
-### press - ボタン/キー押下
+### tap - ボタン/キー押下
 
 ```bash
-agent-mobile press <key>
-agent-mobile press home
-agent-mobile press back
-agent-mobile press enter
+agent-mobile tap <key>
+agent-mobile tap home
+agent-mobile tap back
+agent-mobile tap enter
 ```
 
 **キー:** `home`, `back`, `enter`, `tab`, `escape`, `delete`
@@ -711,7 +711,7 @@ Core Commands (AI Agent 向け高レベル API)
 ├── fill @e2    → ref解決 → hid tap <x> <y> + hid clear + hid text
 ├── swipe       → hid swipe
 ├── scroll      → hid scroll
-├── press       → hid button / hid key
+├── tap       → hid button / hid key
 ├── type        → hid text
 ├── get/is      → snapshot + 情報抽出
 ├── wait        → ポーリング実装

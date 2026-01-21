@@ -326,6 +326,194 @@ impl SnapshotCollector {
     }
 }
 
+/// Android snapshot collector using ADB.
+pub struct AndroidSnapshotCollector {
+    config: SnapshotCollectorConfig,
+    serial: Option<String>,
+}
+
+impl AndroidSnapshotCollector {
+    pub fn new(config: SnapshotCollectorConfig, serial: Option<String>) -> Self {
+        Self { config, serial }
+    }
+
+    /// Collect all elements with automatic scrolling.
+    ///
+    /// Returns the merged tree of RawElements from all scroll positions.
+    pub async fn collect_all(
+        &self,
+        progress_fn: Option<ProgressCallback>,
+    ) -> CommandResult<Vec<RawElement>> {
+        use crate::platform::android::adb::uiautomator;
+
+        let mut all_elements: Vec<RawElement> = Vec::new();
+        let mut seen_keys: HashSet<String> = HashSet::new();
+        let mut consecutive_no_new = 0;
+
+        // Scroll to top first to ensure we start from the beginning
+        if let Some(ref progress) = progress_fn {
+            progress(CollectionProgress {
+                scrolling_to_top: true,
+                scroll_number: 0,
+                total_elements: 0,
+                new_elements: 0,
+                completed: false,
+                completion_reason: None,
+            });
+        }
+        self.scroll_to_top().await?;
+
+        // Get initial elements
+        let xml = uiautomator::dump_ui(self.serial.as_deref()).await?;
+        let accessibility_elements = uiautomator::parse_ui_hierarchy(&xml)?;
+        let initial_elements = extractor::extract_android_elements(&accessibility_elements);
+        let initial_count =
+            merge_element_trees(&mut all_elements, initial_elements, &mut seen_keys);
+
+        if let Some(ref progress) = progress_fn {
+            progress(CollectionProgress {
+                scrolling_to_top: false,
+                scroll_number: 0,
+                total_elements: seen_keys.len(),
+                new_elements: initial_count,
+                completed: false,
+                completion_reason: None,
+            });
+        }
+
+        // Scroll and collect
+        for scroll_num in 1..=self.config.max_scrolls {
+            // Perform scroll down
+            self.scroll_down().await?;
+
+            // Wait for UI to settle
+            tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
+
+            // Get elements after scroll
+            let xml = uiautomator::dump_ui(self.serial.as_deref()).await?;
+            let accessibility_elements = uiautomator::parse_ui_hierarchy(&xml)?;
+            let new_elements = extractor::extract_android_elements(&accessibility_elements);
+            let new_count = merge_element_trees(&mut all_elements, new_elements, &mut seen_keys);
+
+            // Check for completion
+            if new_count == 0 {
+                consecutive_no_new += 1;
+            } else {
+                consecutive_no_new = 0;
+            }
+
+            let (completed, reason) = if scroll_num >= self.config.max_scrolls {
+                (true, Some(CompletionReason::MaxScrollsReached))
+            } else if consecutive_no_new >= 2 {
+                (true, Some(CompletionReason::NoNewElements))
+            } else {
+                (false, None)
+            };
+
+            if let Some(ref progress) = progress_fn {
+                progress(CollectionProgress {
+                    scrolling_to_top: false,
+                    scroll_number: scroll_num,
+                    total_elements: seen_keys.len(),
+                    new_elements: new_count,
+                    completed,
+                    completion_reason: reason.clone(),
+                });
+            }
+
+            if completed {
+                break;
+            }
+        }
+
+        Ok(all_elements)
+    }
+
+    /// Perform a scroll down gesture using ADB input swipe.
+    async fn scroll_down(&self) -> CommandResult<()> {
+        use crate::platform::android::adb::input;
+
+        // Scroll from middle-bottom to middle-top (vertical scroll down)
+        let center_x = self.config.screen_width / 2.0;
+        let start_y = self.config.screen_height * 0.7; // Start from 70% down
+        let end_y = self.config.screen_height * 0.3; // End at 30% down
+
+        input::swipe(
+            self.serial.as_deref(),
+            center_x,
+            start_y,
+            center_x,
+            end_y,
+            Some(300), // 300ms duration
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    /// Perform a scroll up gesture using ADB input swipe.
+    async fn scroll_up(&self) -> CommandResult<()> {
+        use crate::platform::android::adb::input;
+
+        // Scroll from top to bottom (swipe downward to scroll content up)
+        let center_x = self.config.screen_width / 2.0;
+        let start_y = self.config.screen_height * 0.3; // Start from 30% down
+        let end_y = self.config.screen_height * 0.7; // End at 70% down
+
+        input::swipe(
+            self.serial.as_deref(),
+            center_x,
+            start_y,
+            center_x,
+            end_y,
+            Some(300),
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    /// Scroll to the top of the content before collecting.
+    async fn scroll_to_top(&self) -> CommandResult<()> {
+        use crate::platform::android::adb::uiautomator;
+
+        const MAX_SCROLL_UP: u32 = 5;
+        let mut prev_snapshot: Option<String> = None;
+        let mut consecutive_same = 0;
+
+        for _ in 0..MAX_SCROLL_UP {
+            // Scroll up
+            self.scroll_up().await?;
+            tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
+
+            // Get current snapshot (UI dump)
+            let xml = uiautomator::dump_ui(self.serial.as_deref()).await?;
+
+            // Check if at top (same as previous)
+            if let Some(ref prev) = prev_snapshot {
+                if &xml == prev {
+                    consecutive_same += 1;
+                    if consecutive_same >= 2 {
+                        break; // At top
+                    }
+                } else {
+                    consecutive_same = 0;
+                }
+            }
+            prev_snapshot = Some(xml);
+        }
+        Ok(())
+    }
+}
+
+/// Get Android screen dimensions.
+pub async fn get_android_screen_size(serial: Option<&str>) -> CommandResult<(f64, f64)> {
+    use crate::platform::android::adb::input;
+
+    let (width, height) = input::get_screen_size(serial).await?;
+    Ok((width as f64, height as f64))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

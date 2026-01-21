@@ -1,6 +1,7 @@
-//! Extract RawElement tree from accessibility JSON.
+//! Extract RawElement tree from iOS accessibility JSON.
 
-use super::types::{Frame, RawElement};
+use super::extract_traits_for_type;
+use crate::cli::snapshot::types::{Frame, RawElement};
 
 /// Extract elements from iOS accessibility JSON (NESTED format).
 pub fn extract_ios_elements(json: &serde_json::Value) -> Vec<RawElement> {
@@ -64,8 +65,8 @@ fn extract_element(node: &serde_json::Value) -> Option<RawElement> {
     // Get enabled state
     let enabled = obj.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
 
-    // Extract traits from type
-    let traits = extract_traits(&element_type);
+    // Extract traits from type using common function
+    let traits = extract_traits_for_type(&element_type);
 
     // Get placeholder (for text fields)
     let placeholder = obj
@@ -106,41 +107,6 @@ fn normalize_ios_element_type(raw_type: &str) -> String {
     } else {
         raw_type.to_string()
     }
-}
-
-/// Extract traits based on element type.
-fn extract_traits(element_type: &str) -> Vec<String> {
-    let mut traits = Vec::new();
-
-    match element_type {
-        "Button" | "Link" | "MenuItem" | "MenuButton" => {
-            traits.push("button".to_string());
-        }
-        "TextField" | "SecureTextField" | "SearchField" | "TextArea" => {
-            traits.push("text_input".to_string());
-        }
-        "StaticText" => {
-            traits.push("static_text".to_string());
-        }
-        "Image" => {
-            traits.push("image".to_string());
-        }
-        "Switch" | "Checkbox" => {
-            traits.push("toggle".to_string());
-        }
-        "Slider" => {
-            traits.push("adjustable".to_string());
-        }
-        "ScrollView" | "Table" | "CollectionView" => {
-            traits.push("scrollable".to_string());
-        }
-        "Tab" | "TabBar" => {
-            traits.push("tab".to_string());
-        }
-        _ => {}
-    }
-
-    traits
 }
 
 #[cfg(test)]
@@ -227,8 +193,13 @@ mod tests {
 
     #[test]
     fn test_extract_traits() {
-        assert!(extract_traits("Button").contains(&"button".to_string()));
-        assert!(extract_traits("TextField").contains(&"text_input".to_string()));
-        assert!(extract_traits("ScrollView").contains(&"scrollable".to_string()));
+        let button_traits = extract_traits_for_type("Button");
+        assert!(button_traits.contains(&"button".to_string()));
+
+        let text_field_traits = extract_traits_for_type("TextField");
+        assert!(text_field_traits.contains(&"text_input".to_string()));
+
+        let scroll_view_traits = extract_traits_for_type("ScrollView");
+        assert!(scroll_view_traits.contains(&"scrollable".to_string()));
     }
 }
