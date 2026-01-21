@@ -30,6 +30,8 @@ pub struct AccessibilityElement {
     pub bounds: Option<[i32; 4]>,
     /// Whether the element is clickable
     pub clickable: bool,
+    /// Whether the element is scrollable
+    pub scrollable: bool,
     /// Whether the element is enabled
     pub enabled: bool,
     /// Whether the element is focused
@@ -157,6 +159,7 @@ fn parse_node_tag(tag: &str) -> Option<AccessibilityElement> {
         package: extract_attr(tag, "package"),
         bounds: extract_bounds(tag),
         clickable: extract_attr(tag, "clickable").map_or(false, |v| v == "true"),
+        scrollable: extract_attr(tag, "scrollable").map_or(false, |v| v == "true"),
         enabled: extract_attr(tag, "enabled").map_or(true, |v| v == "true"),
         focused: extract_attr(tag, "focused").map_or(false, |v| v == "true"),
         selected: extract_attr(tag, "selected").map_or(false, |v| v == "true"),
@@ -285,11 +288,20 @@ mod tests {
             package: None,
             bounds: Some([0, 0, 100, 100]),
             clickable: false,
+            scrollable: false,
             enabled: true,
             focused: false,
             selected: false,
             children: Vec::new(),
         };
         assert_eq!(element.center(), Some((50.0, 50.0)));
+    }
+
+    #[test]
+    fn test_scrollable_parsing() {
+        let tag = r#"<node scrollable="true" class="android.widget.ScrollView">"#;
+        let element = parse_node_tag(tag).unwrap();
+        assert!(element.scrollable);
+        assert_eq!(element.class, Some("android.widget.ScrollView".to_string()));
     }
 }

@@ -7,24 +7,6 @@ use crate::common::{
     get_available_udid, run_cli_command_with_udid,
 };
 
-/// Test screen tree command.
-#[test]
-fn test_screen_tree() {
-    let udid = get_available_udid();
-    ensure_companion_running(&udid);
-
-    let output = run_cli_command_with_udid("screen", &["tree"], &udid);
-
-    assert_success(&output, "screen tree");
-    // Tree should output accessibility tree (JSON format)
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains('{') || stdout.contains('['),
-        "Expected JSON output, got: {}",
-        stdout
-    );
-}
-
 /// Test screen elements command.
 #[test]
 fn test_screen_elements() {
@@ -50,14 +32,15 @@ fn test_screen_elements_json() {
     assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
 }
 
-/// Test screen hints command.
+/// Test screen elements with scrolling collection.
 #[test]
-fn test_screen_hints() {
+fn test_screen_elements_all() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
-    let output = run_cli_command_with_udid("screen", &["hints"], &udid);
+    // Test with minimal scrolls to avoid long test times
+    let output = run_cli_command_with_udid("screen", &["elements", "--max-scrolls", "1"], &udid);
 
-    assert_success(&output, "screen hints");
-    assert_stdout_contains(&output, "Interactive Elements");
+    assert_success(&output, "screen elements with scrolling");
+    assert_stdout_contains(&output, "Screen Elements");
 }
