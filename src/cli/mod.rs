@@ -15,6 +15,7 @@ use clap::{Parser, Subcommand};
 #[command(name = "agent-mobile")]
 #[command(about = "Rust-based iOS Development Bridge")]
 #[command(version)]
+#[command(disable_help_subcommand = true)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
