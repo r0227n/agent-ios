@@ -7,6 +7,61 @@ agent-mobile で使用する UI 要素タイプの対応表。
 agent-mobile は iOS と Android の両プラットフォームに対応しており、
 各プラットフォームの API から取得される要素タイプを統一された表示名に正規化します。
 
+## データ取得フロー (iOS)
+
+agent-mobile は idb_companion (Swift/ObjC デーモン) を経由して iOS Simulator から要素情報を取得します。
+
+### シーケンス図
+
+```
+agent-mobile element コマンド (Rust)
+    ↓ gRPC: accessibility_info RPC
+idb_companion (Swift/ObjC)
+    ↓ iOS Framework API
+iOS Simulator Accessibility API
+    ↓
+UIアクセシビリティツリー
+```
+
+### データフロー詳細
+
+1. **Companion 解決**: `/tmp/idb/state` から companion プロセスの接続情報を取得
+2. **gRPC 接続**: Unix Socket または TCP で idb_companion に接続
+3. **accessibility_info RPC**:
+   - **Request**: `AccessibilityInfoRequest { point: None, format: NESTED }`
+   - **Response**: `AccessibilityInfoResponse { json: "..." }`
+4. **情報源**: iOS Simulator の `XCUIApplication.accessibilityElement`
+5. **レスポンス**: JSON形式のUIアクセシビリティツリー
+   - 要素タイプ (`type`)
+   - ラベル (`AXLabel`, `AXValue`)
+   - 座標 (`frame`: {x, y, width, height})
+   - 状態 (`enabled`)
+   - 階層構造 (`children`)
+
+### プロトコル定義
+
+gRPC RPC は `proto/idb.proto` で定義されています:
+
+```protobuf
+message AccessibilityInfoRequest {
+  enum Format {
+    LEGACY = 0;    // フラットなリスト
+    NESTED = 1;    // 階層構造 (デフォルト)
+  }
+  Point point = 2;   // 特定座標 (None = 全体)
+  Format format = 3;
+}
+
+message AccessibilityInfoResponse {
+  string json = 1;   // JSON文字列
+}
+```
+
+**関連ファイル**:
+- `src/cli/element/mod.rs:180-414` - コマンド実装
+- `src/platform/ios/grpc/device.rs:12-31` - accessibility_info RPC 呼び出し
+- `proto/idb.proto:692-703` - プロトコル定義
+
 ### 変換ルール
 
 | プラットフォーム | API 型名形式 | 変換ルール |
