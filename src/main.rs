@@ -517,9 +517,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Hid(args) => {
             cli::hid::run(args).await?;
         }
-        Commands::Element(args) => {
-            cli::element::run(args).await?;
-        }
         Commands::App(args) => {
             cli::app::run(args).await?;
         }

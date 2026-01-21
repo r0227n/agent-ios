@@ -98,17 +98,7 @@ agent-mobile hid button lock
 agent-mobile hid button volume-up
 ```
 
-### 2. element - UI 要素操作
-アクセシビリティ情報を使用して UI 要素を検索・操作します。
-
-```bash
-agent-mobile element find "Submit"
-agent-mobile element tap "Login"
-agent-mobile element enter-text "username" "john@example.com"
-agent-mobile element list
-```
-
-### 3. app - アプリケーション管理
+### 2. app - アプリケーション管理
 アプリの起動、終了、インストール、パーミッション管理を実行します。
 
 **基本操作:**
@@ -141,7 +131,7 @@ agent-mobile app reset contacts --bundle com.example.app
 - `camera`, `location`, `contacts`, `calendar`, `storage`
 - `microphone`, `phone`, `sms`
 
-### 4. device - デバイス管理
+### 3. device - デバイス管理
 デバイスのリスト表示、起動、停止、クリップボード操作を実行します。
 
 **基本操作:**
@@ -162,7 +152,7 @@ agent-mobile device pbpaste
 
 **注:** `pbcopy` / `pbpaste` は macOS の同名コマンドとの親和性を考慮した命名です。
 
-### 5. idb - iOS 専用高度機能
+### 4. idb - iOS 専用高度機能
 idb の全 59 サブコマンドをサポートします。スクリーンショット、ログ取得、
 デバッグサーバー、xctest 実行など、iOS 開発に必要な高度な機能を提供します。
 
@@ -244,7 +234,6 @@ agent-mobile app grant location --bundle com.example.myapp
 agent-mobile app launch com.example.myapp
 
 # 5. UI 操作
-agent-mobile element tap "Allow"
 agent-mobile hid text "test@example.com"
 agent-mobile hid tap 200 400
 

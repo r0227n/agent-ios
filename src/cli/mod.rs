@@ -1,6 +1,5 @@
 pub mod app;
 pub mod device;
-pub mod element;
 pub mod helpers;
 pub mod hid;
 pub mod idb;
@@ -28,9 +27,6 @@ pub enum Commands {
 
     /// HID operations (touch gestures + keyboard input)
     Hid(hid::HidArgs),
-
-    /// Element navigation and interaction
-    Element(element::ElementArgs),
 
     /// Application management (launch, terminate, install, list)
     App(app::AppArgs),
