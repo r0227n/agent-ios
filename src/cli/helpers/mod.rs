@@ -3,20 +3,26 @@
 //! This module provides common utilities for CLI command implementations:
 //!
 //! - [`client`]: Connection helpers (`with_client`, `CommandResult`)
+//! - [`common_args`]: Shared argument structs (`DeviceArgs`, `DeviceOutputArgs`)
 //! - [`file_container`]: FileContainer building utilities
+//! - [`format`]: Output format options (`OutputFormat`)
 //! - [`signal`]: Ctrl+C signal handling
 //! - [`output`]: Output destination (stdout/file) abstraction
 //! - [`time`]: Time format parsing utilities
 
 pub mod client;
+pub mod common_args;
 pub mod file_container;
+pub mod format;
 pub mod output;
 pub mod signal;
 pub mod time;
 
 // Re-export commonly used items
 pub use client::{with_client, CommandResult};
+pub use common_args::{DeviceArgs, DeviceOutputArgs};
 pub use file_container::{file_container, file_container_with_root, DefaultContainer};
+pub use format::OutputFormat;
 pub use output::OutputWriter;
 pub use signal::setup_ctrl_c_handler;
 pub use time::formatted_time_to_seconds;

@@ -1,4 +1,4 @@
-use crate::cli::helpers::{with_client, CommandResult};
+use crate::cli::helpers::{with_client, CommandResult, OutputFormat};
 use crate::types::{Compression, InstalledArtifact};
 use serde_json::json;
 
@@ -7,8 +7,9 @@ pub async fn run(
     udid: Option<String>,
     skip_signing: bool,
     compression: Option<String>,
-    json_output: bool,
+    output: OutputFormat,
 ) -> CommandResult {
+    let json_output = output.is_json();
     // Parse compression option
     let compression = compression.map(|s| s.parse::<Compression>()).transpose()?;
 

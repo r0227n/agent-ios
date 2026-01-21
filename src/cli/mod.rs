@@ -1,5 +1,8 @@
-pub mod agent;
+pub mod app;
+pub mod device;
+pub mod element;
 pub mod helpers;
+pub mod hid;
 pub mod idb;
 
 use clap::{Parser, Subcommand};
@@ -8,6 +11,7 @@ use clap::{Parser, Subcommand};
 #[command(name = "agent-mobile")]
 #[command(about = "Rust-based iOS Development Bridge")]
 #[command(version)]
+#[command(disable_help_subcommand = true)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -21,18 +25,15 @@ pub enum Commands {
         command: Box<idb::IdbCommands>,
     },
 
-    /// Suggest best simulators/emulators for testing (AI-optimized)
-    SuggestSimulator {
-        /// Target platform (ios or android, default: ios)
-        #[arg(short = 'p', long, default_value = "ios")]
-        platform: String,
+    /// HID operations (touch gestures + keyboard input)
+    Hid(hid::HidArgs),
 
-        /// Number of suggestions (1-10)
-        #[arg(long, default_value = "4", value_parser = clap::value_parser!(u8).range(1..=10))]
-        count: u8,
+    /// Element navigation and interaction
+    Element(element::ElementArgs),
 
-        /// Output in human-readable format (default: JSON)
-        #[arg(long)]
-        human: bool,
-    },
+    /// Application management (launch, terminate, install, list)
+    App(app::AppArgs),
+
+    /// Device management (list, boot, shutdown)
+    Device(device::DeviceArgs),
 }

@@ -1,14 +1,15 @@
 //! framework install command implementation
 
-use crate::cli::helpers::{with_client, CommandResult};
+use crate::cli::helpers::{with_client, CommandResult, OutputFormat};
 use serde_json::json;
 
 /// Install a framework to the target
 pub async fn install(
     framework_path: String,
-    json_output: bool,
+    output: OutputFormat,
     udid: Option<String>,
 ) -> CommandResult {
+    let json_output = output.is_json();
     with_client(udid.as_deref(), |mut client| async move {
         // Call install_framework RPC
         let mut response_stream = client.install_framework(&framework_path).await?;

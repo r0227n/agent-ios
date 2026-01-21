@@ -4,6 +4,3 @@
 //! and emulators via ADB (Android Debug Bridge).
 
 pub mod adb;
-mod emulator_list;
-
-pub use emulator_list::EmulatorLister;

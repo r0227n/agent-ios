@@ -1,4 +1,8 @@
 {
+  "env": {
+    "ENABLE_TOOL_SEARCH": "true",
+    "ENABLE_EXPERIMENTAL_MCP_CLI": "false"
+  },
   "permissions": {
     "allow": [
       "Edit",
@@ -13,11 +17,6 @@
     "deny": [],
     "defaultMode": "plan"
   },
-  "env": {
-    "ENABLE_TOOL_SEARCH": "true",
-    "ENABLE_EXPERIMENTAL_MCP_CLI": "false"
-  },
-  "language": "japanese",
   "hooks": {
     "Stop": [
       {
@@ -32,6 +31,8 @@
     ]
   },
   "enabledPlugins": {
-    "rust-analyzer-lsp@claude-plugins-official": true
-  }
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true
+  },
+  "language": "japanese"
 }

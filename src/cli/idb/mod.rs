@@ -39,6 +39,8 @@ pub mod xctrace;
 
 use clap::Subcommand;
 
+use crate::cli::helpers::OutputFormat;
+
 #[derive(Subcommand)]
 pub enum IdbCommands {
     /// Lists connected and available targets
@@ -138,9 +140,9 @@ pub enum IdbCommands {
         #[arg(long)]
         compression: Option<String>,
 
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Output format (human or json)
+        #[arg(short = 'o', long, value_enum, default_value = "human")]
+        output: OutputFormat,
     },
 
     /// Uninstall an application
@@ -452,9 +454,9 @@ pub enum IdbCommands {
         #[arg(long)]
         compression: Option<String>,
 
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Output format (human or json)
+        #[arg(short = 'o', long, value_enum, default_value = "human")]
+        output: OutputFormat,
 
         /// Target device/simulator UDID
         #[arg(short, long)]
@@ -816,9 +818,9 @@ pub enum DsymCommands {
         #[arg(long)]
         compression: Option<String>,
 
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Output format (human or json)
+        #[arg(short = 'o', long, value_enum, default_value = "human")]
+        output: OutputFormat,
 
         /// Target device/simulator UDID
         #[arg(short, long)]
@@ -833,9 +835,9 @@ pub enum DylibCommands {
         /// Path to the dylib to install
         dylib_path: String,
 
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Output format (human or json)
+        #[arg(short = 'o', long, value_enum, default_value = "human")]
+        output: OutputFormat,
 
         /// Target device/simulator UDID
         #[arg(short, long)]
@@ -850,9 +852,9 @@ pub enum FrameworkCommands {
         /// Path to the .framework to install
         framework_path: String,
 
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Output format (human or json)
+        #[arg(short = 'o', long, value_enum, default_value = "human")]
+        output: OutputFormat,
 
         /// Target device/simulator UDID
         #[arg(short, long)]

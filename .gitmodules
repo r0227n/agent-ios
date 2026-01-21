@@ -1,9 +1,3 @@
 [submodule "idb"]
 	path = idb
 	url = https://github.com/facebook/idb.git
-[submodule "reference/ios-cmd"]
-	path = reference/ios-cmd
-	url = https://github.com/conorluddy/ios-simulator-skill.git
-[submodule "reference/android-cmd"]
-	path = reference/android-cmd
-	url = https://github.com/fluxxion82/android-emulator-skill.git

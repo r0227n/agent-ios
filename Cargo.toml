@@ -7,7 +7,7 @@ edition = "2021"
 # gRPC/Protobuf
 tonic = "0.12"
 prost = "0.13"
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "net", "signal", "sync"] }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "process"] }
 tokio-stream = "0.1"
 
 # Unix Domain Socket support for tonic

@@ -47,7 +47,7 @@ agent-mobile is a Rust-based iOS development bridge that provides both IDB-compa
 | Type | Description | Location |
 |------|-------------|----------|
 | **IDB-compatible** | `idb` subcommand (60+ commands) | `src/cli/idb/` |
-| **Agent** | AI-optimized commands (8 commands) | `src/cli/agent/` |
+| **Agent** | AI-optimized commands (7 commands) | `src/cli/agent/` |
 
 ### Agent Commands (Top-level, Simplified)
 
@@ -60,7 +60,6 @@ agent-mobile is a Rust-based iOS development bridge that provides both IDB-compa
 | `launch` | Launch application | `agent-mobile launch <bundle_id>` |
 | `install` | Install application | `agent-mobile install <bundle_path>` |
 | `accessibility` | Get accessibility tree | `agent-mobile accessibility` |
-| `suggest-simulator` | Suggest best simulators | `agent-mobile suggest-simulator` |
 
 ### IDB Commands (`agent-mobile idb <command>`)
 
@@ -114,7 +113,6 @@ Full IDB CLI compatibility for advanced usage.
 | `CompanionResolver` | `companion/resolver.rs` | UDID → Address resolution |
 | `CompanionState` | `companion/state.rs` | Read `/tmp/idb/state` |
 | `CompanionSpawner` | `companion/spawner.rs` | Auto-start companion daemon |
-| `SimulatorLister` | `simulator_list.rs` | Simulator list + scoring |
 | `with_client()` | `helpers/client.rs` | Command execution helper |
 
 ### with_client() Pattern
@@ -174,8 +172,7 @@ src/
 │   │   ├── type_text.rs
 │   │   ├── launch.rs
 │   │   ├── install.rs
-│   │   ├── accessibility.rs
-│   │   └── suggest_simulator.rs
+│   │   └── accessibility.rs
 │   ├── idb/                # IDB-compatible commands
 │   │   ├── mod.rs          # IdbCommands enum
 │   │   ├── file/           # File operations
