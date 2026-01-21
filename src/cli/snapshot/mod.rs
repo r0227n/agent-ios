@@ -3,6 +3,7 @@
 //! Provides a snapshot of the current UI state with reference IDs (`@e1`, `@e2`, etc.)
 //! for efficient AI agent interaction.
 
+mod collector;
 mod extractor;
 mod ref_generator;
 mod tree_printer;
@@ -37,6 +38,18 @@ pub struct SnapshotArgs {
     #[arg(short = 'f', long, value_enum, default_value = "text")]
     pub format: OutputFormat,
 
+    /// Disable scrolling (by default, scrolling is enabled to capture all elements)
+    #[arg(long)]
+    pub no_scroll: bool,
+
+    /// Maximum number of scroll operations (default: 5)
+    #[arg(long, default_value = "5")]
+    pub max_scrolls: u32,
+
+    /// Delay between scroll operations in milliseconds (default: 500)
+    #[arg(long, default_value = "500")]
+    pub scroll_delay: u64,
+
     #[command(flatten)]
     pub device: DeviceArgs,
 }
@@ -48,14 +61,27 @@ pub async fn run(args: SnapshotArgs) -> CommandResult {
     let depth = args.depth;
     let output_path = args.output.clone();
     let format = args.format;
+    let no_scroll = args.no_scroll;
+    let max_scrolls = args.max_scrolls;
+    let scroll_delay = args.scroll_delay;
 
     with_client(args.device.udid.as_deref(), |mut client| async move {
-        // Fetch accessibility info (NESTED format)
-        let json_str = client.accessibility_info(None, true).await?;
-        let json: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        // Extract raw elements
-        let raw_elements = extractor::extract_ios_elements(&json);
+        // Collect raw elements (with or without scrolling)
+        let raw_elements = if no_scroll {
+            // --no-scroll: Single accessibility info fetch (original behavior)
+            let json_str = client.accessibility_info(None, true).await?;
+            let json: serde_json::Value = serde_json::from_str(&json_str)?;
+            extractor::extract_ios_elements(&json)
+        } else {
+            // Default: Use collector with scrolling to capture all elements
+            let config = collector::SnapshotCollectorConfig {
+                max_scrolls,
+                delay_ms: scroll_delay,
+                ..Default::default()
+            };
+            let snapshot_collector = collector::SnapshotCollector::new(config);
+            snapshot_collector.collect_all(&mut client, None).await?
+        };
 
         // Generate refs
         let elements = ref_generator::generate_refs(&raw_elements);
