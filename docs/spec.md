@@ -219,13 +219,13 @@ agent-mobile scroll down
 agent-mobile scroll down --in @e5    # 特定のスクロールビュー内
 ```
 
-### press - ボタン/キー押下
+### tap - ボタン/キー押下
 
 ```bash
-agent-mobile press <key>
-agent-mobile press home
-agent-mobile press back
-agent-mobile press enter
+agent-mobile tap <key>
+agent-mobile tap home
+agent-mobile tap back
+agent-mobile tap enter
 ```
 
 **キー:** `home`, `back`, `enter`, `tab`, `escape`, `delete`
@@ -698,7 +698,7 @@ agent-mobile --session sim2 tap @e1 --snapshot ./sim1.json  # sim1 の ref を s
 
 ## 既存コマンドとの互換性
 
-現在の `hid`, `element`, `app`, `device`, `idb` コマンドは引き続き利用可能。
+現在の `hid`, `app`, `device`, `idb` コマンドは引き続き利用可能。
 Core Commands はこれらの上位抽象レイヤーとして機能。
 
 ### コマンド階層
@@ -706,21 +706,20 @@ Core Commands はこれらの上位抽象レイヤーとして機能。
 ```
 Core Commands (AI Agent 向け高レベル API)
 │
-├── snapshot    → 新規実装 (element list + ref 付与)
+├── snapshot    → 新規実装 (UI要素収集 + ref 付与)
 ├── tap @e1     → ref解決 → hid tap <x> <y>
 ├── fill @e2    → ref解決 → hid tap <x> <y> + hid clear + hid text
 ├── swipe       → hid swipe
 ├── scroll      → hid scroll
-├── press       → hid button / hid key
+├── tap       → hid button / hid key
 ├── type        → hid text
-├── get/is      → element find + 情報抽出
+├── get/is      → snapshot + 情報抽出
 ├── wait        → ポーリング実装
 └── screenshot  → idb screenshot
 
 既存コマンド (詳細制御用)
 │
 ├── hid         → タッチ、キーボード、ボタン操作
-├── element     → UI 要素検索・操作
 ├── app         → アプリライフサイクル
 ├── device      → デバイス管理
 └── idb         → iOS 高度機能 (59 サブコマンド)
@@ -734,7 +733,7 @@ Platform Layer (iOS gRPC / Android ADB)
 |-------------|-------------|
 | AI Agent による E2E テスト | Core Commands (`tap @e1`, `fill @e2`) |
 | 座標ベースの精密操作 | `hid tap 100 200` |
-| デバッグ・調査 | `element find`, `element list` |
+| デバッグ・調査 | `snapshot`, `idb accessibility` |
 | iOS 固有機能 | `idb accessibility`, `idb xctest-run` |
 
 ---

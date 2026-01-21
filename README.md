@@ -42,15 +42,6 @@ agent-mobile hid button lock
 agent-mobile hid button volume-up
 ```
 
-### Element Interaction
-```bash
-# Find and interact with UI elements
-agent-mobile element find "Submit"
-agent-mobile element tap "Login"
-agent-mobile element enter-text "username" "john@example.com"
-agent-mobile element list
-```
-
 ### App Management
 ```bash
 # Launch and terminate apps

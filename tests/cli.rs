@@ -24,9 +24,6 @@ mod gesture_integration;
 #[path = "cli/keyboard_integration.rs"]
 mod keyboard_integration;
 
-#[path = "cli/element_integration.rs"]
-mod element_integration;
-
 #[path = "cli/clipboard_integration.rs"]
 mod clipboard_integration;
 

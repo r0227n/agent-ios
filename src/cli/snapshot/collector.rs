@@ -1,4 +1,4 @@
-//! Element collection with automatic scrolling.
+//! Snapshot collection with automatic scrolling.
 //!
 //! This module provides utilities for collecting all UI elements
 //! by automatically scrolling through the screen content.
@@ -8,11 +8,12 @@ use std::time::Duration;
 
 use crate::cli::helpers::CommandResult;
 
-use super::FoundElement;
+use super::extractor;
+use super::types::RawElement;
 
-/// Configuration for element collection.
+/// Configuration for snapshot collection with scrolling.
 #[derive(Debug, Clone)]
-pub struct CollectorConfig {
+pub struct SnapshotCollectorConfig {
     /// Maximum number of scroll operations to perform.
     pub max_scrolls: u32,
     /// Delay between scroll operations in milliseconds.
@@ -23,10 +24,10 @@ pub struct CollectorConfig {
     pub screen_height: f64,
 }
 
-impl Default for CollectorConfig {
+impl Default for SnapshotCollectorConfig {
     fn default() -> Self {
         Self {
-            max_scrolls: 10,
+            max_scrolls: 5,
             delay_ms: 500,
             // Default iPhone screen dimensions (will be adjusted per device)
             screen_width: 390.0,
@@ -62,9 +63,6 @@ pub enum CompletionReason {
     MaxScrollsReached,
     /// No new elements found for consecutive scrolls.
     NoNewElements,
-    /// Reached end of scrollable content.
-    #[allow(dead_code)]
-    EndOfContent,
 }
 
 impl std::fmt::Display for CompletionReason {
@@ -72,67 +70,116 @@ impl std::fmt::Display for CompletionReason {
         match self {
             CompletionReason::MaxScrollsReached => write!(f, "max scrolls reached"),
             CompletionReason::NoNewElements => write!(f, "no new elements found"),
-            CompletionReason::EndOfContent => write!(f, "end of content"),
         }
     }
 }
 
 /// Generate a unique key for an element (for deduplication).
-pub fn element_unique_key(element: &FoundElement) -> String {
+///
+/// Uses type, label, and position to uniquely identify elements.
+pub fn element_unique_key(element: &RawElement) -> String {
     format!(
-        "{}|{}|{}",
+        "{}|{}|{:.0},{:.0}",
         element.element_type,
-        element.label,
-        element.accessibility_id.as_deref().unwrap_or("")
+        element.label.as_deref().unwrap_or(""),
+        element.frame.x,
+        element.frame.y
     )
 }
 
-/// Merge new elements into existing collection, returning count of new elements.
-pub fn merge_elements(
-    existing: &mut Vec<FoundElement>,
-    new_elements: Vec<FoundElement>,
+/// Flatten a tree of RawElements into a vector for deduplication.
+fn flatten_elements(elements: &[RawElement]) -> Vec<&RawElement> {
+    let mut result = Vec::new();
+    for element in elements {
+        flatten_element_recursive(element, &mut result);
+    }
+    result
+}
+
+fn flatten_element_recursive<'a>(element: &'a RawElement, result: &mut Vec<&'a RawElement>) {
+    result.push(element);
+    for child in &element.children {
+        flatten_element_recursive(child, result);
+    }
+}
+
+/// Merge new elements into existing tree structure.
+///
+/// Returns (merged tree, count of new unique elements).
+fn merge_element_trees(
+    existing: &mut Vec<RawElement>,
+    new_elements: Vec<RawElement>,
     seen_keys: &mut HashSet<String>,
 ) -> usize {
     let mut new_count = 0;
 
-    for element in new_elements {
-        let key = element_unique_key(&element);
+    // Flatten new elements for deduplication check
+    let flat_new = flatten_elements(&new_elements);
+
+    for element in flat_new {
+        let key = element_unique_key(element);
         if seen_keys.insert(key) {
-            existing.push(element);
             new_count += 1;
+        }
+    }
+
+    // For the first collection, just use the new elements
+    if existing.is_empty() {
+        *existing = new_elements;
+    } else {
+        // Merge new elements into existing tree
+        // For simplicity, we append new root-level elements that have new unique keys
+        for new_elem in new_elements {
+            merge_element_into_tree(existing, new_elem, seen_keys);
         }
     }
 
     new_count
 }
 
-/// iOS element collector using gRPC client.
-pub struct IosCollector {
-    config: CollectorConfig,
+/// Merge a single element into the existing tree.
+fn merge_element_into_tree(
+    tree: &mut Vec<RawElement>,
+    element: RawElement,
+    _seen_keys: &HashSet<String>,
+) {
+    // Find if there's an element with matching type and approximate position at root level
+    let matching_idx = tree.iter().position(|e| {
+        e.element_type == element.element_type
+            && (e.frame.x - element.frame.x).abs() < 1.0
+            && (e.frame.y - element.frame.y).abs() < 1.0
+    });
+
+    if let Some(idx) = matching_idx {
+        // Merge children into existing element
+        for child in element.children {
+            merge_element_into_tree(&mut tree[idx].children, child, _seen_keys);
+        }
+    } else {
+        // Add as new root element
+        tree.push(element);
+    }
 }
 
-impl IosCollector {
-    pub fn new(config: CollectorConfig) -> Self {
+/// Snapshot collector using gRPC client.
+pub struct SnapshotCollector {
+    config: SnapshotCollectorConfig,
+}
+
+impl SnapshotCollector {
+    pub fn new(config: SnapshotCollectorConfig) -> Self {
         Self { config }
     }
 
     /// Collect all elements with automatic scrolling.
     ///
-    /// # Arguments
-    ///
-    /// * `client` - The IDB gRPC client
-    /// * `extract_fn` - Function to extract FoundElements from accessibility JSON
-    /// * `progress_fn` - Optional callback for progress updates
-    pub async fn collect_all<F>(
+    /// Returns the merged tree of RawElements from all scroll positions.
+    pub async fn collect_all(
         &self,
         client: &mut crate::grpc::IdbClient,
-        extract_fn: F,
         progress_fn: Option<ProgressCallback>,
-    ) -> CommandResult<Vec<FoundElement>>
-    where
-        F: Fn(&serde_json::Value) -> Vec<FoundElement>,
-    {
-        let mut all_elements: Vec<FoundElement> = Vec::new();
+    ) -> CommandResult<Vec<RawElement>> {
+        let mut all_elements: Vec<RawElement> = Vec::new();
         let mut seen_keys: HashSet<String> = HashSet::new();
         let mut consecutive_no_new = 0;
 
@@ -149,17 +196,18 @@ impl IosCollector {
         }
         self.scroll_to_top(client).await?;
 
-        // Get initial elements
-        let json_str = client.accessibility_info(None, false).await?;
+        // Get initial elements (NESTED format for tree structure)
+        let json_str = client.accessibility_info(None, true).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
-        let initial_elements = extract_fn(&json);
-        let initial_count = merge_elements(&mut all_elements, initial_elements, &mut seen_keys);
+        let initial_elements = extractor::extract_ios_elements(&json);
+        let initial_count =
+            merge_element_trees(&mut all_elements, initial_elements, &mut seen_keys);
 
         if let Some(ref progress) = progress_fn {
             progress(CollectionProgress {
                 scrolling_to_top: false,
                 scroll_number: 0,
-                total_elements: all_elements.len(),
+                total_elements: seen_keys.len(),
                 new_elements: initial_count,
                 completed: false,
                 completion_reason: None,
@@ -174,11 +222,11 @@ impl IosCollector {
             // Wait for UI to settle
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
-            // Get elements after scroll
-            let json_str = client.accessibility_info(None, false).await?;
+            // Get elements after scroll (NESTED format)
+            let json_str = client.accessibility_info(None, true).await?;
             let json: serde_json::Value = serde_json::from_str(&json_str)?;
-            let new_elements = extract_fn(&json);
-            let new_count = merge_elements(&mut all_elements, new_elements, &mut seen_keys);
+            let new_elements = extractor::extract_ios_elements(&json);
+            let new_count = merge_element_trees(&mut all_elements, new_elements, &mut seen_keys);
 
             // Check for completion
             if new_count == 0 {
@@ -199,7 +247,7 @@ impl IosCollector {
                 progress(CollectionProgress {
                     scrolling_to_top: false,
                     scroll_number: scroll_num,
-                    total_elements: all_elements.len(),
+                    total_elements: seen_keys.len(),
                     new_elements: new_count,
                     completed,
                     completion_reason: reason.clone(),
@@ -259,7 +307,7 @@ impl IosCollector {
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
             // Get current snapshot (accessibility tree)
-            let json_str = client.accessibility_info(None, false).await?;
+            let json_str = client.accessibility_info(None, true).await?;
 
             // Check if at top (same as previous)
             if let Some(ref prev) = prev_snapshot {
@@ -278,31 +326,27 @@ impl IosCollector {
     }
 }
 
-/// Android element collector using ADB.
-pub struct AndroidCollector {
-    config: CollectorConfig,
+/// Android snapshot collector using ADB.
+pub struct AndroidSnapshotCollector {
+    config: SnapshotCollectorConfig,
     serial: Option<String>,
 }
 
-impl AndroidCollector {
-    pub fn new(config: CollectorConfig, serial: Option<String>) -> Self {
+impl AndroidSnapshotCollector {
+    pub fn new(config: SnapshotCollectorConfig, serial: Option<String>) -> Self {
         Self { config, serial }
     }
 
     /// Collect all elements with automatic scrolling.
-    pub async fn collect_all<F>(
+    ///
+    /// Returns the merged tree of RawElements from all scroll positions.
+    pub async fn collect_all(
         &self,
-        extract_fn: F,
         progress_fn: Option<ProgressCallback>,
-    ) -> CommandResult<Vec<FoundElement>>
-    where
-        F: Fn(
-            &[crate::platform::android::adb::uiautomator::AccessibilityElement],
-        ) -> Vec<FoundElement>,
-    {
+    ) -> CommandResult<Vec<RawElement>> {
         use crate::platform::android::adb::uiautomator;
 
-        let mut all_elements: Vec<FoundElement> = Vec::new();
+        let mut all_elements: Vec<RawElement> = Vec::new();
         let mut seen_keys: HashSet<String> = HashSet::new();
         let mut consecutive_no_new = 0;
 
@@ -321,15 +365,16 @@ impl AndroidCollector {
 
         // Get initial elements
         let xml = uiautomator::dump_ui(self.serial.as_deref()).await?;
-        let elements = uiautomator::parse_ui_hierarchy(&xml)?;
-        let initial_elements = extract_fn(&elements);
-        let initial_count = merge_elements(&mut all_elements, initial_elements, &mut seen_keys);
+        let accessibility_elements = uiautomator::parse_ui_hierarchy(&xml)?;
+        let initial_elements = extractor::extract_android_elements(&accessibility_elements);
+        let initial_count =
+            merge_element_trees(&mut all_elements, initial_elements, &mut seen_keys);
 
         if let Some(ref progress) = progress_fn {
             progress(CollectionProgress {
                 scrolling_to_top: false,
                 scroll_number: 0,
-                total_elements: all_elements.len(),
+                total_elements: seen_keys.len(),
                 new_elements: initial_count,
                 completed: false,
                 completion_reason: None,
@@ -346,9 +391,9 @@ impl AndroidCollector {
 
             // Get elements after scroll
             let xml = uiautomator::dump_ui(self.serial.as_deref()).await?;
-            let elements = uiautomator::parse_ui_hierarchy(&xml)?;
-            let new_elements = extract_fn(&elements);
-            let new_count = merge_elements(&mut all_elements, new_elements, &mut seen_keys);
+            let accessibility_elements = uiautomator::parse_ui_hierarchy(&xml)?;
+            let new_elements = extractor::extract_android_elements(&accessibility_elements);
+            let new_count = merge_element_trees(&mut all_elements, new_elements, &mut seen_keys);
 
             // Check for completion
             if new_count == 0 {
@@ -369,7 +414,7 @@ impl AndroidCollector {
                 progress(CollectionProgress {
                     scrolling_to_top: false,
                     scroll_number: scroll_num,
-                    total_elements: all_elements.len(),
+                    total_elements: seen_keys.len(),
                     new_elements: new_count,
                     completed,
                     completion_reason: reason.clone(),
@@ -384,14 +429,14 @@ impl AndroidCollector {
         Ok(all_elements)
     }
 
-    /// Perform a scroll down gesture using ADB input.
+    /// Perform a scroll down gesture using ADB input swipe.
     async fn scroll_down(&self) -> CommandResult<()> {
         use crate::platform::android::adb::input;
 
-        // Scroll from middle-bottom to middle-top
+        // Scroll from middle-bottom to middle-top (vertical scroll down)
         let center_x = self.config.screen_width / 2.0;
-        let start_y = self.config.screen_height * 0.7;
-        let end_y = self.config.screen_height * 0.3;
+        let start_y = self.config.screen_height * 0.7; // Start from 70% down
+        let end_y = self.config.screen_height * 0.3; // End at 30% down
 
         input::swipe(
             self.serial.as_deref(),
@@ -399,14 +444,14 @@ impl AndroidCollector {
             start_y,
             center_x,
             end_y,
-            Some(300),
+            Some(300), // 300ms duration
         )
         .await?;
 
         Ok(())
     }
 
-    /// Perform a scroll up gesture (opposite of scroll_down).
+    /// Perform a scroll up gesture using ADB input swipe.
     async fn scroll_up(&self) -> CommandResult<()> {
         use crate::platform::android::adb::input;
 
@@ -429,9 +474,6 @@ impl AndroidCollector {
     }
 
     /// Scroll to the top of the content before collecting.
-    ///
-    /// Performs repeated scroll-up gestures until reaching the top of the content.
-    /// The top is detected when the UI hierarchy is unchanged for 2 consecutive scrolls.
     async fn scroll_to_top(&self) -> CommandResult<()> {
         use crate::platform::android::adb::uiautomator;
 
@@ -444,7 +486,7 @@ impl AndroidCollector {
             self.scroll_up().await?;
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
-            // Get current snapshot (UI hierarchy)
+            // Get current snapshot (UI dump)
             let xml = uiautomator::dump_ui(self.serial.as_deref()).await?;
 
             // Check if at top (same as previous)
@@ -464,110 +506,147 @@ impl AndroidCollector {
     }
 }
 
+/// Get Android screen dimensions.
+pub async fn get_android_screen_size(serial: Option<&str>) -> CommandResult<(f64, f64)> {
+    use crate::platform::android::adb::input;
+
+    let (width, height) = input::get_screen_size(serial).await?;
+    Ok((width as f64, height as f64))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::snapshot::types::Frame;
+
+    fn make_raw(
+        element_type: &str,
+        label: Option<&str>,
+        frame: Frame,
+        children: Vec<RawElement>,
+    ) -> RawElement {
+        RawElement {
+            element_type: element_type.to_string(),
+            label: label.map(String::from),
+            frame,
+            enabled: true,
+            traits: Vec::new(),
+            placeholder: None,
+            value: None,
+            children,
+        }
+    }
 
     #[test]
     fn test_element_unique_key() {
-        let element = FoundElement {
-            label: "Test Label".to_string(),
-            element_type: "Button".to_string(),
-            center: Some((100.0, 200.0)),
-            clickable: true,
-            scrollable: false,
-            frame: None,
-            accessibility_id: Some("test_id".to_string()),
-            resource_id: None,
-        };
+        let element = make_raw(
+            "Button",
+            Some("Login"),
+            Frame {
+                x: 100.0,
+                y: 200.0,
+                width: 80.0,
+                height: 44.0,
+            },
+            vec![],
+        );
 
         let key = element_unique_key(&element);
-        assert_eq!(key, "Button|Test Label|test_id");
+        assert_eq!(key, "Button|Login|100,200");
     }
 
     #[test]
-    fn test_element_unique_key_no_accessibility_id() {
-        let element = FoundElement {
-            label: "Test".to_string(),
-            element_type: "Label".to_string(),
-            center: None,
-            clickable: false,
-            scrollable: false,
-            frame: None,
-            accessibility_id: None,
-            resource_id: None,
-        };
+    fn test_element_unique_key_no_label() {
+        let element = make_raw(
+            "View",
+            None,
+            Frame {
+                x: 50.0,
+                y: 100.0,
+                width: 300.0,
+                height: 400.0,
+            },
+            vec![],
+        );
 
         let key = element_unique_key(&element);
-        assert_eq!(key, "Label|Test|");
+        assert_eq!(key, "View||50,100");
     }
 
     #[test]
-    fn test_merge_elements_dedup() {
+    fn test_flatten_elements() {
+        let tree = vec![make_raw(
+            "Window",
+            Some("Main"),
+            Frame::zero(),
+            vec![
+                make_raw("Button", Some("A"), Frame::zero(), vec![]),
+                make_raw(
+                    "View",
+                    None,
+                    Frame::zero(),
+                    vec![make_raw("Button", Some("B"), Frame::zero(), vec![])],
+                ),
+            ],
+        )];
+
+        let flat = flatten_elements(&tree);
+        assert_eq!(flat.len(), 4); // Window, Button A, View, Button B
+    }
+
+    #[test]
+    fn test_merge_element_trees_first_collection() {
         let mut existing = Vec::new();
-        let mut seen = HashSet::new();
+        let mut seen_keys = HashSet::new();
 
-        let elements1 = vec![
-            FoundElement {
-                label: "A".to_string(),
-                element_type: "Button".to_string(),
-                center: None,
-                clickable: true,
-                scrollable: false,
-                frame: None,
-                accessibility_id: None,
-                resource_id: None,
-            },
-            FoundElement {
-                label: "B".to_string(),
-                element_type: "Button".to_string(),
-                center: None,
-                clickable: true,
-                scrollable: false,
-                frame: None,
-                accessibility_id: None,
-                resource_id: None,
-            },
-        ];
+        let new_elements = vec![make_raw(
+            "Window",
+            Some("Main"),
+            Frame::zero(),
+            vec![make_raw("Button", Some("Login"), Frame::zero(), vec![])],
+        )];
 
-        let count1 = merge_elements(&mut existing, elements1, &mut seen);
-        assert_eq!(count1, 2);
-        assert_eq!(existing.len(), 2);
+        let count = merge_element_trees(&mut existing, new_elements, &mut seen_keys);
 
-        // Add duplicate and new element
-        let elements2 = vec![
-            FoundElement {
-                label: "A".to_string(), // duplicate
-                element_type: "Button".to_string(),
-                center: None,
-                clickable: true,
-                scrollable: false,
-                frame: None,
-                accessibility_id: None,
-                resource_id: None,
-            },
-            FoundElement {
-                label: "C".to_string(), // new
-                element_type: "Button".to_string(),
-                center: None,
-                clickable: true,
-                scrollable: false,
-                frame: None,
-                accessibility_id: None,
-                resource_id: None,
-            },
-        ];
+        assert_eq!(count, 2); // Window + Button
+        assert_eq!(existing.len(), 1);
+        assert_eq!(existing[0].children.len(), 1);
+    }
 
-        let count2 = merge_elements(&mut existing, elements2, &mut seen);
-        assert_eq!(count2, 1); // Only "C" is new
-        assert_eq!(existing.len(), 3);
+    #[test]
+    fn test_merge_element_trees_deduplication() {
+        let mut existing = vec![make_raw(
+            "Window",
+            Some("Main"),
+            Frame::zero(),
+            vec![make_raw("Button", Some("Login"), Frame::zero(), vec![])],
+        )];
+        let mut seen_keys = HashSet::new();
+
+        // Pre-populate seen keys
+        seen_keys.insert("Window|Main|0,0".to_string());
+        seen_keys.insert("Button|Login|0,0".to_string());
+
+        // Try to add duplicates
+        let new_elements = vec![make_raw(
+            "Window",
+            Some("Main"),
+            Frame::zero(),
+            vec![make_raw("Button", Some("Login"), Frame::zero(), vec![])],
+        )];
+
+        let count = merge_element_trees(&mut existing, new_elements, &mut seen_keys);
+
+        assert_eq!(count, 0); // No new elements
     }
 
     #[test]
     fn test_collector_config_default() {
-        let config = CollectorConfig::default();
-        assert_eq!(config.max_scrolls, 10);
+        let config = SnapshotCollectorConfig::default();
+        assert_eq!(config.max_scrolls, 5);
         assert_eq!(config.delay_ms, 500);
+        assert_eq!(config.screen_width, 390.0);
+        assert_eq!(config.screen_height, 844.0);
     }
 
     #[test]
@@ -580,6 +659,5 @@ mod tests {
             CompletionReason::NoNewElements.to_string(),
             "no new elements found"
         );
-        assert_eq!(CompletionReason::EndOfContent.to_string(), "end of content");
     }
 }

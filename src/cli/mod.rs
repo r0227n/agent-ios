@@ -1,9 +1,9 @@
 pub mod app;
 pub mod device;
-pub mod element;
 pub mod helpers;
 pub mod hid;
 pub mod idb;
+pub mod snapshot;
 
 use clap::{Parser, Subcommand};
 
@@ -28,12 +28,12 @@ pub enum Commands {
     /// HID operations (touch gestures + keyboard input)
     Hid(hid::HidArgs),
 
-    /// Element navigation and interaction
-    Element(element::ElementArgs),
-
     /// Application management (launch, terminate, install, list)
     App(app::AppArgs),
 
     /// Device management (list, boot, shutdown)
     Device(device::DeviceArgs),
+
+    /// Capture UI snapshot with element references for AI agents
+    Snapshot(snapshot::SnapshotArgs),
 }

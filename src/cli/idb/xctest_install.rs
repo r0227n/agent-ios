@@ -7,9 +7,9 @@ pub async fn run(
     udid: Option<String>,
     skip_signing: bool,
     compression: Option<String>,
-    output: OutputFormat,
+    format: OutputFormat,
 ) -> CommandResult {
-    let json_output = output.is_json();
+    let json_output = format.is_json();
     // Parse compression option
     let compression = compression.map(|s| s.parse::<Compression>()).transpose()?;
 

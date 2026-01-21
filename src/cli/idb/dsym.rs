@@ -9,10 +9,10 @@ pub async fn install(
     dsym_path: String,
     bundle_id: Option<String>,
     compression: Option<String>,
-    output: OutputFormat,
+    format: OutputFormat,
     udid: Option<String>,
 ) -> CommandResult {
-    let json_output = output.is_json();
+    let json_output = format.is_json();
     // Parse compression option
     let compression = compression.map(|s| s.parse::<Compression>()).transpose()?;
 

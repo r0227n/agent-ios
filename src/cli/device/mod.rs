@@ -19,9 +19,9 @@ pub struct DeviceArgs {
     #[arg(short = 'p', long)]
     pub platform: Option<String>,
 
-    /// Output format (human or json).
-    #[arg(short = 'o', long, value_enum, default_value = "human")]
-    pub output: OutputFormat,
+    /// Output format (text or json).
+    #[arg(short = 'f', long, value_enum, default_value = "text")]
+    pub format: OutputFormat,
 }
 
 /// Device subcommands.
@@ -33,9 +33,9 @@ pub enum DeviceCommands {
         #[arg(short = 'p', long)]
         platform: Option<String>,
 
-        /// Output format (human or json).
-        #[arg(short = 'o', long, value_enum, default_value = "human")]
-        output: OutputFormat,
+        /// Output format (text or json).
+        #[arg(short = 'f', long, value_enum, default_value = "text")]
+        format: OutputFormat,
     },
 
     /// Boot a simulator/emulator by name or UDID.
@@ -137,9 +137,9 @@ async fn resolve_platform(
 /// Execute the device command.
 pub async fn run(args: DeviceArgs) -> CommandResult {
     match args.command {
-        Some(DeviceCommands::List { platform, output }) => {
+        Some(DeviceCommands::List { platform, format }) => {
             let platform = resolve_platform(platform.as_deref()).await?;
-            execute_list(platform, &output).await
+            execute_list(platform, &format).await
         }
         Some(DeviceCommands::Boot {
             name,
@@ -176,13 +176,13 @@ pub async fn run(args: DeviceArgs) -> CommandResult {
         None => {
             // Default: list with top-level args
             let platform = resolve_platform(args.platform.as_deref()).await?;
-            execute_list(platform, &args.output).await
+            execute_list(platform, &args.format).await
         }
     }
 }
 
 /// Execute device list.
-async fn execute_list(platform: Platform, output: &OutputFormat) -> CommandResult {
+async fn execute_list(platform: Platform, format: &OutputFormat) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::companion::CompanionLister;
@@ -203,7 +203,7 @@ async fn execute_list(platform: Platform, output: &OutputFormat) -> CommandResul
                 })
                 .collect();
 
-            if output.is_json() {
+            if format.is_json() {
                 println!("{}", serde_json::to_string_pretty(&devices)?);
             } else {
                 println!("iOS Devices/Simulators ({}):", devices.len());
@@ -273,7 +273,7 @@ async fn execute_list(platform: Platform, output: &OutputFormat) -> CommandResul
                 }
             }
 
-            if output.is_json() {
+            if format.is_json() {
                 println!("{}", serde_json::to_string_pretty(&devices)?);
             } else {
                 println!("Android Devices/Emulators ({}):", devices.len());
