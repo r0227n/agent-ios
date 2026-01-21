@@ -9,11 +9,26 @@ use serde::Serialize;
 use crate::cli::helpers::{CommandResult, DeviceArgs, DeviceOutputArgs, OutputFormat};
 use crate::types::Platform;
 
+pub mod collector;
+pub mod scrollable;
+
 /// Navigator command arguments.
 #[derive(Args, Debug)]
 pub struct NavigatorArgs {
     #[command(subcommand)]
     pub command: NavigatorCommands,
+}
+
+/// Collection options for list command.
+#[derive(Args, Debug, Clone)]
+pub struct CollectionArgs {
+    /// Maximum number of scroll operations (0 = no scrolling).
+    #[arg(long, default_value = "3")]
+    pub max_scrolls: u32,
+
+    /// Delay between scrolls in milliseconds.
+    #[arg(long, default_value = "500")]
+    pub delay: u64,
 }
 
 /// Navigator subcommands.
@@ -82,11 +97,30 @@ pub enum NavigatorCommands {
     List {
         #[command(flatten)]
         device_output: DeviceOutputArgs,
+
+        #[command(flatten)]
+        collection: CollectionArgs,
     },
 }
 
+/// Frame coordinates for an element.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Frame {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl Frame {
+    /// Calculate the center point of the frame.
+    pub fn center(&self) -> (f64, f64) {
+        (self.x + self.width / 2.0, self.y + self.height / 2.0)
+    }
+}
+
 /// Found element result.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FoundElement {
     pub label: String,
     pub element_type: String,
@@ -94,6 +128,15 @@ pub struct FoundElement {
     pub clickable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resource_id: Option<String>,
+    /// Whether the element is scrollable (inferred from type).
+    #[serde(default)]
+    pub scrollable: bool,
+    /// Frame coordinates (for deduplication and position tracking).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frame: Option<Frame>,
+    /// Accessibility identifier (for unique key generation).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accessibility_id: Option<String>,
 }
 
 /// Detect platform based on available devices.
@@ -212,14 +255,28 @@ pub async fn run(args: NavigatorArgs) -> CommandResult {
             )
             .await
         }
-        NavigatorCommands::List { device_output } => {
+        NavigatorCommands::List {
+            device_output,
+            collection,
+        } => {
             let platform = resolve_platform(device_output.platform.as_deref()).await?;
-            execute_list(
-                platform,
-                device_output.udid.as_deref(),
-                &device_output.output,
-            )
-            .await
+            if collection.max_scrolls > 0 {
+                execute_list_all(
+                    platform,
+                    device_output.udid.as_deref(),
+                    &device_output.output,
+                    collection.max_scrolls,
+                    collection.delay,
+                )
+                .await
+            } else {
+                execute_list(
+                    platform,
+                    device_output.udid.as_deref(),
+                    &device_output.output,
+                )
+                .await
+            }
         }
     }
 }
@@ -260,6 +317,142 @@ async fn execute_list(
                 println!("{}", serde_json::to_string_pretty(&found_elements)?);
             } else {
                 print_elements(&found_elements);
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Execute list all elements with scrolling.
+async fn execute_list_all(
+    platform: Platform,
+    udid: Option<&str>,
+    output: &OutputFormat,
+    max_scrolls: u32,
+    delay_ms: u64,
+) -> CommandResult {
+    use collector::{AndroidCollector, CollectorConfig, IosCollector};
+
+    let config = CollectorConfig {
+        max_scrolls,
+        delay_ms,
+        ..Default::default()
+    };
+
+    match platform {
+        Platform::Ios => {
+            use crate::cli::helpers::with_client;
+
+            let output = output.clone();
+            with_client(udid, |mut client| async move {
+                let collector = IosCollector::new(config.clone());
+
+                // Create progress callback for human output
+                let progress_fn: Option<collector::ProgressCallback> = if !output.is_json() {
+                    let max_scrolls_display = config.max_scrolls;
+                    Some(Box::new(move |progress: collector::CollectionProgress| {
+                        if progress.scrolling_to_top {
+                            eprintln!("Scrolling to top...");
+                            return;
+                        }
+                        if progress.scroll_number == 0 {
+                            eprintln!(
+                                "Collecting elements (max {} scrolls)...",
+                                max_scrolls_display
+                            );
+                        }
+                        if progress.completed {
+                            if let Some(reason) = progress.completion_reason {
+                                eprintln!(
+                                    "Scroll {}: {} elements (+{} new, {})",
+                                    progress.scroll_number,
+                                    progress.total_elements,
+                                    progress.new_elements,
+                                    reason
+                                );
+                            }
+                        } else if progress.scroll_number > 0 {
+                            eprintln!(
+                                "Scroll {}: {} elements (+{} new)",
+                                progress.scroll_number,
+                                progress.total_elements,
+                                progress.new_elements
+                            );
+                        }
+                    }))
+                } else {
+                    None
+                };
+
+                let elements = collector
+                    .collect_all(
+                        &mut client,
+                        extract_ios_elements_for_collection,
+                        progress_fn,
+                    )
+                    .await?;
+
+                if output.is_json() {
+                    println!("{}", serde_json::to_string_pretty(&elements)?);
+                } else {
+                    eprintln!("Total: {} elements", elements.len());
+                    print_elements(&elements);
+                }
+                Ok(())
+            })
+            .await
+        }
+        Platform::Android => {
+            use crate::platform::android::adb::uiautomator;
+
+            let max_scrolls_display = config.max_scrolls;
+            let collector = AndroidCollector::new(config, udid.map(String::from));
+
+            let progress_fn: Option<collector::ProgressCallback> = if !output.is_json() {
+                Some(Box::new(move |progress: collector::CollectionProgress| {
+                    if progress.scrolling_to_top {
+                        eprintln!("Scrolling to top...");
+                        return;
+                    }
+                    if progress.scroll_number == 0 {
+                        eprintln!(
+                            "Collecting elements (max {} scrolls)...",
+                            max_scrolls_display
+                        );
+                    }
+                    if progress.completed {
+                        if let Some(reason) = progress.completion_reason {
+                            eprintln!(
+                                "Scroll {}: {} elements (+{} new, {})",
+                                progress.scroll_number,
+                                progress.total_elements,
+                                progress.new_elements,
+                                reason
+                            );
+                        }
+                    } else if progress.scroll_number > 0 {
+                        eprintln!(
+                            "Scroll {}: {} elements (+{} new)",
+                            progress.scroll_number, progress.total_elements, progress.new_elements
+                        );
+                    }
+                }))
+            } else {
+                None
+            };
+
+            let elements = collector
+                .collect_all(
+                    |elems: &[uiautomator::AccessibilityElement]| convert_android_elements(elems),
+                    progress_fn,
+                )
+                .await?;
+
+            if output.is_json() {
+                println!("{}", serde_json::to_string_pretty(&elements)?);
+            } else {
+                eprintln!("Total: {} elements", elements.len());
+                print_elements(&elements);
             }
             Ok(())
         }
@@ -414,6 +607,15 @@ async fn execute_find_android(
     Ok(())
 }
 
+/// Normalize iOS element type by removing "AX" prefix.
+fn normalize_ios_element_type(raw_type: &str) -> String {
+    if raw_type.starts_with("AX") {
+        raw_type[2..].to_string()
+    } else {
+        raw_type.to_string()
+    }
+}
+
 /// Extract elements from iOS accessibility JSON.
 fn extract_ios_elements(json: &serde_json::Value) -> Vec<FoundElement> {
     let mut elements = Vec::new();
@@ -429,11 +631,11 @@ fn extract_ios_elements(json: &serde_json::Value) -> Vec<FoundElement> {
 
         if let Some(obj) = node.as_object() {
             // 正しいキー: "type" (not "AXRole")
-            let element_type = obj
+            let raw_type = obj
                 .get("type")
                 .and_then(|v| v.as_str())
-                .unwrap_or("Unknown")
-                .to_string();
+                .unwrap_or("Unknown");
+            let element_type = normalize_ios_element_type(raw_type);
 
             let label = obj
                 .get("AXLabel")
@@ -454,19 +656,29 @@ fn extract_ios_elements(json: &serde_json::Value) -> Vec<FoundElement> {
                 let y = f.get("y")?.as_f64()?;
                 let w = f.get("width")?.as_f64()?;
                 let h = f.get("height")?.as_f64()?;
-                Some((x + w / 2.0, y + h / 2.0))
+                Some(Frame {
+                    x,
+                    y,
+                    width: w,
+                    height: h,
+                })
             });
 
+            let center = frame.as_ref().map(|f| f.center());
             let enabled = obj.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+            let scrollable = scrollable::is_ios_scrollable(&element_type);
 
             // 有効な要素タイプがあれば追加
             if !element_type.is_empty() && element_type != "Unknown" {
                 elements.push(FoundElement {
                     label,
                     element_type,
-                    center: frame,
+                    center,
                     clickable: enabled,
-                    resource_id: identifier,
+                    resource_id: identifier.clone(),
+                    scrollable,
+                    frame,
+                    accessibility_id: identifier,
                 });
             }
 
@@ -482,18 +694,118 @@ fn extract_ios_elements(json: &serde_json::Value) -> Vec<FoundElement> {
     elements
 }
 
+/// Extract elements from iOS accessibility JSON for collection (uses AXLabel-only filter).
+fn extract_ios_elements_for_collection(json: &serde_json::Value) -> Vec<FoundElement> {
+    let mut elements = Vec::new();
+
+    fn traverse(node: &serde_json::Value, elements: &mut Vec<FoundElement>) {
+        // 配列の場合は各要素を再帰処理
+        if let Some(arr) = node.as_array() {
+            for item in arr {
+                traverse(item, elements);
+            }
+            return;
+        }
+
+        if let Some(obj) = node.as_object() {
+            let label = obj
+                .get("AXLabel")
+                .and_then(|v| v.as_str())
+                .or_else(|| obj.get("AXValue").and_then(|v| v.as_str()))
+                .unwrap_or("")
+                .to_string();
+
+            // "role" を使用（"AXRole" ではなく）
+            let raw_role = obj
+                .get("role")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown");
+            let role = normalize_ios_element_type(raw_role);
+
+            // Extract accessibility identifier
+            let accessibility_id = obj
+                .get("AXIdentifier")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+
+            // Extract frame
+            let frame = obj.get("frame").and_then(|f| {
+                let x = f.get("x")?.as_f64()?;
+                let y = f.get("y")?.as_f64()?;
+                let w = f.get("width")?.as_f64()?;
+                let h = f.get("height")?.as_f64()?;
+                Some(Frame {
+                    x,
+                    y,
+                    width: w,
+                    height: h,
+                })
+            });
+
+            let center = frame.as_ref().map(|f| f.center());
+            let scrollable = crate::cli::navigator::scrollable::is_ios_scrollable(&role);
+
+            if !label.is_empty() {
+                elements.push(FoundElement {
+                    label,
+                    element_type: role,
+                    center,
+                    clickable: true, // iOS doesn't explicitly expose this
+                    scrollable,
+                    frame,
+                    accessibility_id,
+                    resource_id: None,
+                });
+            }
+
+            if let Some(children) = obj.get("children").and_then(|c| c.as_array()) {
+                for child in children {
+                    traverse(child, elements);
+                }
+            }
+        }
+    }
+
+    // トップレベルが配列の場合に対応
+    if let Some(arr) = json.as_array() {
+        for item in arr {
+            traverse(item, &mut elements);
+        }
+    } else {
+        traverse(json, &mut elements);
+    }
+
+    elements
+}
+
 /// Convert Android elements to FoundElement.
 fn convert_android_elements(
     elements: &[crate::platform::android::adb::uiautomator::AccessibilityElement],
 ) -> Vec<FoundElement> {
     elements
         .iter()
-        .map(|e| FoundElement {
-            label: e.label().unwrap_or("").to_string(),
-            element_type: e.element_type().unwrap_or("Unknown").to_string(),
-            center: e.center(),
-            clickable: e.clickable,
-            resource_id: e.resource_id.clone(),
+        .map(|e| {
+            let element_type = e.element_type().unwrap_or("Unknown").to_string();
+            let scrollable = e.scrollable || scrollable::is_android_scrollable(&element_type);
+
+            // Extract frame from bounds
+            let frame = e.bounds.map(|[l, t, r, b]| Frame {
+                x: l as f64,
+                y: t as f64,
+                width: (r - l) as f64,
+                height: (b - t) as f64,
+            });
+
+            FoundElement {
+                label: e.label().unwrap_or("").to_string(),
+                element_type,
+                center: e.center(),
+                clickable: e.clickable,
+                resource_id: e.resource_id.clone(),
+                scrollable,
+                frame,
+                accessibility_id: e.resource_id.clone(),
+            }
         })
         .collect()
 }
@@ -526,21 +838,25 @@ fn find_matching_elements<'a>(
 /// Print elements in human-readable format (Python版と同じフォーマット).
 fn print_elements(elements: &[FoundElement]) {
     println!("Tappable elements ({}):", elements.len());
-    for e in elements.iter().take(30) {
+    for e in elements.iter() {
+        let scroll_indicator = if e.scrollable { " [scrollable]" } else { "" };
         if let Some((x, y)) = e.center {
             if e.label.is_empty() {
-                println!("  {}: ({:.0}, {:.0})", e.element_type, x, y);
+                println!(
+                    "  {}: ({:.0}, {:.0}){}",
+                    e.element_type, x, y, scroll_indicator
+                );
             } else {
-                println!("  {}: \"{}\" ({:.0}, {:.0})", e.element_type, e.label, x, y);
+                println!(
+                    "  {}: \"{}\" ({:.0}, {:.0}){}",
+                    e.element_type, e.label, x, y, scroll_indicator
+                );
             }
         } else if e.label.is_empty() {
-            println!("  {}", e.element_type);
+            println!("  {}{}", e.element_type, scroll_indicator);
         } else {
-            println!("  {}: \"{}\"", e.element_type, e.label);
+            println!("  {}: \"{}\"{}", e.element_type, e.label, scroll_indicator);
         }
-    }
-    if elements.len() > 30 {
-        println!("  ... and {} more", elements.len() - 30);
     }
 }
 
@@ -549,17 +865,25 @@ fn print_found_elements(elements: &[&FoundElement]) {
     println!("Found {} element(s):", elements.len());
     println!("{:-<60}", "");
     for (i, e) in elements.iter().enumerate() {
+        let scroll_indicator = if e.scrollable { " [scrollable]" } else { "" };
         if let Some((x, y)) = e.center {
             println!(
-                "{}. [{}] \"{}\" @ ({:.0}, {:.0})",
+                "{}. [{}] \"{}\" @ ({:.0}, {:.0}){}",
                 i + 1,
                 e.element_type,
                 e.label,
                 x,
-                y
+                y,
+                scroll_indicator
             );
         } else {
-            println!("{}. [{}] \"{}\"", i + 1, e.element_type, e.label);
+            println!(
+                "{}. [{}] \"{}\"{}",
+                i + 1,
+                e.element_type,
+                e.label,
+                scroll_indicator
+            );
         }
         if let Some(id) = &e.resource_id {
             println!("   ID: {}", id);
@@ -668,6 +992,9 @@ mod tests {
                 center: Some((100.0, 100.0)),
                 clickable: true,
                 resource_id: None,
+                scrollable: false,
+                frame: None,
+                accessibility_id: None,
             },
             FoundElement {
                 label: "Logout Button".to_string(),
@@ -675,6 +1002,9 @@ mod tests {
                 center: Some((100.0, 200.0)),
                 clickable: true,
                 resource_id: None,
+                scrollable: false,
+                frame: None,
+                accessibility_id: None,
             },
         ];
 
@@ -692,6 +1022,9 @@ mod tests {
                 center: Some((100.0, 100.0)),
                 clickable: false,
                 resource_id: None,
+                scrollable: false,
+                frame: None,
+                accessibility_id: None,
             },
             FoundElement {
                 label: "Click me".to_string(),
@@ -699,6 +1032,9 @@ mod tests {
                 center: Some((100.0, 200.0)),
                 clickable: true,
                 resource_id: None,
+                scrollable: false,
+                frame: None,
+                accessibility_id: None,
             },
         ];
 
@@ -716,6 +1052,9 @@ mod tests {
                 center: Some((100.0, 100.0)),
                 clickable: true,
                 resource_id: Some("submitBtn".to_string()),
+                scrollable: false,
+                frame: None,
+                accessibility_id: None,
             },
             FoundElement {
                 label: "Cancel".to_string(),
@@ -723,6 +1062,9 @@ mod tests {
                 center: Some((100.0, 200.0)),
                 clickable: true,
                 resource_id: Some("cancelBtn".to_string()),
+                scrollable: false,
+                frame: None,
+                accessibility_id: None,
             },
         ];
 
@@ -784,5 +1126,83 @@ mod tests {
         let json = serde_json::json!([]);
         let elements = extract_ios_elements(&json);
         assert!(elements.is_empty());
+    }
+
+    #[test]
+    fn test_scrollable_element() {
+        let json = serde_json::json!({
+            "type": "ScrollView",
+            "AXLabel": "Content",
+            "frame": {"x": 0.0, "y": 0.0, "width": 390.0, "height": 600.0},
+            "enabled": true
+        });
+
+        let elements = extract_ios_elements(&json);
+
+        assert_eq!(elements.len(), 1);
+        assert!(elements[0].scrollable);
+    }
+
+    #[test]
+    fn test_frame_center() {
+        let frame = Frame {
+            x: 100.0,
+            y: 200.0,
+            width: 50.0,
+            height: 30.0,
+        };
+
+        assert_eq!(frame.center(), (125.0, 215.0));
+    }
+
+    #[test]
+    fn test_normalize_ios_element_type() {
+        assert_eq!(normalize_ios_element_type("AXButton"), "Button");
+        assert_eq!(normalize_ios_element_type("AXStaticText"), "StaticText");
+        assert_eq!(normalize_ios_element_type("AXApplication"), "Application");
+        assert_eq!(normalize_ios_element_type("Button"), "Button");
+        assert_eq!(normalize_ios_element_type("Unknown"), "Unknown");
+    }
+
+    #[test]
+    fn test_extract_ios_elements_ax_prefix_normalized() {
+        let json = serde_json::json!({
+            "type": "AXButton",
+            "AXLabel": "Submit",
+            "frame": {"x": 50.0, "y": 100.0, "width": 100.0, "height": 44.0},
+            "enabled": true
+        });
+
+        let elements = extract_ios_elements(&json);
+
+        assert_eq!(elements.len(), 1);
+        assert_eq!(elements[0].element_type, "Button");
+        assert_eq!(elements[0].label, "Submit");
+    }
+
+    #[test]
+    fn test_extract_ios_elements_ax_prefix_multiple() {
+        let json = serde_json::json!([
+            {
+                "type": "AXApplication",
+                "AXLabel": "MyApp",
+                "frame": {"x": 0.0, "y": 0.0, "width": 402.0, "height": 874.0},
+                "enabled": true,
+                "children": [
+                    {
+                        "type": "AXStaticText",
+                        "AXLabel": "Welcome",
+                        "frame": {"x": 24.0, "y": 88.0, "width": 168.0, "height": 20.0},
+                        "enabled": true
+                    }
+                ]
+            }
+        ]);
+
+        let elements = extract_ios_elements(&json);
+
+        assert_eq!(elements.len(), 2);
+        assert_eq!(elements[0].element_type, "Application");
+        assert_eq!(elements[1].element_type, "StaticText");
     }
 }

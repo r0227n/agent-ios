@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crate::cli::helpers::CommandResult;
 
-use super::ScreenElement;
+use super::FoundElement;
 
 /// Configuration for element collection.
 #[derive(Debug, Clone)]
@@ -78,7 +78,7 @@ impl std::fmt::Display for CompletionReason {
 }
 
 /// Generate a unique key for an element (for deduplication).
-pub fn element_unique_key(element: &ScreenElement) -> String {
+pub fn element_unique_key(element: &FoundElement) -> String {
     format!(
         "{}|{}|{}",
         element.element_type,
@@ -89,8 +89,8 @@ pub fn element_unique_key(element: &ScreenElement) -> String {
 
 /// Merge new elements into existing collection, returning count of new elements.
 pub fn merge_elements(
-    existing: &mut Vec<ScreenElement>,
-    new_elements: Vec<ScreenElement>,
+    existing: &mut Vec<FoundElement>,
+    new_elements: Vec<FoundElement>,
     seen_keys: &mut HashSet<String>,
 ) -> usize {
     let mut new_count = 0;
@@ -121,18 +121,18 @@ impl IosCollector {
     /// # Arguments
     ///
     /// * `client` - The IDB gRPC client
-    /// * `extract_fn` - Function to extract ScreenElements from accessibility JSON
+    /// * `extract_fn` - Function to extract FoundElements from accessibility JSON
     /// * `progress_fn` - Optional callback for progress updates
     pub async fn collect_all<F>(
         &self,
         client: &mut crate::grpc::IdbClient,
         extract_fn: F,
         progress_fn: Option<ProgressCallback>,
-    ) -> CommandResult<Vec<ScreenElement>>
+    ) -> CommandResult<Vec<FoundElement>>
     where
-        F: Fn(&serde_json::Value) -> Vec<ScreenElement>,
+        F: Fn(&serde_json::Value) -> Vec<FoundElement>,
     {
-        let mut all_elements: Vec<ScreenElement> = Vec::new();
+        let mut all_elements: Vec<FoundElement> = Vec::new();
         let mut seen_keys: HashSet<String> = HashSet::new();
         let mut consecutive_no_new = 0;
 
@@ -294,15 +294,15 @@ impl AndroidCollector {
         &self,
         extract_fn: F,
         progress_fn: Option<ProgressCallback>,
-    ) -> CommandResult<Vec<ScreenElement>>
+    ) -> CommandResult<Vec<FoundElement>>
     where
         F: Fn(
             &[crate::platform::android::adb::uiautomator::AccessibilityElement],
-        ) -> Vec<ScreenElement>,
+        ) -> Vec<FoundElement>,
     {
         use crate::platform::android::adb::uiautomator;
 
-        let mut all_elements: Vec<ScreenElement> = Vec::new();
+        let mut all_elements: Vec<FoundElement> = Vec::new();
         let mut seen_keys: HashSet<String> = HashSet::new();
         let mut consecutive_no_new = 0;
 
@@ -470,7 +470,7 @@ mod tests {
 
     #[test]
     fn test_element_unique_key() {
-        let element = ScreenElement {
+        let element = FoundElement {
             label: "Test Label".to_string(),
             element_type: "Button".to_string(),
             center: Some((100.0, 200.0)),
@@ -478,6 +478,7 @@ mod tests {
             scrollable: false,
             frame: None,
             accessibility_id: Some("test_id".to_string()),
+            resource_id: None,
         };
 
         let key = element_unique_key(&element);
@@ -486,7 +487,7 @@ mod tests {
 
     #[test]
     fn test_element_unique_key_no_accessibility_id() {
-        let element = ScreenElement {
+        let element = FoundElement {
             label: "Test".to_string(),
             element_type: "Label".to_string(),
             center: None,
@@ -494,6 +495,7 @@ mod tests {
             scrollable: false,
             frame: None,
             accessibility_id: None,
+            resource_id: None,
         };
 
         let key = element_unique_key(&element);
@@ -506,7 +508,7 @@ mod tests {
         let mut seen = HashSet::new();
 
         let elements1 = vec![
-            ScreenElement {
+            FoundElement {
                 label: "A".to_string(),
                 element_type: "Button".to_string(),
                 center: None,
@@ -514,8 +516,9 @@ mod tests {
                 scrollable: false,
                 frame: None,
                 accessibility_id: None,
+                resource_id: None,
             },
-            ScreenElement {
+            FoundElement {
                 label: "B".to_string(),
                 element_type: "Button".to_string(),
                 center: None,
@@ -523,6 +526,7 @@ mod tests {
                 scrollable: false,
                 frame: None,
                 accessibility_id: None,
+                resource_id: None,
             },
         ];
 
@@ -532,7 +536,7 @@ mod tests {
 
         // Add duplicate and new element
         let elements2 = vec![
-            ScreenElement {
+            FoundElement {
                 label: "A".to_string(), // duplicate
                 element_type: "Button".to_string(),
                 center: None,
@@ -540,8 +544,9 @@ mod tests {
                 scrollable: false,
                 frame: None,
                 accessibility_id: None,
+                resource_id: None,
             },
-            ScreenElement {
+            FoundElement {
                 label: "C".to_string(), // new
                 element_type: "Button".to_string(),
                 center: None,
@@ -549,6 +554,7 @@ mod tests {
                 scrollable: false,
                 frame: None,
                 accessibility_id: None,
+                resource_id: None,
             },
         ];
 

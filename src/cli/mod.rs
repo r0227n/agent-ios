@@ -7,7 +7,6 @@ pub mod idb;
 pub mod keyboard;
 pub mod navigator;
 pub mod privacy;
-pub mod screen;
 
 use clap::{Parser, Subcommand};
 
@@ -37,9 +36,6 @@ pub enum Commands {
 
     /// Element navigation and interaction
     Navigator(navigator::NavigatorArgs),
-
-    /// Screen analysis (accessibility dump, summary, hints)
-    Screen(screen::ScreenArgs),
 
     /// Application management (launch, terminate, install, list)
     App(app::AppArgs),

@@ -85,14 +85,6 @@ pub fn is_android_scrollable(element_type: &str) -> bool {
         .any(|&t| element_type.contains(t) || t.eq_ignore_ascii_case(element_type))
 }
 
-/// Determine if an element type indicates scrollability (platform-agnostic).
-///
-/// This function checks both iOS and Android scrollable types.
-#[allow(dead_code)]
-pub fn is_scrollable(element_type: &str) -> bool {
-    is_ios_scrollable(element_type) || is_android_scrollable(element_type)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

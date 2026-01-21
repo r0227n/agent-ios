@@ -124,3 +124,60 @@ fn test_navigator_find_and_tap() {
         assert_stdout_contains(&output, "Tapped element");
     }
 }
+
+/// Test navigator list with no scrolling (max-scrolls=0).
+#[test]
+fn test_navigator_list_no_scroll() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    // Launch Settings app to have elements to list
+    let bundle_id = get_test_bundle_id();
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let output = run_cli_command_with_udid("navigator", &["list", "--max-scrolls", "0"], &udid);
+
+    assert_success(&output, "navigator list --max-scrolls 0");
+    assert_stdout_contains(&output, "Tappable elements");
+}
+
+/// Test navigator list with scrolling collection.
+#[test]
+fn test_navigator_list_with_scroll() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    // Launch Settings app to have elements to list
+    let bundle_id = get_test_bundle_id();
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    // Test with minimal scrolls to avoid long test times
+    let output = run_cli_command_with_udid("navigator", &["list", "--max-scrolls", "1"], &udid);
+
+    assert_success(&output, "navigator list --max-scrolls 1");
+    assert_stdout_contains(&output, "Tappable elements");
+}
+
+/// Test navigator list with scrolling and JSON output.
+#[test]
+fn test_navigator_list_scroll_json() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    // Launch Settings app to have elements to list
+    let bundle_id = get_test_bundle_id();
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let output = run_cli_command_with_udid(
+        "navigator",
+        &["list", "--max-scrolls", "1", "-o", "json"],
+        &udid,
+    );
+
+    assert_success(&output, "navigator list --max-scrolls 1 -o json");
+    let json = assert_valid_json(&output);
+    assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
+}
