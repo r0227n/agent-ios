@@ -11,7 +11,87 @@ This project is a Rust reimplementation of Facebook's [idb](https://github.com/f
 - **Rust Implementation**: Core functionality rewritten in Rust
 - **gRPC Client**: High-performance gRPC client for iOS device communication
 - **CLI Interface**: Command-line interface built with Rust
+- **Cross-Platform Support**: iOS and Android device management
 - **Package Management**: Uses [mise](https://mise.jdx.dev/) for tool version management
+
+## Quick Start
+
+agent-mobile provides 5 main commands for mobile device interaction:
+
+### HID Operations
+Human Interface Device operations including touch gestures, keyboard input, and hardware buttons.
+
+```bash
+# Touch gestures
+agent-mobile hid tap 100 200
+agent-mobile hid tap center
+agent-mobile hid swipe up
+agent-mobile hid swipe 100,200,300,400
+agent-mobile hid scroll down
+agent-mobile hid long-press 150 250
+
+# Keyboard input
+agent-mobile hid text "Hello World"
+agent-mobile hid key enter
+agent-mobile hid key backspace
+agent-mobile hid clear
+
+# Hardware buttons
+agent-mobile hid button home
+agent-mobile hid button lock
+agent-mobile hid button volume-up
+```
+
+### Element Interaction
+```bash
+# Find and interact with UI elements
+agent-mobile element find "Submit"
+agent-mobile element tap "Login"
+agent-mobile element enter-text "username" "john@example.com"
+agent-mobile element list
+```
+
+### App Management
+```bash
+# Launch and terminate apps
+agent-mobile app launch com.example.app
+agent-mobile app terminate com.example.app
+
+# Install and uninstall
+agent-mobile app install app.ipa
+agent-mobile app uninstall com.example.app
+agent-mobile app list
+
+# Permission management
+agent-mobile app grant camera --bundle com.example.app
+agent-mobile app revoke camera --bundle com.example.app
+agent-mobile app reset camera --bundle com.example.app
+```
+
+### Device Management
+```bash
+# List devices
+agent-mobile device list
+
+# Boot and shutdown simulators
+agent-mobile device boot "iPhone 15"
+agent-mobile device shutdown <udid>
+
+# Clipboard operations (iOS only)
+agent-mobile device pbcopy "Hello"
+agent-mobile device pbpaste
+```
+
+### iOS-Specific Features
+```bash
+# Full idb command compatibility
+agent-mobile idb screenshot output.png
+agent-mobile idb list-targets
+agent-mobile idb accessibility describe-all
+
+# See all 59 idb subcommands
+agent-mobile idb --help
+```
 
 ## Prerequisites
 

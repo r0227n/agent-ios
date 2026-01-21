@@ -1,12 +1,9 @@
 pub mod app;
-pub mod clipboard;
 pub mod device;
 pub mod element;
-pub mod gesture;
 pub mod helpers;
+pub mod hid;
 pub mod idb;
-pub mod keyboard;
-pub mod privacy;
 
 use clap::{Parser, Subcommand};
 
@@ -28,11 +25,8 @@ pub enum Commands {
         command: Box<idb::IdbCommands>,
     },
 
-    /// Touch gesture operations (tap, swipe, scroll, long-press)
-    Gesture(gesture::GestureArgs),
-
-    /// Keyboard input operations (text, keys, buttons)
-    Keyboard(keyboard::KeyboardArgs),
+    /// HID operations (touch gestures + keyboard input)
+    Hid(hid::HidArgs),
 
     /// Element navigation and interaction
     Element(element::ElementArgs),
@@ -42,10 +36,4 @@ pub enum Commands {
 
     /// Device management (list, boot, shutdown)
     Device(device::DeviceArgs),
-
-    /// Clipboard operations (copy, paste)
-    Clipboard(clipboard::ClipboardArgs),
-
-    /// Privacy/permission management (grant, revoke, reset)
-    Privacy(privacy::PrivacyArgs),
 }

@@ -514,11 +514,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 cli::idb::shell::run(no_prompt, udid).await?;
             }
         },
-        Commands::Gesture(args) => {
-            cli::gesture::run(args).await?;
-        }
-        Commands::Keyboard(args) => {
-            cli::keyboard::run(args).await?;
+        Commands::Hid(args) => {
+            cli::hid::run(args).await?;
         }
         Commands::Element(args) => {
             cli::element::run(args).await?;
@@ -528,12 +525,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         Commands::Device(args) => {
             cli::device::run(args).await?;
-        }
-        Commands::Clipboard(args) => {
-            cli::clipboard::run(args).await?;
-        }
-        Commands::Privacy(args) => {
-            cli::privacy::run(args).await?;
         }
     }
 

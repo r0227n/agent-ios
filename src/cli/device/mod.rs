@@ -62,6 +62,31 @@ pub enum DeviceCommands {
         #[arg(short = 'p', long)]
         platform: Option<String>,
     },
+
+    /// Copy text to device clipboard (pbcopy).
+    Pbcopy {
+        /// Text to copy to clipboard.
+        text: String,
+
+        /// Platform (ios or android). Auto-detected if not specified.
+        #[arg(short = 'p', long)]
+        platform: Option<String>,
+
+        /// Device UDID/serial (optional, auto-detected if not specified).
+        #[arg(short = 'u', long)]
+        udid: Option<String>,
+    },
+
+    /// Paste from device clipboard (pbpaste).
+    Pbpaste {
+        /// Platform (ios or android). Auto-detected if not specified.
+        #[arg(short = 'p', long)]
+        platform: Option<String>,
+
+        /// Device UDID/serial (optional, auto-detected if not specified).
+        #[arg(short = 'u', long)]
+        udid: Option<String>,
+    },
 }
 
 /// Unified device info for output.
@@ -127,6 +152,26 @@ pub async fn run(args: DeviceArgs) -> CommandResult {
         Some(DeviceCommands::Shutdown { udid, platform }) => {
             let platform = resolve_platform(platform.as_deref()).await?;
             execute_shutdown(platform, &udid).await
+        }
+        Some(DeviceCommands::Pbcopy {
+            text,
+            platform,
+            udid,
+        }) => {
+            let platform = resolve_platform(platform.as_deref()).await?;
+            let udid = match &udid {
+                Some(u) => u.clone(),
+                None => get_default_udid(platform).await?,
+            };
+            execute_pbcopy(platform, &udid, &text).await
+        }
+        Some(DeviceCommands::Pbpaste { platform, udid }) => {
+            let platform = resolve_platform(platform.as_deref()).await?;
+            let udid = match &udid {
+                Some(u) => u.clone(),
+                None => get_default_udid(platform).await?,
+            };
+            execute_pbpaste(platform, &udid).await
         }
         None => {
             // Default: list with top-level args
@@ -329,5 +374,69 @@ async fn execute_shutdown(platform: Platform, udid: &str) -> CommandResult {
             println!("Shutdown emulator: {}", udid);
             Ok(())
         }
+    }
+}
+
+/// Get default UDID for the platform.
+async fn get_default_udid(
+    platform: Platform,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    match platform {
+        Platform::Ios => {
+            use crate::companion::CompanionLister;
+
+            let targets = match CompanionLister::new() {
+                Ok(lister) => lister.list_targets(None).unwrap_or_default(),
+                Err(_) => Vec::new(),
+            };
+
+            // Find first booted simulator
+            let booted = targets
+                .iter()
+                .find(|t| t.state.as_deref() == Some("Booted"));
+
+            match booted {
+                Some(t) => Ok(t.udid.clone()),
+                None => Err("No booted iOS simulator found".into()),
+            }
+        }
+        Platform::Android => {
+            let devices = crate::platform::android::adb::list_devices()?;
+            if let Some((serial, _)) = devices.first() {
+                Ok(serial.clone())
+            } else {
+                Err("No Android device connected".into())
+            }
+        }
+    }
+}
+
+/// Execute copy to clipboard.
+async fn execute_pbcopy(platform: Platform, udid: &str, text: &str) -> CommandResult {
+    match platform {
+        Platform::Ios => {
+            use crate::platform::ios::simctl::management;
+            management::pbcopy(udid, text)?;
+            println!("Copied to clipboard");
+            Ok(())
+        }
+        Platform::Android => {
+            // Android doesn't have a direct clipboard API via adb
+            // We can use am broadcast but it's limited
+            Err("Android clipboard is not supported via adb".into())
+        }
+    }
+}
+
+/// Execute paste from clipboard.
+async fn execute_pbpaste(platform: Platform, udid: &str) -> CommandResult {
+    match platform {
+        Platform::Ios => {
+            use crate::platform::ios::simctl::management;
+            let text = management::pbpaste(udid)?;
+            print!("{}", text);
+            Ok(())
+        }
+        Platform::Android => Err("Android clipboard is not supported via adb".into()),
     }
 }
