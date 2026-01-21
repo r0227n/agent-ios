@@ -1,15 +1,15 @@
-//! Navigator feature integration tests.
+//! Element feature integration tests.
 //!
-//! Tests for `agent-mobile navigator` commands.
+//! Tests for `agent-mobile element` commands.
 
 use crate::common::{
     assert_stdout_contains, assert_success, assert_valid_json, ensure_companion_running,
     get_available_udid, get_test_bundle_id, run_cli_command_with_udid,
 };
 
-/// Test navigator list command.
+/// Test element list command.
 #[test]
-fn test_navigator_list() {
+fn test_element_list() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
@@ -18,15 +18,15 @@ fn test_navigator_list() {
     let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let output = run_cli_command_with_udid("navigator", &["list"], &udid);
+    let output = run_cli_command_with_udid("element", &["list"], &udid);
 
-    assert_success(&output, "navigator list");
+    assert_success(&output, "element list");
     assert_stdout_contains(&output, "Tappable elements");
 }
 
-/// Test navigator list with JSON output.
+/// Test element list with JSON output.
 #[test]
-fn test_navigator_list_json() {
+fn test_element_list_json() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
@@ -35,16 +35,16 @@ fn test_navigator_list_json() {
     let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let output = run_cli_command_with_udid("navigator", &["list", "-o", "json"], &udid);
+    let output = run_cli_command_with_udid("element", &["list", "-o", "json"], &udid);
 
-    assert_success(&output, "navigator list -o json");
+    assert_success(&output, "element list -o json");
     let json = assert_valid_json(&output);
     assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
 }
 
-/// Test navigator find command.
+/// Test element find command.
 #[test]
-fn test_navigator_find() {
+fn test_element_find() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
@@ -54,7 +54,7 @@ fn test_navigator_find() {
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     // Try to find a common element like "General" or "Settings"
-    let output = run_cli_command_with_udid("navigator", &["find", "General"], &udid);
+    let output = run_cli_command_with_udid("element", &["find", "General"], &udid);
 
     // This might fail if "General" is not visible, but the command should complete
     // We check for either success or a known failure message
@@ -69,9 +69,9 @@ fn test_navigator_find() {
     );
 }
 
-/// Test navigator find-type command.
+/// Test element find-type command.
 #[test]
-fn test_navigator_find_type() {
+fn test_element_find_type() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
@@ -80,7 +80,7 @@ fn test_navigator_find_type() {
     let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let output = run_cli_command_with_udid("navigator", &["find-type", "Button"], &udid);
+    let output = run_cli_command_with_udid("element", &["find-type", "Button"], &udid);
 
     // Should find at least some buttons
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -94,9 +94,9 @@ fn test_navigator_find_type() {
     );
 }
 
-/// Test navigator find with --tap action.
+/// Test element find with --tap action.
 #[test]
-fn test_navigator_find_and_tap() {
+fn test_element_find_and_tap() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
@@ -106,7 +106,7 @@ fn test_navigator_find_and_tap() {
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     // Try to find and tap "General"
-    let output = run_cli_command_with_udid("navigator", &["find", "General", "--tap"], &udid);
+    let output = run_cli_command_with_udid("element", &["find", "General", "--tap"], &udid);
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -125,9 +125,9 @@ fn test_navigator_find_and_tap() {
     }
 }
 
-/// Test navigator list with no scrolling (max-scrolls=0).
+/// Test element list with no scrolling (max-scrolls=0).
 #[test]
-fn test_navigator_list_no_scroll() {
+fn test_element_list_no_scroll() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
@@ -136,15 +136,15 @@ fn test_navigator_list_no_scroll() {
     let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let output = run_cli_command_with_udid("navigator", &["list", "--max-scrolls", "0"], &udid);
+    let output = run_cli_command_with_udid("element", &["list", "--max-scrolls", "0"], &udid);
 
-    assert_success(&output, "navigator list --max-scrolls 0");
+    assert_success(&output, "element list --max-scrolls 0");
     assert_stdout_contains(&output, "Tappable elements");
 }
 
-/// Test navigator list with scrolling collection.
+/// Test element list with scrolling collection.
 #[test]
-fn test_navigator_list_with_scroll() {
+fn test_element_list_with_scroll() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
@@ -154,15 +154,15 @@ fn test_navigator_list_with_scroll() {
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     // Test with minimal scrolls to avoid long test times
-    let output = run_cli_command_with_udid("navigator", &["list", "--max-scrolls", "1"], &udid);
+    let output = run_cli_command_with_udid("element", &["list", "--max-scrolls", "1"], &udid);
 
-    assert_success(&output, "navigator list --max-scrolls 1");
+    assert_success(&output, "element list --max-scrolls 1");
     assert_stdout_contains(&output, "Tappable elements");
 }
 
-/// Test navigator list with scrolling and JSON output.
+/// Test element list with scrolling and JSON output.
 #[test]
-fn test_navigator_list_scroll_json() {
+fn test_element_list_scroll_json() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
@@ -172,12 +172,49 @@ fn test_navigator_list_scroll_json() {
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     let output = run_cli_command_with_udid(
-        "navigator",
+        "element",
         &["list", "--max-scrolls", "1", "-o", "json"],
         &udid,
     );
 
-    assert_success(&output, "navigator list --max-scrolls 1 -o json");
+    assert_success(&output, "element list --max-scrolls 1 -o json");
+    let json = assert_valid_json(&output);
+    assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
+}
+
+/// Test element command defaults to list subcommand.
+#[test]
+fn test_element_default_to_list() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    // Launch Settings app to have elements to list
+    let bundle_id = get_test_bundle_id();
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    // Run 'element' without subcommand - should default to 'list'
+    let output = run_cli_command_with_udid("element", &[], &udid);
+
+    assert_success(&output, "element (default to list)");
+    assert_stdout_contains(&output, "Tappable elements");
+}
+
+/// Test element command defaults to list with JSON output.
+#[test]
+fn test_element_default_to_list_json() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    // Launch Settings app to have elements to list
+    let bundle_id = get_test_bundle_id();
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    // Run 'element -o json' without subcommand - should default to 'list'
+    let output = run_cli_command_with_udid("element", &["-o", "json"], &udid);
+
+    assert_success(&output, "element -o json (default to list)");
     let json = assert_valid_json(&output);
     assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
 }

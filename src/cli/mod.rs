@@ -1,11 +1,11 @@
 pub mod app;
 pub mod clipboard;
 pub mod device;
+pub mod element;
 pub mod gesture;
 pub mod helpers;
 pub mod idb;
 pub mod keyboard;
-pub mod navigator;
 pub mod privacy;
 
 use clap::{Parser, Subcommand};
@@ -35,7 +35,7 @@ pub enum Commands {
     Keyboard(keyboard::KeyboardArgs),
 
     /// Element navigation and interaction
-    Navigator(navigator::NavigatorArgs),
+    Element(element::ElementArgs),
 
     /// Application management (launch, terminate, install, list)
     App(app::AppArgs),

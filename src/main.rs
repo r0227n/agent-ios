@@ -520,8 +520,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Keyboard(args) => {
             cli::keyboard::run(args).await?;
         }
-        Commands::Navigator(args) => {
-            cli::navigator::run(args).await?;
+        Commands::Element(args) => {
+            cli::element::run(args).await?;
         }
         Commands::App(args) => {
             cli::app::run(args).await?;

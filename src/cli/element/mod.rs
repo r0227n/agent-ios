@@ -1,4 +1,4 @@
-//! Navigator command implementation.
+//! Element command implementation.
 //!
 //! Provides cross-platform element search and interaction capabilities.
 //! Find elements by text, type, or ID, then perform actions on them.
@@ -12,11 +12,17 @@ use crate::types::Platform;
 pub mod collector;
 pub mod scrollable;
 
-/// Navigator command arguments.
+/// Element command arguments.
 #[derive(Args, Debug)]
-pub struct NavigatorArgs {
+pub struct ElementArgs {
     #[command(subcommand)]
-    pub command: NavigatorCommands,
+    pub command: Option<ElementCommands>,
+
+    #[command(flatten)]
+    pub device_output: DeviceOutputArgs,
+
+    #[command(flatten)]
+    pub collection: CollectionArgs,
 }
 
 /// Collection options for list command.
@@ -31,9 +37,9 @@ pub struct CollectionArgs {
     pub delay: u64,
 }
 
-/// Navigator subcommands.
+/// Element subcommands.
 #[derive(Subcommand, Debug)]
-pub enum NavigatorCommands {
+pub enum ElementCommands {
     /// Find element by text (partial match).
     Find {
         /// Text to search for (partial match).
@@ -170,10 +176,15 @@ async fn resolve_platform(
     }
 }
 
-/// Execute the navigator command.
-pub async fn run(args: NavigatorArgs) -> CommandResult {
-    match args.command {
-        NavigatorCommands::Find {
+/// Execute the element command.
+pub async fn run(args: ElementArgs) -> CommandResult {
+    let command = args.command.unwrap_or_else(|| ElementCommands::List {
+        device_output: args.device_output.clone(),
+        collection: args.collection.clone(),
+    });
+
+    match command {
+        ElementCommands::Find {
             text,
             tap,
             enter_text,
@@ -192,7 +203,7 @@ pub async fn run(args: NavigatorArgs) -> CommandResult {
             )
             .await
         }
-        NavigatorCommands::FindType {
+        ElementCommands::FindType {
             type_name,
             device_output,
         } => {
@@ -209,7 +220,7 @@ pub async fn run(args: NavigatorArgs) -> CommandResult {
             )
             .await
         }
-        NavigatorCommands::FindId { id, device_output } => {
+        ElementCommands::FindId { id, device_output } => {
             let platform = resolve_platform(device_output.platform.as_deref()).await?;
             execute_find(
                 platform,
@@ -223,7 +234,7 @@ pub async fn run(args: NavigatorArgs) -> CommandResult {
             )
             .await
         }
-        NavigatorCommands::Tap { text, device } => {
+        ElementCommands::Tap { text, device } => {
             let platform = resolve_platform(device.platform.as_deref()).await?;
             execute_find(
                 platform,
@@ -237,7 +248,7 @@ pub async fn run(args: NavigatorArgs) -> CommandResult {
             )
             .await
         }
-        NavigatorCommands::EnterText {
+        ElementCommands::EnterText {
             element_text,
             text,
             device,
@@ -255,7 +266,7 @@ pub async fn run(args: NavigatorArgs) -> CommandResult {
             )
             .await
         }
-        NavigatorCommands::List {
+        ElementCommands::List {
             device_output,
             collection,
         } => {
@@ -743,7 +754,7 @@ fn extract_ios_elements_for_collection(json: &serde_json::Value) -> Vec<FoundEle
             });
 
             let center = frame.as_ref().map(|f| f.center());
-            let scrollable = crate::cli::navigator::scrollable::is_ios_scrollable(&role);
+            let scrollable = crate::cli::element::scrollable::is_ios_scrollable(&role);
 
             if !label.is_empty() {
                 elements.push(FoundElement {
