@@ -3,9 +3,9 @@
 //! Provides cross-platform touch gesture operations including tap, swipe,
 //! scroll, and long-press.
 
-use clap::Args;
+use clap::{Args, Subcommand};
 
-use crate::cli::helpers::CommandResult;
+use crate::cli::helpers::{CommandResult, DeviceArgs};
 use crate::types::{Platform, ScrollDirection};
 
 /// Default screen dimensions for center calculation (iPhone-like).
@@ -21,36 +21,66 @@ const DEFAULT_LONG_PRESS_DURATION: f64 = 1.0;
 /// Gesture command arguments.
 #[derive(Args, Debug)]
 pub struct GestureArgs {
-    /// Tap at coordinates (format: "x,y" or "center" for screen center).
-    /// If no value given, taps at screen center.
-    #[arg(long, num_args = 0..=1, default_missing_value = "center")]
-    pub tap: Option<String>,
+    #[command(subcommand)]
+    pub command: GestureCommands,
+}
 
-    /// Swipe gesture (format: "direction" like "up/down/left/right"
-    /// or "x1,y1,x2,y2" for custom coordinates).
-    #[arg(long)]
-    pub swipe: Option<String>,
+/// Gesture subcommands.
+#[derive(Subcommand, Debug)]
+pub enum GestureCommands {
+    /// Tap at coordinates.
+    Tap {
+        /// Coordinates (format: "x,y" or "center" for screen center).
+        #[arg(default_value = "center")]
+        coordinates: String,
 
-    /// Scroll in a direction (up/down/left/right).
-    /// Similar to swipe but with smaller, controlled movement.
-    #[arg(long)]
-    pub scroll: Option<String>,
+        #[command(flatten)]
+        device: DeviceArgs,
 
-    /// Long press at coordinates (format: "x,y").
-    #[arg(long)]
-    pub long_press: Option<String>,
+        /// Duration of the tap in seconds.
+        #[arg(long)]
+        duration: Option<f64>,
+    },
 
-    /// Platform (ios or android). Auto-detected if not specified.
-    #[arg(short = 'p', long)]
-    pub platform: Option<String>,
+    /// Swipe gesture.
+    Swipe {
+        /// Direction (up/down/left/right) or custom coordinates (x1,y1,x2,y2).
+        direction: String,
 
-    /// Device UDID/serial. Auto-detected if not specified.
-    #[arg(short, long)]
-    pub udid: Option<String>,
+        #[command(flatten)]
+        device: DeviceArgs,
 
-    /// Duration for swipe/scroll/long-press operations (in seconds).
-    #[arg(long)]
-    pub duration: Option<f64>,
+        /// Duration of the swipe in seconds.
+        #[arg(long)]
+        duration: Option<f64>,
+    },
+
+    /// Scroll in a direction.
+    Scroll {
+        /// Direction (up/down/left/right).
+        direction: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+
+        /// Duration of the scroll in seconds.
+        #[arg(long)]
+        duration: Option<f64>,
+    },
+
+    /// Long press at coordinates.
+    #[command(name = "long-press")]
+    LongPress {
+        /// Coordinates (format: "x,y").
+        coordinates: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+
+        /// Duration of the long press in seconds.
+        #[arg(long)]
+        duration: Option<f64>,
+    },
 }
 
 /// Parse coordinate string like "100,200" into (x, y).
@@ -123,6 +153,18 @@ async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send 
     Ok(Platform::Ios)
 }
 
+/// Resolve platform from optional string.
+async fn resolve_platform(
+    platform_str: Option<&str>,
+) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
+    match platform_str {
+        Some(p) => p
+            .parse::<Platform>()
+            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() }),
+        None => detect_platform().await,
+    }
+}
+
 /// Get screen center coordinates.
 async fn get_screen_center(
     platform: Platform,
@@ -145,40 +187,53 @@ async fn get_screen_center(
 
 /// Execute the gesture command.
 pub async fn run(args: GestureArgs) -> CommandResult {
-    // Determine platform
-    let platform = match &args.platform {
-        Some(p) => p
-            .parse::<Platform>()
-            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?,
-        None => detect_platform().await?,
-    };
-
-    // Execute the appropriate gesture
-    if let Some(ref tap_arg) = args.tap {
-        return execute_tap(platform, &args, tap_arg).await;
+    match args.command {
+        GestureCommands::Tap {
+            coordinates,
+            device,
+            duration,
+        } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_tap(platform, device.udid.as_deref(), &coordinates, duration).await
+        }
+        GestureCommands::Swipe {
+            direction,
+            device,
+            duration,
+        } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_swipe(platform, device.udid.as_deref(), &direction, duration).await
+        }
+        GestureCommands::Scroll {
+            direction,
+            device,
+            duration,
+        } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_scroll(platform, device.udid.as_deref(), &direction, duration).await
+        }
+        GestureCommands::LongPress {
+            coordinates,
+            device,
+            duration,
+        } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_long_press(platform, device.udid.as_deref(), &coordinates, duration).await
+        }
     }
-
-    if let Some(ref swipe_arg) = args.swipe {
-        return execute_swipe(platform, &args, swipe_arg).await;
-    }
-
-    if let Some(ref scroll_arg) = args.scroll {
-        return execute_scroll(platform, &args, scroll_arg).await;
-    }
-
-    if let Some(ref long_press_arg) = args.long_press {
-        return execute_long_press(platform, &args, long_press_arg).await;
-    }
-
-    Err("No gesture specified. Use --tap, --swipe, --scroll, or --long-press.".into())
 }
 
 /// Execute tap gesture.
-async fn execute_tap(platform: Platform, args: &GestureArgs, tap_arg: &str) -> CommandResult {
-    let (x, y) = if tap_arg == "center" || tap_arg.is_empty() {
-        get_screen_center(platform, args.udid.as_deref()).await?
+async fn execute_tap(
+    platform: Platform,
+    udid: Option<&str>,
+    coordinates: &str,
+    duration: Option<f64>,
+) -> CommandResult {
+    let (x, y) = if coordinates == "center" || coordinates.is_empty() {
+        get_screen_center(platform, udid).await?
     } else {
-        parse_coords(tap_arg)?
+        parse_coords(coordinates)?
     };
 
     match platform {
@@ -186,8 +241,8 @@ async fn execute_tap(platform: Platform, args: &GestureArgs, tap_arg: &str) -> C
             use crate::cli::helpers::with_client;
             use crate::cli::idb::hid::events;
 
-            with_client(args.udid.as_deref(), |mut client| async move {
-                let events = events::tap_to_events(x, y, args.duration);
+            with_client(udid, |mut client| async move {
+                let events = events::tap_to_events(x, y, duration);
                 client.hid(events).await?;
                 Ok(())
             })
@@ -195,32 +250,35 @@ async fn execute_tap(platform: Platform, args: &GestureArgs, tap_arg: &str) -> C
         }
         Platform::Android => {
             use crate::platform::android::adb::input;
-            input::tap(args.udid.as_deref(), x, y).await?;
+            input::tap(udid, x, y).await?;
             Ok(())
         }
     }
 }
 
 /// Execute swipe gesture.
-async fn execute_swipe(platform: Platform, args: &GestureArgs, swipe_arg: &str) -> CommandResult {
-    let ((x1, y1), (x2, y2)) = if let Ok(dir) = swipe_arg.parse::<ScrollDirection>() {
+async fn execute_swipe(
+    platform: Platform,
+    udid: Option<&str>,
+    direction_arg: &str,
+    duration: Option<f64>,
+) -> CommandResult {
+    let ((x1, y1), (x2, y2)) = if let Ok(dir) = direction_arg.parse::<ScrollDirection>() {
         // Direction-based swipe
-        let (cx, cy) = get_screen_center(platform, args.udid.as_deref()).await?;
+        let (cx, cy) = get_screen_center(platform, udid).await?;
         let ((dx1, dy1), (dx2, dy2)) = dir.to_swipe_offsets(DEFAULT_SWIPE_DISTANCE);
         ((cx + dx1, cy + dy1), (cx + dx2, cy + dy2))
     } else {
         // Coordinate-based swipe
-        parse_swipe_coords(swipe_arg)?
+        parse_swipe_coords(direction_arg)?
     };
-
-    let duration = args.duration;
 
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
             use crate::cli::idb::hid::events;
 
-            with_client(args.udid.as_deref(), |mut client| async move {
+            with_client(udid, |mut client| async move {
                 let events = events::swipe_to_events((x1, y1), (x2, y2), duration, None);
                 client.hid(events).await?;
                 Ok(())
@@ -230,33 +288,38 @@ async fn execute_swipe(platform: Platform, args: &GestureArgs, swipe_arg: &str) 
         Platform::Android => {
             use crate::platform::android::adb::input;
             let duration_ms = duration.map(|d| (d * 1000.0) as u64);
-            input::swipe(args.udid.as_deref(), x1, y1, x2, y2, duration_ms).await?;
+            input::swipe(udid, x1, y1, x2, y2, duration_ms).await?;
             Ok(())
         }
     }
 }
 
 /// Execute scroll gesture.
-async fn execute_scroll(platform: Platform, args: &GestureArgs, scroll_arg: &str) -> CommandResult {
-    let dir: ScrollDirection = scroll_arg
+async fn execute_scroll(
+    platform: Platform,
+    udid: Option<&str>,
+    direction_arg: &str,
+    duration: Option<f64>,
+) -> CommandResult {
+    let dir: ScrollDirection = direction_arg
         .parse()
         .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?;
 
-    let (cx, cy) = get_screen_center(platform, args.udid.as_deref()).await?;
+    let (cx, cy) = get_screen_center(platform, udid).await?;
     // Scroll uses smaller distance than swipe
     let scroll_distance = DEFAULT_SWIPE_DISTANCE * 0.5;
     let ((dx1, dy1), (dx2, dy2)) = dir.to_swipe_offsets(scroll_distance);
     let (x1, y1) = (cx + dx1, cy + dy1);
     let (x2, y2) = (cx + dx2, cy + dy2);
 
-    let duration = args.duration.unwrap_or(0.3);
+    let duration = duration.unwrap_or(0.3);
 
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
             use crate::cli::idb::hid::events;
 
-            with_client(args.udid.as_deref(), |mut client| async move {
+            with_client(udid, |mut client| async move {
                 let events = events::swipe_to_events((x1, y1), (x2, y2), Some(duration), None);
                 client.hid(events).await?;
                 Ok(())
@@ -266,7 +329,7 @@ async fn execute_scroll(platform: Platform, args: &GestureArgs, scroll_arg: &str
         Platform::Android => {
             use crate::platform::android::adb::input;
             let duration_ms = (duration * 1000.0) as u64;
-            input::swipe(args.udid.as_deref(), x1, y1, x2, y2, Some(duration_ms)).await?;
+            input::swipe(udid, x1, y1, x2, y2, Some(duration_ms)).await?;
             Ok(())
         }
     }
@@ -275,18 +338,19 @@ async fn execute_scroll(platform: Platform, args: &GestureArgs, scroll_arg: &str
 /// Execute long press gesture.
 async fn execute_long_press(
     platform: Platform,
-    args: &GestureArgs,
-    long_press_arg: &str,
+    udid: Option<&str>,
+    coordinates: &str,
+    duration: Option<f64>,
 ) -> CommandResult {
-    let (x, y) = parse_coords(long_press_arg)?;
-    let duration = args.duration.unwrap_or(DEFAULT_LONG_PRESS_DURATION);
+    let (x, y) = parse_coords(coordinates)?;
+    let duration = duration.unwrap_or(DEFAULT_LONG_PRESS_DURATION);
 
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
             use crate::cli::idb::hid::events;
 
-            with_client(args.udid.as_deref(), |mut client| async move {
+            with_client(udid, |mut client| async move {
                 let events = events::tap_to_events(x, y, Some(duration));
                 client.hid(events).await?;
                 Ok(())
@@ -296,7 +360,7 @@ async fn execute_long_press(
         Platform::Android => {
             use crate::platform::android::adb::input;
             let duration_ms = (duration * 1000.0) as u64;
-            input::long_press(args.udid.as_deref(), x, y, duration_ms).await?;
+            input::long_press(udid, x, y, duration_ms).await?;
             Ok(())
         }
     }

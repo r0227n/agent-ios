@@ -3,7 +3,7 @@
 //! Provides cross-platform device management including list, boot,
 //! shutdown, and other device lifecycle operations.
 
-use clap::Args;
+use clap::{Args, Subcommand};
 use serde::Serialize;
 
 use crate::cli::helpers::{CommandResult, OutputFormat};
@@ -12,33 +12,56 @@ use crate::types::Platform;
 /// Device command arguments.
 #[derive(Args, Debug)]
 pub struct DeviceArgs {
-    /// List available devices/simulators.
-    #[arg(long)]
-    pub list: bool,
-
-    /// Boot a simulator/emulator by name or UDID.
-    #[arg(long)]
-    pub boot: Option<String>,
-
-    /// Shutdown a simulator/emulator.
-    #[arg(long)]
-    pub shutdown: bool,
+    #[command(subcommand)]
+    pub command: Option<DeviceCommands>,
 
     /// Platform (ios or android). Auto-detected if not specified.
     #[arg(short = 'p', long)]
     pub platform: Option<String>,
 
-    /// Device UDID/serial. Required for some operations.
-    #[arg(short, long)]
-    pub udid: Option<String>,
-
     /// Output format (human or json).
     #[arg(short = 'o', long, value_enum, default_value = "human")]
     pub output: OutputFormat,
+}
 
-    /// Boot in headless mode (no UI window).
-    #[arg(long)]
-    pub headless: bool,
+/// Device subcommands.
+#[derive(Subcommand, Debug)]
+pub enum DeviceCommands {
+    /// List available devices/simulators.
+    List {
+        /// Platform (ios or android). Auto-detected if not specified.
+        #[arg(short = 'p', long)]
+        platform: Option<String>,
+
+        /// Output format (human or json).
+        #[arg(short = 'o', long, value_enum, default_value = "human")]
+        output: OutputFormat,
+    },
+
+    /// Boot a simulator/emulator by name or UDID.
+    Boot {
+        /// Simulator/emulator name or UDID to boot.
+        name: String,
+
+        /// Platform (ios or android). Auto-detected if not specified.
+        #[arg(short = 'p', long)]
+        platform: Option<String>,
+
+        /// Boot in headless mode (no UI window).
+        #[arg(long)]
+        headless: bool,
+    },
+
+    /// Shutdown a simulator/emulator.
+    Shutdown {
+        /// Device UDID/serial to shutdown.
+        #[arg(short, long)]
+        udid: String,
+
+        /// Platform (ios or android). Auto-detected if not specified.
+        #[arg(short = 'p', long)]
+        platform: Option<String>,
+    },
 }
 
 /// Unified device info for output.
@@ -74,33 +97,47 @@ async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send 
     Ok(Platform::Ios)
 }
 
-/// Execute the device command.
-pub async fn run(args: DeviceArgs) -> CommandResult {
-    let platform = match &args.platform {
+/// Resolve platform from optional string.
+async fn resolve_platform(
+    platform_str: Option<&str>,
+) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
+    match platform_str {
         Some(p) => p
             .parse::<Platform>()
-            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?,
-        None => detect_platform().await?,
-    };
-
-    if args.list {
-        return execute_list(platform, &args).await;
+            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() }),
+        None => detect_platform().await,
     }
+}
 
-    if let Some(ref name) = args.boot {
-        return execute_boot(platform, &args, name).await;
+/// Execute the device command.
+pub async fn run(args: DeviceArgs) -> CommandResult {
+    match args.command {
+        Some(DeviceCommands::List { platform, output }) => {
+            let platform = resolve_platform(platform.as_deref()).await?;
+            execute_list(platform, &output).await
+        }
+        Some(DeviceCommands::Boot {
+            name,
+            platform,
+            headless,
+        }) => {
+            let platform = resolve_platform(platform.as_deref()).await?;
+            execute_boot(platform, &name, headless).await
+        }
+        Some(DeviceCommands::Shutdown { udid, platform }) => {
+            let platform = resolve_platform(platform.as_deref()).await?;
+            execute_shutdown(platform, &udid).await
+        }
+        None => {
+            // Default: list with top-level args
+            let platform = resolve_platform(args.platform.as_deref()).await?;
+            execute_list(platform, &args.output).await
+        }
     }
-
-    if args.shutdown {
-        return execute_shutdown(platform, &args).await;
-    }
-
-    // Default: list
-    execute_list(platform, &args).await
 }
 
 /// Execute device list.
-async fn execute_list(platform: Platform, args: &DeviceArgs) -> CommandResult {
+async fn execute_list(platform: Platform, output: &OutputFormat) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::companion::CompanionLister;
@@ -121,7 +158,7 @@ async fn execute_list(platform: Platform, args: &DeviceArgs) -> CommandResult {
                 })
                 .collect();
 
-            if args.output.is_json() {
+            if output.is_json() {
                 println!("{}", serde_json::to_string_pretty(&devices)?);
             } else {
                 println!("iOS Devices/Simulators ({}):", devices.len());
@@ -191,7 +228,7 @@ async fn execute_list(platform: Platform, args: &DeviceArgs) -> CommandResult {
                 }
             }
 
-            if args.output.is_json() {
+            if output.is_json() {
                 println!("{}", serde_json::to_string_pretty(&devices)?);
             } else {
                 println!("Android Devices/Emulators ({}):", devices.len());
@@ -208,7 +245,7 @@ async fn execute_list(platform: Platform, args: &DeviceArgs) -> CommandResult {
 }
 
 /// Execute device boot.
-async fn execute_boot(platform: Platform, args: &DeviceArgs, name: &str) -> CommandResult {
+async fn execute_boot(platform: Platform, name: &str, headless: bool) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::companion::CompanionLister;
@@ -248,7 +285,7 @@ async fn execute_boot(platform: Platform, args: &DeviceArgs, name: &str) -> Comm
 
             let mut cmd = Command::new("emulator");
             cmd.args(["-avd", name]);
-            if args.headless {
+            if headless {
                 cmd.args(["-no-window", "-no-audio"]);
             }
 
@@ -264,9 +301,7 @@ async fn execute_boot(platform: Platform, args: &DeviceArgs, name: &str) -> Comm
 }
 
 /// Execute device shutdown.
-async fn execute_shutdown(platform: Platform, args: &DeviceArgs) -> CommandResult {
-    let udid = args.udid.as_ref().ok_or("UDID required for shutdown")?;
-
+async fn execute_shutdown(platform: Platform, udid: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::platform::ios::simctl::management;

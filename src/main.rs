@@ -538,9 +538,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Privacy(args) => {
             cli::privacy::run(args).await?;
         }
-        Commands::Accessibility(args) => {
-            cli::accessibility::run(args).await?;
-        }
     }
 
     Ok(())

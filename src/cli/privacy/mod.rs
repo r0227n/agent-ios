@@ -3,37 +3,59 @@
 //! Provides cross-platform permission management including grant, revoke,
 //! and reset operations.
 
-use clap::Args;
+use clap::{Args, Subcommand};
 
-use crate::cli::helpers::CommandResult;
+use crate::cli::helpers::{CommandResult, DeviceArgs};
 use crate::types::Platform;
 
 /// Privacy command arguments.
 #[derive(Args, Debug)]
 pub struct PrivacyArgs {
-    /// Grant a permission.
-    #[arg(long)]
-    pub grant: Option<String>,
+    #[command(subcommand)]
+    pub command: PrivacyCommands,
+}
 
-    /// Revoke a permission.
-    #[arg(long)]
-    pub revoke: Option<String>,
+/// Privacy subcommands.
+#[derive(Subcommand, Debug)]
+pub enum PrivacyCommands {
+    /// Grant a permission to an app.
+    Grant {
+        /// Permission name (e.g., camera, location, contacts).
+        permission: String,
 
-    /// Reset a permission.
-    #[arg(long)]
-    pub reset: Option<String>,
+        /// Bundle ID / package name of the app.
+        #[arg(short = 'b', long)]
+        bundle: String,
 
-    /// Bundle ID / package name of the app.
-    #[arg(long, short = 'b')]
-    pub bundle: String,
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 
-    /// Platform (ios or android). Auto-detected if not specified.
-    #[arg(short = 'p', long)]
-    pub platform: Option<String>,
+    /// Revoke a permission from an app.
+    Revoke {
+        /// Permission name (e.g., camera, location, contacts).
+        permission: String,
 
-    /// Device UDID/serial. Auto-detected if not specified.
-    #[arg(short, long)]
-    pub udid: Option<String>,
+        /// Bundle ID / package name of the app.
+        #[arg(short = 'b', long)]
+        bundle: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
+
+    /// Reset a permission for an app.
+    Reset {
+        /// Permission name (e.g., camera, location, contacts).
+        permission: String,
+
+        /// Bundle ID / package name of the app.
+        #[arg(short = 'b', long)]
+        bundle: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 }
 
 /// Valid iOS permission services.
@@ -93,6 +115,18 @@ async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send 
     Ok(Platform::Ios)
 }
 
+/// Resolve platform from optional string.
+async fn resolve_platform(
+    platform_str: Option<&str>,
+) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
+    match platform_str {
+        Some(p) => p
+            .parse::<Platform>()
+            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() }),
+        None => detect_platform().await,
+    }
+}
+
 /// Get default UDID for the platform.
 async fn get_default_udid(
     platform: Platform,
@@ -128,31 +162,44 @@ async fn get_default_udid(
 
 /// Execute the privacy command.
 pub async fn run(args: PrivacyArgs) -> CommandResult {
-    let platform = match &args.platform {
-        Some(p) => p
-            .parse::<Platform>()
-            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?,
-        None => detect_platform().await?,
-    };
-
-    let udid = match &args.udid {
-        Some(u) => u.clone(),
-        None => get_default_udid(platform).await?,
-    };
-
-    if let Some(ref permission) = args.grant {
-        return execute_grant(platform, &udid, &args.bundle, permission).await;
+    match args.command {
+        PrivacyCommands::Grant {
+            permission,
+            bundle,
+            device,
+        } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let udid = match &device.udid {
+                Some(u) => u.clone(),
+                None => get_default_udid(platform).await?,
+            };
+            execute_grant(platform, &udid, &bundle, &permission).await
+        }
+        PrivacyCommands::Revoke {
+            permission,
+            bundle,
+            device,
+        } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let udid = match &device.udid {
+                Some(u) => u.clone(),
+                None => get_default_udid(platform).await?,
+            };
+            execute_revoke(platform, &udid, &bundle, &permission).await
+        }
+        PrivacyCommands::Reset {
+            permission,
+            bundle,
+            device,
+        } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let udid = match &device.udid {
+                Some(u) => u.clone(),
+                None => get_default_udid(platform).await?,
+            };
+            execute_reset(platform, &udid, &bundle, &permission).await
+        }
     }
-
-    if let Some(ref permission) = args.revoke {
-        return execute_revoke(platform, &udid, &args.bundle, permission).await;
-    }
-
-    if let Some(ref permission) = args.reset {
-        return execute_reset(platform, &udid, &args.bundle, permission).await;
-    }
-
-    Err("No action specified. Use --grant, --revoke, or --reset.".into())
 }
 
 /// Execute permission grant.

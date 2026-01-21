@@ -7,16 +7,16 @@ use crate::common::{
     get_available_udid, run_cli_command_with_udid,
 };
 
-/// Test screen --dump command.
+/// Test screen tree command.
 #[test]
-fn test_screen_dump() {
+fn test_screen_tree() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
-    let output = run_cli_command_with_udid("screen", &["--dump"], &udid);
+    let output = run_cli_command_with_udid("screen", &["tree"], &udid);
 
-    assert_success(&output, "screen --dump");
-    // Dump should output accessibility tree (JSON format)
+    assert_success(&output, "screen tree");
+    // Tree should output accessibility tree (JSON format)
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains('{') || stdout.contains('['),
@@ -25,39 +25,39 @@ fn test_screen_dump() {
     );
 }
 
-/// Test screen --summary command.
+/// Test screen elements command.
 #[test]
-fn test_screen_summary() {
+fn test_screen_elements() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
-    let output = run_cli_command_with_udid("screen", &["--summary"], &udid);
+    let output = run_cli_command_with_udid("screen", &["elements"], &udid);
 
-    assert_success(&output, "screen --summary");
+    assert_success(&output, "screen elements");
     assert_stdout_contains(&output, "Screen Elements");
 }
 
-/// Test screen --summary with JSON output.
+/// Test screen elements with JSON output.
 #[test]
-fn test_screen_summary_json() {
+fn test_screen_elements_json() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
-    let output = run_cli_command_with_udid("screen", &["--summary", "-o", "json"], &udid);
+    let output = run_cli_command_with_udid("screen", &["elements", "-o", "json"], &udid);
 
-    assert_success(&output, "screen --summary -o json");
+    assert_success(&output, "screen elements -o json");
     let json = assert_valid_json(&output);
     assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
 }
 
-/// Test screen --hints command.
+/// Test screen hints command.
 #[test]
 fn test_screen_hints() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
-    let output = run_cli_command_with_udid("screen", &["--hints"], &udid);
+    let output = run_cli_command_with_udid("screen", &["hints"], &udid);
 
-    assert_success(&output, "screen --hints");
+    assert_success(&output, "screen hints");
     assert_stdout_contains(&output, "Interactive Elements");
 }

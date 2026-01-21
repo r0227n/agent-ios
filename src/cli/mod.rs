@@ -1,4 +1,3 @@
-pub mod accessibility;
 pub mod app;
 pub mod clipboard;
 pub mod device;
@@ -52,7 +51,4 @@ pub enum Commands {
 
     /// Privacy/permission management (grant, revoke, reset)
     Privacy(privacy::PrivacyArgs),
-
-    /// Accessibility audit
-    Accessibility(accessibility::AccessibilityArgs),
 }

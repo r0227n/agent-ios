@@ -3,37 +3,53 @@
 //! Provides cross-platform keyboard input operations including text entry,
 //! special keys, and hardware buttons.
 
-use clap::Args;
+use clap::{Args, Subcommand};
 
-use crate::cli::helpers::CommandResult;
+use crate::cli::helpers::{CommandResult, DeviceArgs};
 use crate::types::Platform;
 
 /// Keyboard command arguments.
 #[derive(Args, Debug)]
 pub struct KeyboardArgs {
+    #[command(subcommand)]
+    pub command: KeyboardCommands,
+}
+
+/// Keyboard subcommands.
+#[derive(Subcommand, Debug)]
+pub enum KeyboardCommands {
     /// Input text string.
-    #[arg(long)]
-    pub text: Option<String>,
+    Text {
+        /// Text to input.
+        text: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 
     /// Press a special key (enter, delete, tab, space, escape, up, down, left, right).
-    #[arg(long)]
-    pub key: Option<String>,
+    Key {
+        /// Key name (enter, delete, tab, space, escape, up, down, left, right).
+        key: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 
     /// Press a hardware button (home, lock, volume-up, volume-down, back, menu).
-    #[arg(long)]
-    pub button: Option<String>,
+    Button {
+        /// Button name (home, lock, volume-up, volume-down, back, menu).
+        button: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 
     /// Clear current text input (select all + delete).
-    #[arg(long)]
-    pub clear: bool,
-
-    /// Platform (ios or android). Auto-detected if not specified.
-    #[arg(short = 'p', long)]
-    pub platform: Option<String>,
-
-    /// Device UDID/serial. Auto-detected if not specified.
-    #[arg(short, long)]
-    pub udid: Option<String>,
+    Clear {
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 }
 
 /// iOS HID keycodes for special keys.
@@ -43,6 +59,7 @@ mod ios_keycodes {
     pub const BACKSPACE: u64 = 42;
     pub const TAB: u64 = 43;
     pub const SPACE: u64 = 44;
+    #[allow(dead_code)]
     pub const DELETE: u64 = 76;
     pub const UP: u64 = 82;
     pub const DOWN: u64 = 81;
@@ -69,43 +86,51 @@ async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send 
     Ok(Platform::Ios)
 }
 
-/// Execute the keyboard command.
-pub async fn run(args: KeyboardArgs) -> CommandResult {
-    let platform = match &args.platform {
+/// Resolve platform from optional string.
+async fn resolve_platform(
+    platform_str: Option<&str>,
+) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
+    match platform_str {
         Some(p) => p
             .parse::<Platform>()
-            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?,
-        None => detect_platform().await?,
-    };
-
-    if let Some(ref text) = args.text {
-        return execute_text(platform, &args, text).await;
+            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() }),
+        None => detect_platform().await,
     }
+}
 
-    if let Some(ref key) = args.key {
-        return execute_key(platform, &args, key).await;
+/// Execute the keyboard command.
+pub async fn run(args: KeyboardArgs) -> CommandResult {
+    match args.command {
+        KeyboardCommands::Text { text, device } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_text(platform, device.udid.as_deref(), &text).await
+        }
+        KeyboardCommands::Key { key, device } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_key(platform, device.udid.as_deref(), &key).await
+        }
+        KeyboardCommands::Button { button, device } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_button(platform, device.udid.as_deref(), &button).await
+        }
+        KeyboardCommands::Clear { device } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_clear(platform, device.udid.as_deref()).await
+        }
     }
-
-    if let Some(ref button) = args.button {
-        return execute_button(platform, &args, button).await;
-    }
-
-    if args.clear {
-        return execute_clear(platform, &args).await;
-    }
-
-    Err("No keyboard action specified. Use --text, --key, --button, or --clear.".into())
 }
 
 /// Execute text input.
-async fn execute_text(platform: Platform, args: &KeyboardArgs, text: &str) -> CommandResult {
+async fn execute_text(platform: Platform, udid: Option<&str>, text: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
             use crate::cli::idb::hid::events;
 
-            with_client(args.udid.as_deref(), |mut client| async move {
-                let events = events::text_to_events(text)?;
+            let text = text.to_string();
+
+            with_client(udid, |mut client| async move {
+                let events = events::text_to_events(&text)?;
                 client.hid(events).await?;
                 Ok(())
             })
@@ -113,14 +138,14 @@ async fn execute_text(platform: Platform, args: &KeyboardArgs, text: &str) -> Co
         }
         Platform::Android => {
             use crate::platform::android::adb::input;
-            input::text(args.udid.as_deref(), text).await?;
+            input::text(udid, text).await?;
             Ok(())
         }
     }
 }
 
 /// Execute special key press.
-async fn execute_key(platform: Platform, args: &KeyboardArgs, key: &str) -> CommandResult {
+async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
@@ -145,7 +170,7 @@ async fn execute_key(platform: Platform, args: &KeyboardArgs, key: &str) -> Comm
                 }
             };
 
-            with_client(args.udid.as_deref(), |mut client| async move {
+            with_client(udid, |mut client| async move {
                 let events = events::key_to_events(keycode, None);
                 client.hid(events).await?;
                 Ok(())
@@ -174,14 +199,14 @@ async fn execute_key(platform: Platform, args: &KeyboardArgs, key: &str) -> Comm
                 }
             };
 
-            input::keyevent(args.udid.as_deref(), keycode).await?;
+            input::keyevent(udid, keycode).await?;
             Ok(())
         }
     }
 }
 
 /// Execute hardware button press.
-async fn execute_button(platform: Platform, args: &KeyboardArgs, button: &str) -> CommandResult {
+async fn execute_button(platform: Platform, udid: Option<&str>, button: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
@@ -203,7 +228,7 @@ async fn execute_button(platform: Platform, args: &KeyboardArgs, button: &str) -
                 }
             };
 
-            with_client(args.udid.as_deref(), |mut client| async move {
+            with_client(udid, |mut client| async move {
                 let events = events::button_to_events(button_type, None);
                 client.hid(events).await?;
                 Ok(())
@@ -230,20 +255,20 @@ async fn execute_button(platform: Platform, args: &KeyboardArgs, button: &str) -
                 }
             };
 
-            input::keyevent(args.udid.as_deref(), keycode).await?;
+            input::keyevent(udid, keycode).await?;
             Ok(())
         }
     }
 }
 
 /// Execute clear (select all + delete).
-async fn execute_clear(platform: Platform, args: &KeyboardArgs) -> CommandResult {
+async fn execute_clear(platform: Platform, udid: Option<&str>) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
             use crate::cli::idb::hid::events;
 
-            with_client(args.udid.as_deref(), |mut client| async move {
+            with_client(udid, |mut client| async move {
                 // Cmd+A (select all) - keycode 4 (A) with modifier 8 (Cmd)
                 // For now, send multiple backspaces as a simple clear
                 // TODO: Implement proper select all + delete
@@ -260,11 +285,11 @@ async fn execute_clear(platform: Platform, args: &KeyboardArgs) -> CommandResult
 
             // Android: Move to end and delete backwards
             // First move to end of text field
-            input::keyevent_by_name(args.udid.as_deref(), "KEYCODE_MOVE_END").await?;
+            input::keyevent_by_name(udid, "KEYCODE_MOVE_END").await?;
 
             // Then delete 50 characters (reasonable max for most fields)
             for _ in 0..50 {
-                input::keyevent(args.udid.as_deref(), input::keycodes::DEL).await?;
+                input::keyevent(udid, input::keycodes::DEL).await?;
             }
             Ok(())
         }

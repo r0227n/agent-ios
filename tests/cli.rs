@@ -35,6 +35,3 @@ mod clipboard_integration;
 
 #[path = "cli/privacy_integration.rs"]
 mod privacy_integration;
-
-#[path = "cli/accessibility_integration.rs"]
-mod accessibility_integration;

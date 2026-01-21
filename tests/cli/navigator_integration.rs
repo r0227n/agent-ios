@@ -7,7 +7,7 @@ use crate::common::{
     get_available_udid, get_test_bundle_id, run_cli_command_with_udid,
 };
 
-/// Test navigator --list command.
+/// Test navigator list command.
 #[test]
 fn test_navigator_list() {
     let udid = get_available_udid();
@@ -15,16 +15,16 @@ fn test_navigator_list() {
 
     // Launch Settings app to have elements to list
     let bundle_id = get_test_bundle_id();
-    let _ = run_cli_command_with_udid("app", &["--launch", &bundle_id], &udid);
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let output = run_cli_command_with_udid("navigator", &["--list"], &udid);
+    let output = run_cli_command_with_udid("navigator", &["list"], &udid);
 
-    assert_success(&output, "navigator --list");
+    assert_success(&output, "navigator list");
     assert_stdout_contains(&output, "Tappable elements");
 }
 
-/// Test navigator --list with JSON output.
+/// Test navigator list with JSON output.
 #[test]
 fn test_navigator_list_json() {
     let udid = get_available_udid();
@@ -32,17 +32,17 @@ fn test_navigator_list_json() {
 
     // Launch Settings app to have elements to list
     let bundle_id = get_test_bundle_id();
-    let _ = run_cli_command_with_udid("app", &["--launch", &bundle_id], &udid);
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let output = run_cli_command_with_udid("navigator", &["--list", "-o", "json"], &udid);
+    let output = run_cli_command_with_udid("navigator", &["list", "-o", "json"], &udid);
 
-    assert_success(&output, "navigator --list -o json");
+    assert_success(&output, "navigator list -o json");
     let json = assert_valid_json(&output);
     assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
 }
 
-/// Test navigator --find command.
+/// Test navigator find command.
 #[test]
 fn test_navigator_find() {
     let udid = get_available_udid();
@@ -50,11 +50,11 @@ fn test_navigator_find() {
 
     // Launch Settings app
     let bundle_id = get_test_bundle_id();
-    let _ = run_cli_command_with_udid("app", &["--launch", &bundle_id], &udid);
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     // Try to find a common element like "General" or "Settings"
-    let output = run_cli_command_with_udid("navigator", &["--find", "General"], &udid);
+    let output = run_cli_command_with_udid("navigator", &["find", "General"], &udid);
 
     // This might fail if "General" is not visible, but the command should complete
     // We check for either success or a known failure message
@@ -69,7 +69,7 @@ fn test_navigator_find() {
     );
 }
 
-/// Test navigator --find-type command.
+/// Test navigator find-type command.
 #[test]
 fn test_navigator_find_type() {
     let udid = get_available_udid();
@@ -77,10 +77,10 @@ fn test_navigator_find_type() {
 
     // Launch Settings app
     let bundle_id = get_test_bundle_id();
-    let _ = run_cli_command_with_udid("app", &["--launch", &bundle_id], &udid);
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let output = run_cli_command_with_udid("navigator", &["--find-type", "Button"], &udid);
+    let output = run_cli_command_with_udid("navigator", &["find-type", "Button"], &udid);
 
     // Should find at least some buttons
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -94,7 +94,7 @@ fn test_navigator_find_type() {
     );
 }
 
-/// Test navigator --find with --tap action.
+/// Test navigator find with --tap action.
 #[test]
 fn test_navigator_find_and_tap() {
     let udid = get_available_udid();
@@ -102,11 +102,11 @@ fn test_navigator_find_and_tap() {
 
     // Launch Settings app
     let bundle_id = get_test_bundle_id();
-    let _ = run_cli_command_with_udid("app", &["--launch", &bundle_id], &udid);
+    let _ = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     // Try to find and tap "General"
-    let output = run_cli_command_with_udid("navigator", &["--find", "General", "--tap"], &udid);
+    let output = run_cli_command_with_udid("navigator", &["find", "General", "--tap"], &udid);
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);

@@ -3,29 +3,35 @@
 //! Provides cross-platform clipboard operations (copy and paste).
 //! iOS uses xcrun simctl pbcopy/pbpaste.
 
-use clap::Args;
+use clap::{Args, Subcommand};
 
-use crate::cli::helpers::CommandResult;
+use crate::cli::helpers::{CommandResult, DeviceArgs};
 use crate::types::Platform;
 
 /// Clipboard command arguments.
 #[derive(Args, Debug)]
 pub struct ClipboardArgs {
+    #[command(subcommand)]
+    pub command: ClipboardCommands,
+}
+
+/// Clipboard subcommands.
+#[derive(Subcommand, Debug)]
+pub enum ClipboardCommands {
     /// Copy text to clipboard.
-    #[arg(long)]
-    pub copy: Option<String>,
+    Copy {
+        /// Text to copy to clipboard.
+        text: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 
     /// Paste from clipboard.
-    #[arg(long)]
-    pub paste: bool,
-
-    /// Platform (ios or android). Auto-detected if not specified.
-    #[arg(short = 'p', long)]
-    pub platform: Option<String>,
-
-    /// Device UDID/serial. Auto-detected if not specified.
-    #[arg(short, long)]
-    pub udid: Option<String>,
+    Paste {
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 }
 
 /// Detect platform based on available devices.
@@ -81,29 +87,38 @@ async fn get_default_udid(
     }
 }
 
-/// Execute the clipboard command.
-pub async fn run(args: ClipboardArgs) -> CommandResult {
-    let platform = match &args.platform {
+/// Resolve platform from optional string.
+async fn resolve_platform(
+    platform_str: Option<&str>,
+) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
+    match platform_str {
         Some(p) => p
             .parse::<Platform>()
-            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?,
-        None => detect_platform().await?,
-    };
-
-    let udid = match &args.udid {
-        Some(u) => u.clone(),
-        None => get_default_udid(platform).await?,
-    };
-
-    if let Some(ref text) = args.copy {
-        return execute_copy(platform, &udid, text).await;
+            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() }),
+        None => detect_platform().await,
     }
+}
 
-    if args.paste {
-        return execute_paste(platform, &udid).await;
+/// Execute the clipboard command.
+pub async fn run(args: ClipboardArgs) -> CommandResult {
+    match args.command {
+        ClipboardCommands::Copy { text, device } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let udid = match &device.udid {
+                Some(u) => u.clone(),
+                None => get_default_udid(platform).await?,
+            };
+            execute_copy(platform, &udid, &text).await
+        }
+        ClipboardCommands::Paste { device } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let udid = match &device.udid {
+                Some(u) => u.clone(),
+                None => get_default_udid(platform).await?,
+            };
+            execute_paste(platform, &udid).await
+        }
     }
-
-    Err("No action specified. Use --copy or --paste.".into())
 }
 
 /// Execute copy to clipboard.

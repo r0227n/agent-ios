@@ -3,50 +3,86 @@
 //! Provides cross-platform element search and interaction capabilities.
 //! Find elements by text, type, or ID, then perform actions on them.
 
-use clap::Args;
+use clap::{Args, Subcommand};
 use serde::Serialize;
 
-use crate::cli::helpers::{CommandResult, OutputFormat};
+use crate::cli::helpers::{CommandResult, DeviceArgs, DeviceOutputArgs, OutputFormat};
 use crate::types::Platform;
 
 /// Navigator command arguments.
 #[derive(Args, Debug)]
 pub struct NavigatorArgs {
+    #[command(subcommand)]
+    pub command: NavigatorCommands,
+}
+
+/// Navigator subcommands.
+#[derive(Subcommand, Debug)]
+pub enum NavigatorCommands {
     /// Find element by text (partial match).
-    #[arg(long)]
-    pub find: Option<String>,
+    Find {
+        /// Text to search for (partial match).
+        text: String,
+
+        /// Tap the found element.
+        #[arg(long)]
+        tap: bool,
+
+        /// Enter text into the found element after tapping.
+        #[arg(long)]
+        enter_text: Option<String>,
+
+        #[command(flatten)]
+        device_output: DeviceOutputArgs,
+    },
 
     /// Find element by type (e.g., Button, TextField).
-    #[arg(long)]
-    pub find_type: Option<String>,
+    #[command(name = "find-type")]
+    FindType {
+        /// Element type to search for.
+        type_name: String,
+
+        #[command(flatten)]
+        device_output: DeviceOutputArgs,
+    },
 
     /// Find element by ID (Android resource-id, iOS identifier).
-    #[arg(long)]
-    pub find_id: Option<String>,
+    #[command(name = "find-id")]
+    FindId {
+        /// Element ID to search for.
+        id: String,
 
-    /// Tap the found element.
-    #[arg(long)]
-    pub tap: bool,
+        #[command(flatten)]
+        device_output: DeviceOutputArgs,
+    },
 
-    /// Enter text into the found element.
-    #[arg(long)]
-    pub enter_text: Option<String>,
+    /// Tap an element by text.
+    Tap {
+        /// Text of the element to tap.
+        text: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
+
+    /// Enter text into an element.
+    #[command(name = "enter-text")]
+    EnterText {
+        /// Text of the element to find.
+        element_text: String,
+
+        /// Text to enter.
+        text: String,
+
+        #[command(flatten)]
+        device: DeviceArgs,
+    },
 
     /// List all elements.
-    #[arg(long)]
-    pub list: bool,
-
-    /// Platform (ios or android). Auto-detected if not specified.
-    #[arg(short = 'p', long)]
-    pub platform: Option<String>,
-
-    /// Device UDID/serial. Auto-detected if not specified.
-    #[arg(short, long)]
-    pub udid: Option<String>,
-
-    /// Output format (human or json).
-    #[arg(short = 'o', long, value_enum, default_value = "human")]
-    pub output: OutputFormat,
+    List {
+        #[command(flatten)]
+        device_output: DeviceOutputArgs,
+    },
 }
 
 /// Found element result.
@@ -79,38 +115,132 @@ async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send 
     Ok(Platform::Ios)
 }
 
-/// Execute the navigator command.
-pub async fn run(args: NavigatorArgs) -> CommandResult {
-    let platform = match &args.platform {
+/// Resolve platform from optional string.
+async fn resolve_platform(
+    platform_str: Option<&str>,
+) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
+    match platform_str {
         Some(p) => p
             .parse::<Platform>()
-            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?,
-        None => detect_platform().await?,
-    };
-
-    if args.list {
-        return execute_list(platform, &args).await;
+            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() }),
+        None => detect_platform().await,
     }
+}
 
-    if args.find.is_some() || args.find_type.is_some() || args.find_id.is_some() {
-        return execute_find(platform, &args).await;
+/// Execute the navigator command.
+pub async fn run(args: NavigatorArgs) -> CommandResult {
+    match args.command {
+        NavigatorCommands::Find {
+            text,
+            tap,
+            enter_text,
+            device_output,
+        } => {
+            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            execute_find(
+                platform,
+                device_output.udid.as_deref(),
+                Some(&text),
+                None,
+                None,
+                tap,
+                enter_text.as_deref(),
+                &device_output.output,
+            )
+            .await
+        }
+        NavigatorCommands::FindType {
+            type_name,
+            device_output,
+        } => {
+            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            execute_find(
+                platform,
+                device_output.udid.as_deref(),
+                None,
+                Some(&type_name),
+                None,
+                false,
+                None,
+                &device_output.output,
+            )
+            .await
+        }
+        NavigatorCommands::FindId { id, device_output } => {
+            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            execute_find(
+                platform,
+                device_output.udid.as_deref(),
+                None,
+                None,
+                Some(&id),
+                false,
+                None,
+                &device_output.output,
+            )
+            .await
+        }
+        NavigatorCommands::Tap { text, device } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_find(
+                platform,
+                device.udid.as_deref(),
+                Some(&text),
+                None,
+                None,
+                true,
+                None,
+                &OutputFormat::Human,
+            )
+            .await
+        }
+        NavigatorCommands::EnterText {
+            element_text,
+            text,
+            device,
+        } => {
+            let platform = resolve_platform(device.platform.as_deref()).await?;
+            execute_find(
+                platform,
+                device.udid.as_deref(),
+                Some(&element_text),
+                None,
+                None,
+                true,
+                Some(&text),
+                &OutputFormat::Human,
+            )
+            .await
+        }
+        NavigatorCommands::List { device_output } => {
+            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            execute_list(
+                platform,
+                device_output.udid.as_deref(),
+                &device_output.output,
+            )
+            .await
+        }
     }
-
-    Err("No action specified. Use --find, --find-type, --find-id, or --list.".into())
 }
 
 /// Execute list all elements.
-async fn execute_list(platform: Platform, args: &NavigatorArgs) -> CommandResult {
+async fn execute_list(
+    platform: Platform,
+    udid: Option<&str>,
+    output: &OutputFormat,
+) -> CommandResult {
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
 
-            with_client(args.udid.as_deref(), |mut client| async move {
+            let output = output.clone();
+            with_client(udid, |mut client| async move {
                 let json_str = client.accessibility_info(None, true).await?;
                 let json: serde_json::Value = serde_json::from_str(&json_str)?;
                 let elements = extract_ios_elements(&json);
 
-                if args.output.is_json() {
+                if output.is_json() {
                     println!("{}", serde_json::to_string_pretty(&elements)?);
                 } else {
                     print_elements(&elements);
@@ -122,11 +252,11 @@ async fn execute_list(platform: Platform, args: &NavigatorArgs) -> CommandResult
         Platform::Android => {
             use crate::platform::android::adb::uiautomator;
 
-            let xml = uiautomator::dump_ui(args.udid.as_deref()).await?;
+            let xml = uiautomator::dump_ui(udid).await?;
             let elements = uiautomator::parse_ui_hierarchy(&xml)?;
             let found_elements = convert_android_elements(&elements);
 
-            if args.output.is_json() {
+            if output.is_json() {
                 println!("{}", serde_json::to_string_pretty(&found_elements)?);
             } else {
                 print_elements(&found_elements);
@@ -137,19 +267,45 @@ async fn execute_list(platform: Platform, args: &NavigatorArgs) -> CommandResult
 }
 
 /// Execute find and optionally interact.
-async fn execute_find(platform: Platform, args: &NavigatorArgs) -> CommandResult {
+#[allow(clippy::too_many_arguments)]
+async fn execute_find(
+    platform: Platform,
+    udid: Option<&str>,
+    text: Option<&str>,
+    type_name: Option<&str>,
+    id: Option<&str>,
+    tap: bool,
+    enter_text: Option<&str>,
+    output: &OutputFormat,
+) -> CommandResult {
     match platform {
-        Platform::Ios => execute_find_ios(args).await,
-        Platform::Android => execute_find_android(args).await,
+        Platform::Ios => execute_find_ios(udid, text, type_name, id, tap, enter_text, output).await,
+        Platform::Android => {
+            execute_find_android(udid, text, type_name, id, tap, enter_text, output).await
+        }
     }
 }
 
 /// Find element on iOS.
-async fn execute_find_ios(args: &NavigatorArgs) -> CommandResult {
+async fn execute_find_ios(
+    udid: Option<&str>,
+    text: Option<&str>,
+    type_name: Option<&str>,
+    id: Option<&str>,
+    tap: bool,
+    enter_text: Option<&str>,
+    output: &OutputFormat,
+) -> CommandResult {
     use crate::cli::helpers::with_client;
     use crate::cli::idb::hid::events;
 
-    with_client(args.udid.as_deref(), |mut client| async move {
+    let text = text.map(|s| s.to_string());
+    let type_name = type_name.map(|s| s.to_string());
+    let id = id.map(|s| s.to_string());
+    let enter_text = enter_text.map(|s| s.to_string());
+    let output = output.clone();
+
+    with_client(udid, |mut client| async move {
         let json_str = client.accessibility_info(None, true).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
         let all_elements = extract_ios_elements(&json);
@@ -157,9 +313,9 @@ async fn execute_find_ios(args: &NavigatorArgs) -> CommandResult {
         // Find matching elements
         let found = find_matching_elements(
             &all_elements,
-            args.find.as_deref(),
-            args.find_type.as_deref(),
-            args.find_id.as_deref(),
+            text.as_deref(),
+            type_name.as_deref(),
+            id.as_deref(),
         );
 
         if found.is_empty() {
@@ -167,7 +323,7 @@ async fn execute_find_ios(args: &NavigatorArgs) -> CommandResult {
         }
 
         // If tap or enter_text, perform action on first match
-        if args.tap || args.enter_text.is_some() {
+        if tap || enter_text.is_some() {
             let element = &found[0];
             if let Some((x, y)) = element.center {
                 // Tap the element
@@ -175,7 +331,7 @@ async fn execute_find_ios(args: &NavigatorArgs) -> CommandResult {
                 client.hid(tap_events).await?;
 
                 // If enter_text, also input text
-                if let Some(text) = &args.enter_text {
+                if let Some(text) = &enter_text {
                     // Small delay before typing
                     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                     let text_events = events::text_to_events(text)?;
@@ -191,7 +347,7 @@ async fn execute_find_ios(args: &NavigatorArgs) -> CommandResult {
             }
         } else {
             // Just print found elements
-            if args.output.is_json() {
+            if output.is_json() {
                 println!("{}", serde_json::to_string_pretty(&found)?);
             } else {
                 print_found_elements(&found);
@@ -204,36 +360,39 @@ async fn execute_find_ios(args: &NavigatorArgs) -> CommandResult {
 }
 
 /// Find element on Android.
-async fn execute_find_android(args: &NavigatorArgs) -> CommandResult {
+async fn execute_find_android(
+    udid: Option<&str>,
+    text: Option<&str>,
+    type_name: Option<&str>,
+    id: Option<&str>,
+    tap: bool,
+    enter_text: Option<&str>,
+    output: &OutputFormat,
+) -> CommandResult {
     use crate::platform::android::adb::{input, uiautomator};
 
-    let xml = uiautomator::dump_ui(args.udid.as_deref()).await?;
+    let xml = uiautomator::dump_ui(udid).await?;
     let all_elements = uiautomator::parse_ui_hierarchy(&xml)?;
     let converted = convert_android_elements(&all_elements);
 
     // Find matching elements
-    let found = find_matching_elements(
-        &converted,
-        args.find.as_deref(),
-        args.find_type.as_deref(),
-        args.find_id.as_deref(),
-    );
+    let found = find_matching_elements(&converted, text, type_name, id);
 
     if found.is_empty() {
         return Err("No elements found matching the criteria.".into());
     }
 
     // If tap or enter_text, perform action on first match
-    if args.tap || args.enter_text.is_some() {
+    if tap || enter_text.is_some() {
         let element = &found[0];
         if let Some((x, y)) = element.center {
             // Tap the element
-            input::tap(args.udid.as_deref(), x, y).await?;
+            input::tap(udid, x, y).await?;
 
             // If enter_text, also input text
-            if let Some(text) = &args.enter_text {
+            if let Some(text) = enter_text {
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-                input::text(args.udid.as_deref(), text).await?;
+                input::text(udid, text).await?;
             }
 
             println!(
@@ -245,7 +404,7 @@ async fn execute_find_android(args: &NavigatorArgs) -> CommandResult {
         }
     } else {
         // Just print found elements
-        if args.output.is_json() {
+        if output.is_json() {
             println!("{}", serde_json::to_string_pretty(&found)?);
         } else {
             print_found_elements(&found);
