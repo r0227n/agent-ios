@@ -6,7 +6,7 @@
 use clap::{Args, Subcommand};
 use serde::Serialize;
 
-use crate::cli::helpers::{CommandResult, DeviceArgs, DeviceOutputArgs, OutputFormat};
+use crate::cli::helpers::{CommandResult, DeviceArgs, DeviceFormatArgs, OutputFormat};
 use crate::types::Platform;
 
 pub mod collector;
@@ -19,7 +19,7 @@ pub struct ElementArgs {
     pub command: Option<ElementCommands>,
 
     #[command(flatten)]
-    pub device_output: DeviceOutputArgs,
+    pub device_output: DeviceFormatArgs,
 
     #[command(flatten)]
     pub collection: CollectionArgs,
@@ -54,7 +54,7 @@ pub enum ElementCommands {
         enter_text: Option<String>,
 
         #[command(flatten)]
-        device_output: DeviceOutputArgs,
+        device_output: DeviceFormatArgs,
     },
 
     /// Find element by type (e.g., Button, TextField).
@@ -64,7 +64,7 @@ pub enum ElementCommands {
         type_name: String,
 
         #[command(flatten)]
-        device_output: DeviceOutputArgs,
+        device_output: DeviceFormatArgs,
     },
 
     /// Find element by ID (Android resource-id, iOS identifier).
@@ -74,7 +74,7 @@ pub enum ElementCommands {
         id: String,
 
         #[command(flatten)]
-        device_output: DeviceOutputArgs,
+        device_output: DeviceFormatArgs,
     },
 
     /// Tap an element by text.
@@ -102,7 +102,7 @@ pub enum ElementCommands {
     /// List all elements.
     List {
         #[command(flatten)]
-        device_output: DeviceOutputArgs,
+        device_output: DeviceFormatArgs,
 
         #[command(flatten)]
         collection: CollectionArgs,
@@ -199,7 +199,7 @@ pub async fn run(args: ElementArgs) -> CommandResult {
                 None,
                 tap,
                 enter_text.as_deref(),
-                &device_output.output,
+                &device_output.format,
             )
             .await
         }
@@ -216,7 +216,7 @@ pub async fn run(args: ElementArgs) -> CommandResult {
                 None,
                 false,
                 None,
-                &device_output.output,
+                &device_output.format,
             )
             .await
         }
@@ -230,7 +230,7 @@ pub async fn run(args: ElementArgs) -> CommandResult {
                 Some(&id),
                 false,
                 None,
-                &device_output.output,
+                &device_output.format,
             )
             .await
         }
@@ -244,7 +244,7 @@ pub async fn run(args: ElementArgs) -> CommandResult {
                 None,
                 true,
                 None,
-                &OutputFormat::Human,
+                &OutputFormat::Text,
             )
             .await
         }
@@ -262,7 +262,7 @@ pub async fn run(args: ElementArgs) -> CommandResult {
                 None,
                 true,
                 Some(&text),
-                &OutputFormat::Human,
+                &OutputFormat::Text,
             )
             .await
         }
@@ -275,7 +275,7 @@ pub async fn run(args: ElementArgs) -> CommandResult {
                 execute_list_all(
                     platform,
                     device_output.udid.as_deref(),
-                    &device_output.output,
+                    &device_output.format,
                     collection.max_scrolls,
                     collection.delay,
                 )
@@ -284,7 +284,7 @@ pub async fn run(args: ElementArgs) -> CommandResult {
                 execute_list(
                     platform,
                     device_output.udid.as_deref(),
-                    &device_output.output,
+                    &device_output.format,
                 )
                 .await
             }

@@ -6,7 +6,7 @@
 use clap::{Args, Subcommand};
 use serde::Serialize;
 
-use crate::cli::helpers::{CommandResult, DeviceArgs, DeviceOutputArgs, OutputFormat};
+use crate::cli::helpers::{CommandResult, DeviceArgs, DeviceFormatArgs, OutputFormat};
 use crate::types::Platform;
 
 /// App command arguments.
@@ -25,7 +25,7 @@ pub enum AppCommands {
         bundle_id: String,
 
         #[command(flatten)]
-        device_output: DeviceOutputArgs,
+        device_output: DeviceFormatArgs,
     },
 
     /// Terminate a running app.
@@ -43,7 +43,7 @@ pub enum AppCommands {
         path: String,
 
         #[command(flatten)]
-        device_output: DeviceOutputArgs,
+        device_output: DeviceFormatArgs,
     },
 
     /// Uninstall an app.
@@ -58,7 +58,7 @@ pub enum AppCommands {
     /// List installed apps.
     List {
         #[command(flatten)]
-        device_output: DeviceOutputArgs,
+        device_output: DeviceFormatArgs,
     },
 
     /// Grant a permission to an app.
@@ -194,7 +194,7 @@ pub async fn run(args: AppArgs) -> CommandResult {
                 platform,
                 device_output.udid.as_deref(),
                 &bundle_id,
-                &device_output.output,
+                &device_output.format,
             )
             .await
         }
@@ -211,7 +211,7 @@ pub async fn run(args: AppArgs) -> CommandResult {
                 platform,
                 device_output.udid.as_deref(),
                 &path,
-                &device_output.output,
+                &device_output.format,
             )
             .await
         }
@@ -224,7 +224,7 @@ pub async fn run(args: AppArgs) -> CommandResult {
             execute_list(
                 platform,
                 device_output.udid.as_deref(),
-                &device_output.output,
+                &device_output.format,
             )
             .await
         }

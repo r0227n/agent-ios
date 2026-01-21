@@ -3,7 +3,7 @@
 //! This module provides common utilities for CLI command implementations:
 //!
 //! - [`client`]: Connection helpers (`with_client`, `CommandResult`)
-//! - [`common_args`]: Shared argument structs (`DeviceArgs`, `DeviceOutputArgs`)
+//! - [`common_args`]: Shared argument structs (`DeviceArgs`, `DeviceFormatArgs`)
 //! - [`file_container`]: FileContainer building utilities
 //! - [`format`]: Output format options (`OutputFormat`)
 //! - [`signal`]: Ctrl+C signal handling
@@ -20,7 +20,10 @@ pub mod time;
 
 // Re-export commonly used items
 pub use client::{with_client, CommandResult};
-pub use common_args::{DeviceArgs, DeviceOutputArgs};
+#[allow(deprecated)]
+pub use common_args::{
+    DeviceArgs, DeviceFormatArgs, DeviceOutputArgs, FormatArgs, FormatOutputArgs,
+};
 pub use file_container::{file_container, file_container_with_root, DefaultContainer};
 pub use format::OutputFormat;
 pub use output::OutputWriter;

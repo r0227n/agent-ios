@@ -7,9 +7,9 @@ use clap::ValueEnum;
 /// Output format for CLI commands.
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum OutputFormat {
-    /// Human-readable output (default).
+    /// Human-readable text output (default).
     #[default]
-    Human,
+    Text,
     /// JSON output for machine consumption.
     Json,
 }

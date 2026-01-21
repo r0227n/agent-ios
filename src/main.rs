@@ -71,7 +71,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 make_debuggable,
                 override_mtime,
                 compression,
-                output,
+                format,
             } => {
                 cli::idb::install::run(
                     bundle_path,
@@ -79,7 +79,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     make_debuggable,
                     override_mtime,
                     compression,
-                    output,
+                    format,
                 )
                 .await?;
             }
@@ -340,7 +340,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 test_bundle_path,
                 skip_signing,
                 compression,
-                output,
+                format,
                 udid,
             } => {
                 cli::idb::xctest_install::run(
@@ -348,7 +348,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     udid,
                     skip_signing,
                     compression,
-                    output,
+                    format,
                 )
                 .await?;
             }
@@ -421,29 +421,29 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     dsym_path,
                     bundle_id,
                     compression,
-                    output,
+                    format,
                     udid,
                 } => {
-                    cli::idb::dsym::install(dsym_path, bundle_id, compression, output, udid)
+                    cli::idb::dsym::install(dsym_path, bundle_id, compression, format, udid)
                         .await?;
                 }
             },
             IdbCommands::Dylib { command } => match command {
                 DylibCommands::Install {
                     dylib_path,
-                    output,
+                    format,
                     udid,
                 } => {
-                    cli::idb::dylib::install(dylib_path, output, udid).await?;
+                    cli::idb::dylib::install(dylib_path, format, udid).await?;
                 }
             },
             IdbCommands::Framework { command } => match command {
                 FrameworkCommands::Install {
                     framework_path,
-                    output,
+                    format,
                     udid,
                 } => {
-                    cli::idb::framework::install(framework_path, output, udid).await?;
+                    cli::idb::framework::install(framework_path, format, udid).await?;
                 }
             },
             IdbCommands::Instruments {
@@ -525,6 +525,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         Commands::Device(args) => {
             cli::device::run(args).await?;
+        }
+        Commands::Snapshot(args) => {
+            cli::snapshot::run(args).await?;
         }
     }
 

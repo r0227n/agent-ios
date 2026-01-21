@@ -22,9 +22,51 @@ pub struct DeviceArgs {
     pub udid: Option<String>,
 }
 
-/// Device selection arguments with output format.
+/// Output format only (for commands that don't need file output).
+#[derive(Args, Debug, Clone)]
+pub struct FormatArgs {
+    /// Output format (text or json).
+    #[arg(short = 'f', long, value_enum, default_value = "text")]
+    pub format: OutputFormat,
+}
+
+/// Output format + file output (for snapshot etc.).
+#[derive(Args, Debug, Clone)]
+pub struct FormatOutputArgs {
+    /// Output format (text or json).
+    #[arg(short = 'f', long, value_enum, default_value = "text")]
+    pub format: OutputFormat,
+
+    /// Output to file instead of stdout.
+    #[arg(short = 'o', long)]
+    pub output: Option<String>,
+}
+
+/// Device selection + output format.
 ///
 /// Used by commands that need both device selection and output formatting.
+/// Replaces the deprecated `DeviceOutputArgs`.
+#[derive(Args, Debug, Clone)]
+pub struct DeviceFormatArgs {
+    /// Platform (ios or android). Auto-detected if not specified.
+    #[arg(short = 'p', long)]
+    pub platform: Option<String>,
+
+    /// Device UDID/serial. Auto-detected if not specified.
+    #[arg(short, long)]
+    pub udid: Option<String>,
+
+    /// Output format (text or json).
+    #[arg(short = 'f', long, value_enum, default_value = "text")]
+    pub format: OutputFormat,
+}
+
+/// Device selection arguments with output format.
+///
+/// **Deprecated**: Use `DeviceFormatArgs` instead.
+/// This struct uses `-o/--output` for format, which conflicts with
+/// the standard convention of `-o/--output` for file output destination.
+#[deprecated(since = "0.2.0", note = "Use DeviceFormatArgs instead")]
 #[derive(Args, Debug, Clone)]
 pub struct DeviceOutputArgs {
     /// Platform (ios or android). Auto-detected if not specified.
@@ -35,7 +77,7 @@ pub struct DeviceOutputArgs {
     #[arg(short, long)]
     pub udid: Option<String>,
 
-    /// Output format (human or json).
-    #[arg(short = 'o', long, value_enum, default_value = "human")]
-    pub output: OutputFormat,
+    /// Output format (text or json).
+    #[arg(short = 'f', long, value_enum, default_value = "text")]
+    pub format: OutputFormat,
 }

@@ -4,6 +4,7 @@ pub mod element;
 pub mod helpers;
 pub mod hid;
 pub mod idb;
+pub mod snapshot;
 
 use clap::{Parser, Subcommand};
 
@@ -36,4 +37,7 @@ pub enum Commands {
 
     /// Device management (list, boot, shutdown)
     Device(device::DeviceArgs),
+
+    /// Capture UI snapshot with element references for AI agents
+    Snapshot(snapshot::SnapshotArgs),
 }

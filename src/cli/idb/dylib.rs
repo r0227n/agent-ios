@@ -6,10 +6,10 @@ use serde_json::json;
 /// Install a dylib to the target
 pub async fn install(
     dylib_path: String,
-    output: OutputFormat,
+    format: OutputFormat,
     udid: Option<String>,
 ) -> CommandResult {
-    let json_output = output.is_json();
+    let json_output = format.is_json();
     with_client(udid.as_deref(), |mut client| async move {
         // Call install_dylib RPC
         let mut response_stream = client.install_dylib(&dylib_path).await?;
