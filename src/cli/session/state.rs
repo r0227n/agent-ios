@@ -1,7 +1,11 @@
 //! Session state management
 //!
-//! This module handles reading and writing session state files stored in
-//! `/tmp/idb/sessions/<session_name>/session.json`.
+//! This module handles reading and writing session state files.
+//! By default, session files are stored in:
+//! - Unix: `/tmp/agent-mobile/sessions/<session_name>/session.json`
+//! - Windows: `%TEMP%\agent-mobile\sessions\<session_name>\session.json`
+//!
+//! The directory can be customized via the `AGENT_MOBILE_SESSIONS_DIR` environment variable.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -11,8 +15,40 @@ use std::path::{Path, PathBuf};
 use crate::cli::helpers::CommandResult;
 use crate::types::Platform;
 
-/// Default sessions directory path
-const SESSIONS_DIR: &str = "/tmp/idb/sessions";
+/// Get the default sessions directory path based on the platform.
+///
+/// Priority:
+/// 1. Environment variable `AGENT_MOBILE_SESSIONS_DIR` if set
+/// 2. Unix-like systems (macOS, Linux): `/tmp/agent-mobile/sessions`
+/// 3. Windows: `%TEMP%\agent-mobile\sessions`
+///
+/// # Examples
+/// ```
+/// // Set custom directory via environment variable
+/// std::env::set_var("AGENT_MOBILE_SESSIONS_DIR", "/custom/path");
+/// let dir = get_default_sessions_dir();
+/// assert_eq!(dir, PathBuf::from("/custom/path"));
+/// ```
+fn get_default_sessions_dir() -> PathBuf {
+    // Check environment variable first
+    if let Ok(dir) = std::env::var("AGENT_MOBILE_SESSIONS_DIR") {
+        return PathBuf::from(dir);
+    }
+
+    // Platform-specific defaults
+    #[cfg(unix)]
+    {
+        PathBuf::from("/tmp/agent-mobile/sessions")
+    }
+
+    #[cfg(not(unix))]
+    {
+        let mut path = std::env::temp_dir();
+        path.push("agent-mobile");
+        path.push("sessions");
+        path
+    }
+}
 
 /// Session data stored in JSON format
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,7 +95,7 @@ impl SessionState {
     /// Create a new SessionState with default directory
     pub fn new() -> Self {
         Self {
-            sessions_dir: PathBuf::from(SESSIONS_DIR),
+            sessions_dir: get_default_sessions_dir(),
         }
     }
 
