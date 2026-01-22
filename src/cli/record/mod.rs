@@ -57,7 +57,7 @@ fn resolve_output_path(output: Option<&str>) -> Result<String, std::io::Error> {
         }
         Some(out) => {
             // Check if it's a directory path
-            if out.ends_with('/') || out.ends_with(std::path::MAIN_SEPARATOR) {
+            if out.ends_with(std::path::MAIN_SEPARATOR) {
                 // Directory specified, generate filename
                 let filename = generate_filename();
                 return Ok(format!("{}{}", out, filename));
@@ -136,30 +136,39 @@ async fn execute_record_ios(
     let mut stop_rx_clone = stop_rx.clone();
 
     // Wait for recording to complete, time limit, or Ctrl+C
-    if let Some(secs) = time_limit {
+    let final_status: CommandResult = if let Some(secs) = time_limit {
         tokio::select! {
             status = child.wait() => {
                 match status {
                     Ok(s) if s.success() => {
                         eprintln!("\nRecording completed");
+                        Ok(())
                     }
                     Ok(s) => {
-                        eprintln!("\nRecording process exited with status: {}", s);
+                        Err(format!("recordVideo exited with status: {}", s).into())
                     }
                     Err(e) => {
-                        return Err(format!("Failed to wait for recordVideo: {}", e).into());
+                        Err(format!("Failed to wait for recordVideo: {}", e).into())
                     }
                 }
             }
             _ = stop_rx_clone.changed() => {
                 eprintln!("\nStopping recording...");
                 send_sigint_to_child(&child);
-                let _ = child.wait().await;
+                match child.wait().await {
+                    Ok(s) if s.success() => Ok(()),
+                    Ok(s) => Err(format!("recordVideo exited with status: {}", s).into()),
+                    Err(e) => Err(format!("Failed to wait for recordVideo: {}", e).into()),
+                }
             }
             _ = tokio::time::sleep(tokio::time::Duration::from_secs(secs)) => {
                 eprintln!("\nTime limit reached, stopping recording...");
                 send_sigint_to_child(&child);
-                let _ = child.wait().await;
+                match child.wait().await {
+                    Ok(s) if s.success() => Ok(()),
+                    Ok(s) => Err(format!("recordVideo exited with status: {}", s).into()),
+                    Err(e) => Err(format!("Failed to wait for recordVideo: {}", e).into()),
+                }
             }
         }
     } else {
@@ -168,23 +177,29 @@ async fn execute_record_ios(
                 match status {
                     Ok(s) if s.success() => {
                         eprintln!("\nRecording completed");
+                        Ok(())
                     }
                     Ok(s) => {
-                        eprintln!("\nRecording process exited with status: {}", s);
+                        Err(format!("recordVideo exited with status: {}", s).into())
                     }
                     Err(e) => {
-                        return Err(format!("Failed to wait for recordVideo: {}", e).into());
+                        Err(format!("Failed to wait for recordVideo: {}", e).into())
                     }
                 }
             }
             _ = stop_rx_clone.changed() => {
                 eprintln!("\nStopping recording...");
                 send_sigint_to_child(&child);
-                let _ = child.wait().await;
+                match child.wait().await {
+                    Ok(s) if s.success() => Ok(()),
+                    Ok(s) => Err(format!("recordVideo exited with status: {}", s).into()),
+                    Err(e) => Err(format!("Failed to wait for recordVideo: {}", e).into()),
+                }
             }
         }
-    }
+    };
 
+    final_status?;
     println!("Video saved to: {}", output);
     Ok(())
 }
@@ -201,7 +216,10 @@ fn send_sigint_to_child(child: &tokio::process::Child) {
     }
     #[cfg(not(unix))]
     {
-        let _ = child;
+        eprintln!(
+            "Warning: Graceful shutdown via SIGINT is not supported on this platform; child process (pid: {:?}) may continue running.",
+            child.id()
+        );
     }
 }
 
@@ -288,17 +306,18 @@ async fn execute_record_android(
     let mut stop_rx_clone = stop_rx.clone();
 
     // Wait for recording to complete or Ctrl+C
-    tokio::select! {
+    let recording_result: CommandResult = tokio::select! {
         status = child.wait() => {
             match status {
                 Ok(s) if s.success() => {
                     eprintln!("\nRecording completed");
+                    Ok(())
                 }
                 Ok(s) => {
-                    eprintln!("\nRecording process exited with status: {}", s);
+                    Err(format!("screenrecord exited with status: {}", s).into())
                 }
                 Err(e) => {
-                    return Err(format!("Failed to wait for screenrecord: {}", e).into());
+                    Err(format!("Failed to wait for screenrecord: {}", e).into())
                 }
             }
         }
@@ -318,10 +337,17 @@ async fn execute_record_android(
                 let _ = child.kill().await;
             }
 
-            // Wait for process to finish
-            let _ = child.wait().await;
+            // Wait for process to finish and check status
+            match child.wait().await {
+                Ok(s) if s.success() => Ok(()),
+                Ok(s) => Err(format!("screenrecord exited with status: {}", s).into()),
+                Err(e) => Err(format!("Failed to wait for screenrecord: {}", e).into()),
+            }
         }
-    }
+    };
+
+    // Only proceed to pull if recording succeeded
+    recording_result?;
 
     // Pull the recorded file
     eprintln!("Pulling recorded video...");
