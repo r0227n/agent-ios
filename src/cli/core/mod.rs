@@ -4,6 +4,7 @@
 //!
 //! ## コマンド一覧
 //! - `tap` - 要素タップ
+//! - `long-press` - 長押しジェスチャー
 //! - `fill` - テキストフィールド入力 (クリア + 入力)
 //! - `type` - テキスト追記入力
 //! - `swipe` - スワイプジェスチャー
@@ -16,6 +17,7 @@
 pub mod fill;
 pub mod get;
 pub mod is_cmd;
+pub mod long_press;
 pub mod ref_resolver;
 pub mod screenshot;
 pub mod scroll;
@@ -28,6 +30,7 @@ pub mod wait;
 pub use fill::FillArgs;
 pub use get::GetArgs;
 pub use is_cmd::IsArgs;
+pub use long_press::LongPressArgs;
 pub use screenshot::ScreenshotArgs;
 pub use scroll::ScrollArgs;
 pub use swipe::SwipeArgs;
