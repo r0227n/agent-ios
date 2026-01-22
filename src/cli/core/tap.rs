@@ -103,17 +103,54 @@ async fn resolve_position(
 }
 
 /// Get screen dimensions
-async fn get_screen_size(platform: Platform, _udid: Option<&str>) -> CommandResult<(f64, f64)> {
+async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandResult<(f64, f64)> {
     match platform {
         Platform::Ios => {
-            // Default iPhone screen size in points (iPhone 13/14/15)
-            Ok((390.0, 844.0))
+            // Try to get screen size from snapshot's root element
+            match get_ios_screen_size_from_snapshot(udid).await {
+                Ok(size) => Ok(size),
+                Err(_) => {
+                    // Default iPhone screen size in points (iPhone 13/14/15)
+                    Ok((390.0, 844.0))
+                }
+            }
         }
         Platform::Android => {
-            // Default Android screen size in pixels
-            Ok((1080.0, 2340.0))
+            // Use adb to get actual screen size
+            match crate::platform::android::adb::input::get_screen_size(udid).await {
+                Ok((w, h)) => Ok((w as f64, h as f64)),
+                Err(_) => {
+                    // Default Android screen size in pixels
+                    Ok((1080.0, 2340.0))
+                }
+            }
         }
     }
+}
+
+/// Get iOS screen size from snapshot's root element
+async fn get_ios_screen_size_from_snapshot(udid: Option<&str>) -> CommandResult<(f64, f64)> {
+    use crate::cli::helpers::with_client;
+
+    with_client(udid, |mut client| async move {
+        let json_str = client.accessibility_info(None, false).await?;
+        let json: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        // The root element's frame represents the screen bounds
+        if let Some(frame) = json.get("frame") {
+            if let (Some(w), Some(h)) = (
+                frame.get("width").and_then(|v| v.as_f64()),
+                frame.get("height").and_then(|v| v.as_f64()),
+            ) {
+                if w > 0.0 && h > 0.0 {
+                    return Ok((w, h));
+                }
+            }
+        }
+
+        Err("Could not determine screen size from accessibility info".into())
+    })
+    .await
 }
 
 /// Take a fresh snapshot

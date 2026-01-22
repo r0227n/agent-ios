@@ -4,7 +4,7 @@
 //! agent-mobile get text @e1
 //! agent-mobile get value @e2
 //! agent-mobile get attr @e1 enabled
-//! agent-mobile get @e1              # 全プロパティ (JSON)
+//! agent-mobile get @e1 -f json      # 全プロパティ (JSON)
 //! ```
 
 use std::path::PathBuf;
@@ -101,7 +101,7 @@ pub async fn run(args: GetArgs) -> CommandResult {
                 _ => return Err(format!("Unknown attribute: {}", attr_name).into()),
             }
         }
-        "all" | _ if property.starts_with('@') || property == "all" => {
+        _ if property == "all" || property.starts_with('@') => {
             // Return all properties
             if args.format.is_json() {
                 serde_json::to_string_pretty(&serde_json::json!({

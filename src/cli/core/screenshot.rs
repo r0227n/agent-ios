@@ -14,8 +14,9 @@ use super::tap::resolve_platform;
 use crate::types::Platform;
 
 /// Supported image formats for screenshots
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ImageFormat {
+    #[default]
     Png,
     Jpeg,
 }
@@ -58,12 +59,6 @@ impl std::str::FromStr for ImageFormat {
     }
 }
 
-impl Default for ImageFormat {
-    fn default() -> Self {
-        Self::Png
-    }
-}
-
 /// screenshot コマンド引数
 #[derive(Args, Debug)]
 pub struct ScreenshotArgs {
@@ -81,7 +76,7 @@ pub struct ScreenshotArgs {
     pub output: Option<String>,
 
     /// Image format (png or jpeg)
-    #[arg(short = 't', long, default_value = "png")]
+    #[arg(short = 'f', long, default_value = "png")]
     pub format: ImageFormat,
 
     #[command(flatten)]
@@ -104,10 +99,11 @@ fn generate_filename(format: ImageFormat) -> String {
 ///
 /// Valid paths:
 /// - Paths containing '/', '\', or '.' (file or directory paths)
+/// - Directory names that are not known format names
 ///
 /// Invalid paths:
 /// - Empty strings
-/// - Format-like strings (e.g., "json", "base64") without path separators
+/// - Known format names (json, base64, png, jpg, jpeg) without path separators
 /// - Paths with invalid characters (<, >, |, \0, \n, \r)
 fn validate_output_path(output: &str) -> Result<(), String> {
     // Empty string
@@ -115,14 +111,19 @@ fn validate_output_path(output: &str) -> Result<(), String> {
         return Err("Output path cannot be empty".to_string());
     }
 
-    // Check for format-like strings (no path separators and no file extension)
+    // Known format names that should be rejected if used alone
+    const KNOWN_FORMATS: &[&str] = &["json", "base64", "png", "jpg", "jpeg", "yaml"];
+
+    // Check for known format names without path separators
     if !output.contains('/') && !output.contains('\\') && !output.contains('.') {
-        // Might be a format name like "json", "base64", etc.
-        return Err(format!(
-            "Invalid output path: '{}'. Did you mean to use a file path?\n\
-            Use '--output /path/to/file.png' for file output.",
-            output
-        ));
+        let lower = output.to_lowercase();
+        if KNOWN_FORMATS.contains(&lower.as_str()) {
+            return Err(format!(
+                "Invalid output path: '{}'. Did you mean to use a file path?\n\
+                Use '--output /path/to/file.png' for file output.",
+                output
+            ));
+        }
     }
 
     // Check for invalid path characters
@@ -245,12 +246,13 @@ async fn execute_screenshot_android(
 ) -> CommandResult {
     use tokio::process::Command;
 
-    // Validate format support on Android
+    // Validate format support on Android - only PNG is supported
     if !format.is_android_supported() {
-        eprintln!(
-            "Warning: {} format may not be supported on all Android devices. \
-            PNG is recommended for maximum compatibility.",
-            format.extension()
+        return Err(
+            "Android only supports PNG format. JPEG conversion is not implemented. \
+            Please use '--format png' or omit the format option."
+                .to_string()
+                .into(),
         );
     }
 
@@ -271,16 +273,6 @@ async fn execute_screenshot_android(
     }
 
     let bytes = output.stdout;
-
-    // PNG is always returned by adb screencap -p
-    // If JPEG is requested, we'd need conversion (not implemented)
-    if format != ImageFormat::Png {
-        eprintln!(
-            "Note: Android always captures in PNG format. \
-            Conversion to {} is not implemented.",
-            format.extension()
-        );
-    }
 
     // File mode
     std::fs::write(path, &bytes)?;
@@ -317,10 +309,15 @@ mod tests {
 
     #[test]
     fn test_validate_output_path_format_like() {
-        // フォーマット名のような文字列はエラー
+        // 既知のフォーマット名はエラー
         assert!(validate_output_path("json").is_err());
         assert!(validate_output_path("base64").is_err());
+        assert!(validate_output_path("png").is_err());
+        assert!(validate_output_path("jpeg").is_err());
+        assert!(validate_output_path("jpg").is_err());
         assert!(validate_output_path("yaml").is_err());
+        // 未知の名前はディレクトリとして許可
+        assert!(validate_output_path("mydir").is_ok());
     }
 
     #[test]

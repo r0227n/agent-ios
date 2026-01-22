@@ -60,6 +60,7 @@ pub async fn run(args: WaitArgs) -> CommandResult {
                 target_str,
                 timeout,
                 interval,
+                args.snapshot.as_ref(),
             )
             .await
         }
@@ -74,6 +75,7 @@ pub async fn run(args: WaitArgs) -> CommandResult {
                 target_str,
                 timeout,
                 interval,
+                args.snapshot.as_ref(),
             )
             .await
         }
@@ -93,13 +95,24 @@ async fn wait_visible(
     target_str: &str,
     timeout: Duration,
     interval: Duration,
+    snapshot_path: Option<&PathBuf>,
 ) -> CommandResult {
     let target = Target::parse(target_str);
     let deadline = Instant::now() + timeout;
+    let mut first_check = true;
 
     loop {
-        // Take fresh snapshot
-        let snapshot = take_snapshot(platform, udid).await?;
+        // Use provided snapshot for first check, then take fresh snapshots
+        let snapshot = if first_check {
+            first_check = false;
+            if let Some(path) = snapshot_path {
+                ref_resolver::load_snapshot_from_file(path)?
+            } else {
+                take_snapshot(platform, udid).await?
+            }
+        } else {
+            take_snapshot(platform, udid).await?
+        };
 
         // Try to find element
         if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_ok() {
@@ -126,13 +139,24 @@ async fn wait_gone(
     target_str: &str,
     timeout: Duration,
     interval: Duration,
+    snapshot_path: Option<&PathBuf>,
 ) -> CommandResult {
     let target = Target::parse(target_str);
     let deadline = Instant::now() + timeout;
+    let mut first_check = true;
 
     loop {
-        // Take fresh snapshot
-        let snapshot = take_snapshot(platform, udid).await?;
+        // Use provided snapshot for first check, then take fresh snapshots
+        let snapshot = if first_check {
+            first_check = false;
+            if let Some(path) = snapshot_path {
+                ref_resolver::load_snapshot_from_file(path)?
+            } else {
+                take_snapshot(platform, udid).await?
+            }
+        } else {
+            take_snapshot(platform, udid).await?
+        };
 
         // Check if element is gone
         if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_err() {
@@ -200,22 +224,29 @@ async fn wait_idle(
 fn parse_timeout(s: &str) -> CommandResult<Duration> {
     let s = s.trim().to_lowercase();
 
-    if let Some(secs) = s.strip_suffix('s') {
-        let secs: f64 = secs
+    let secs = if let Some(secs_str) = s.strip_suffix('s') {
+        secs_str
+            .parse::<f64>()
+            .map_err(|_| format!("Invalid timeout: {}", s))?
+    } else if let Some(mins_str) = s.strip_suffix('m') {
+        let mins: f64 = mins_str
             .parse()
             .map_err(|_| format!("Invalid timeout: {}", s))?;
-        return Ok(Duration::from_secs_f64(secs));
+        mins * 60.0
+    } else {
+        // Default: parse as seconds
+        s.parse().map_err(|_| format!("Invalid timeout: {}", s))?
+    };
+
+    // Validate: must be finite and non-negative
+    if !secs.is_finite() || secs < 0.0 {
+        return Err(format!(
+            "Invalid timeout value: {}. Must be a non-negative finite number.",
+            s
+        )
+        .into());
     }
 
-    if let Some(mins) = s.strip_suffix('m') {
-        let mins: f64 = mins
-            .parse()
-            .map_err(|_| format!("Invalid timeout: {}", s))?;
-        return Ok(Duration::from_secs_f64(mins * 60.0));
-    }
-
-    // Default: parse as seconds
-    let secs: f64 = s.parse().map_err(|_| format!("Invalid timeout: {}", s))?;
     Ok(Duration::from_secs_f64(secs))
 }
 
@@ -238,5 +269,18 @@ mod tests {
     #[test]
     fn test_parse_timeout_plain_number() {
         assert_eq!(parse_timeout("30").unwrap(), Duration::from_secs(30));
+    }
+
+    #[test]
+    fn test_parse_timeout_negative_value() {
+        assert!(parse_timeout("-5s").is_err());
+        assert!(parse_timeout("-1m").is_err());
+        assert!(parse_timeout("-10").is_err());
+    }
+
+    #[test]
+    fn test_parse_timeout_invalid_value() {
+        assert!(parse_timeout("abc").is_err());
+        assert!(parse_timeout("").is_err());
     }
 }

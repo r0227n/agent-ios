@@ -351,7 +351,7 @@ async fn execute_install(
             use crate::cli::helpers::with_client;
 
             let path = path.to_string();
-            let output = output.clone();
+            let output = *output;
 
             with_client(udid, |mut client| async move {
                 let mut stream = client.install(&path, false, false, None).await?;
@@ -425,7 +425,7 @@ async fn execute_list(
         Platform::Ios => {
             use crate::cli::helpers::with_client;
 
-            let output = output.clone();
+            let output = *output;
 
             with_client(udid, |mut client| async move {
                 let apps = client.list_apps().await?;

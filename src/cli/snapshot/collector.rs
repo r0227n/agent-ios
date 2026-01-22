@@ -41,6 +41,7 @@ pub type ProgressCallback = Box<dyn Fn(CollectionProgress) + Send>;
 
 /// Progress information during collection.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields are consumed by ProgressCallback
 pub struct CollectionProgress {
     /// Whether currently scrolling to top before collection.
     pub scrolling_to_top: bool,

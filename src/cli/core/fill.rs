@@ -47,17 +47,32 @@ pub async fn run(args: FillArgs) -> CommandResult {
     let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
     let (x, y) = element.center();
 
+    // Calculate clear length from existing value
+    let clear_len = element
+        .value
+        .as_ref()
+        .map(|v| v.chars().count())
+        .unwrap_or(50); // Default to 50 if no value
+
     // Execute fill: tap -> clear -> type
     match platform {
-        Platform::Ios => execute_fill_ios(args.device.udid.as_deref(), x, y, &args.text).await,
+        Platform::Ios => {
+            execute_fill_ios(args.device.udid.as_deref(), x, y, &args.text, clear_len).await
+        }
         Platform::Android => {
-            execute_fill_android(args.device.udid.as_deref(), x, y, &args.text).await
+            execute_fill_android(args.device.udid.as_deref(), x, y, &args.text, clear_len).await
         }
     }
 }
 
 /// Execute fill on iOS
-async fn execute_fill_ios(udid: Option<&str>, x: f64, y: f64, text: &str) -> CommandResult {
+async fn execute_fill_ios(
+    udid: Option<&str>,
+    x: f64,
+    y: f64,
+    text: &str,
+    clear_len: usize,
+) -> CommandResult {
     use crate::cli::idb::hid::events;
 
     let text = text.to_string();
@@ -70,9 +85,8 @@ async fn execute_fill_ios(udid: Option<&str>, x: f64, y: f64, text: &str) -> Com
         // Small delay to ensure focus
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        // 2. Clear existing text (multiple backspaces)
-        // TODO: Implement proper select all + delete
-        for _ in 0..50 {
+        // 2. Clear existing text (based on actual value length)
+        for _ in 0..clear_len {
             let del_events = events::key_to_events(42, None); // BACKSPACE = 42
             client.hid(del_events).await?;
         }
@@ -87,7 +101,13 @@ async fn execute_fill_ios(udid: Option<&str>, x: f64, y: f64, text: &str) -> Com
 }
 
 /// Execute fill on Android
-async fn execute_fill_android(udid: Option<&str>, x: f64, y: f64, text: &str) -> CommandResult {
+async fn execute_fill_android(
+    udid: Option<&str>,
+    x: f64,
+    y: f64,
+    text: &str,
+    clear_len: usize,
+) -> CommandResult {
     use crate::platform::android::adb::input;
 
     // 1. Tap to focus
@@ -96,10 +116,10 @@ async fn execute_fill_android(udid: Option<&str>, x: f64, y: f64, text: &str) ->
     // Small delay to ensure focus
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    // 2. Clear existing text
+    // 2. Clear existing text (based on actual value length)
     // Move to end and delete backwards
     input::keyevent_by_name(udid, "KEYCODE_MOVE_END").await?;
-    for _ in 0..50 {
+    for _ in 0..clear_len {
         input::keyevent(udid, input::keycodes::DEL).await?;
     }
 

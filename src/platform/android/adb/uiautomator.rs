@@ -3,6 +3,8 @@
 //! This module provides functions to capture and parse the UI hierarchy
 //! from Android devices using uiautomator dump.
 
+#![allow(dead_code)]
+
 use super::{AdbError, Result};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
@@ -158,11 +160,11 @@ fn parse_node_tag(tag: &str) -> Option<AccessibilityElement> {
         class: extract_attr(tag, "class"),
         package: extract_attr(tag, "package"),
         bounds: extract_bounds(tag),
-        clickable: extract_attr(tag, "clickable").map_or(false, |v| v == "true"),
-        scrollable: extract_attr(tag, "scrollable").map_or(false, |v| v == "true"),
-        enabled: extract_attr(tag, "enabled").map_or(true, |v| v == "true"),
-        focused: extract_attr(tag, "focused").map_or(false, |v| v == "true"),
-        selected: extract_attr(tag, "selected").map_or(false, |v| v == "true"),
+        clickable: extract_attr(tag, "clickable").is_some_and(|v| v == "true"),
+        scrollable: extract_attr(tag, "scrollable").is_some_and(|v| v == "true"),
+        enabled: extract_attr(tag, "enabled").is_none_or(|v| v == "true"),
+        focused: extract_attr(tag, "focused").is_some_and(|v| v == "true"),
+        selected: extract_attr(tag, "selected").is_some_and(|v| v == "true"),
         children: Vec::new(),
     })
 }
@@ -223,10 +225,10 @@ pub fn find_by_text<'a>(
         .filter(|e| {
             e.text
                 .as_ref()
-                .map_or(false, |t| t.to_lowercase().contains(&query_lower))
+                .is_some_and(|t| t.to_lowercase().contains(&query_lower))
                 || e.content_desc
                     .as_ref()
-                    .map_or(false, |d| d.to_lowercase().contains(&query_lower))
+                    .is_some_and(|d| d.to_lowercase().contains(&query_lower))
         })
         .collect()
 }
@@ -238,7 +240,7 @@ pub fn find_by_id<'a>(
 ) -> Vec<&'a AccessibilityElement> {
     elements
         .iter()
-        .filter(|e| e.resource_id.as_ref().map_or(false, |r| r.contains(id)))
+        .filter(|e| e.resource_id.as_ref().is_some_and(|r| r.contains(id)))
         .collect()
 }
 
@@ -253,7 +255,7 @@ pub fn find_by_type<'a>(
         .filter(|e| {
             e.class
                 .as_ref()
-                .map_or(false, |c| c.to_lowercase().contains(&type_lower))
+                .is_some_and(|c| c.to_lowercase().contains(&type_lower))
         })
         .collect()
 }

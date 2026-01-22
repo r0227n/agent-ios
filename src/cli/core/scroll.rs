@@ -29,7 +29,7 @@ pub struct ScrollArgs {
     pub direction: String,
 
     /// Scroll within a specific element
-    #[arg(long, name = "in")]
+    #[arg(long = "in")]
     pub within: Option<String>,
 
     /// Scroll distance in pixels

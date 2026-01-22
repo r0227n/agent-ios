@@ -3,7 +3,8 @@
 //! ```bash
 //! agent-mobile is visible @e1
 //! agent-mobile is enabled @e1
-//! agent-mobile is focused @e2
+//! agent-mobile is disabled @e1
+//! agent-mobile is interactive @e2
 //! ```
 //!
 //! 結果は stdout に "true" または "false" を出力し、

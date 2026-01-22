@@ -56,7 +56,12 @@ impl IosDevice {
     ///
     /// PNG image data as bytes.
     pub async fn screenshot(&self) -> Result<Vec<u8>> {
-        Ok(simctl::io_screenshot_bytes(&self.udid, ImageFormat::Png)?)
+        let udid = self.udid.clone();
+        let data = tokio::task::spawn_blocking(move || {
+            simctl::io_screenshot_bytes(&udid, ImageFormat::Png)
+        })
+        .await??;
+        Ok(data)
     }
 
     /// Tap at screen coordinates.

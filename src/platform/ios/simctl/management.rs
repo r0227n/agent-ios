@@ -3,6 +3,8 @@
 //! This module provides direct access to simulator lifecycle operations
 //! without going through idb_companion.
 
+#![allow(dead_code)]
+
 use std::process::Command;
 use thiserror::Error;
 
@@ -261,9 +263,14 @@ pub fn io_screenshot(udid: &str, output_path: &str, format: ImageFormat) -> Resu
 
 /// Take a screenshot and return bytes with specified format.
 pub fn io_screenshot_bytes(udid: &str, format: ImageFormat) -> Result<Vec<u8>> {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
     let temp_path = format!(
-        "/tmp/agent_mobile_screenshot_{}.{}",
+        "/tmp/agent_mobile_screenshot_{}_{}.{}",
         std::process::id(),
+        nanos,
         format.extension()
     );
 
