@@ -9,6 +9,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::cli::helpers::CommandResult;
+use crate::types::Platform;
 
 /// Default sessions directory path
 const SESSIONS_DIR: &str = "/tmp/idb/sessions";
@@ -21,7 +22,7 @@ pub struct SessionData {
     /// Target device UDID
     pub udid: String,
     /// Platform (ios or android)
-    pub platform: String,
+    pub platform: Platform,
     /// Current active app bundle_id
     pub app: Option<String>,
     /// Session creation timestamp
@@ -74,7 +75,58 @@ impl SessionState {
     fn session_path(&self, name: &str) -> PathBuf {
         self.sessions_dir.join(name).join("session.json")
     }
+}
 
+/// Validate that a session name is safe to use as a filesystem path component.
+///
+/// Returns an error if the name:
+/// - Contains path separators (/, \)
+/// - Contains path traversal sequences (.., .)
+/// - Contains invalid characters (only alphanumeric, hyphen, underscore allowed)
+/// - Is empty or whitespace-only
+/// - Exceeds 255 characters
+///
+/// # Examples
+/// ```
+/// validate_session_name("my-session")  // Ok
+/// validate_session_name("test_123")    // Ok
+/// validate_session_name("../evil")     // Err
+/// validate_session_name("")            // Err
+/// ```
+fn validate_session_name(name: &str) -> CommandResult<()> {
+    // Check for empty or whitespace-only names
+    if name.trim().is_empty() {
+        return Err("Session name cannot be empty".into());
+    }
+
+    // Check for path separators or traversal sequences
+    if name.contains('/') || name.contains('\\') {
+        return Err("Session name cannot contain path separators".into());
+    }
+
+    if name == "." || name == ".." || name.contains("..") {
+        return Err("Session name cannot contain path traversal sequences".into());
+    }
+
+    // Allowlist: only alphanumeric, hyphen, and underscore
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(
+            "Session name can only contain letters, numbers, hyphens, and underscores".into(),
+        );
+    }
+
+    // Optional: limit length to prevent filesystem issues
+    if name.len() > 255 {
+        return Err("Session name too long (max 255 characters)".into());
+    }
+
+    Ok(())
+}
+
+impl SessionState {
     /// List all active sessions
     pub fn list_sessions(&self) -> CommandResult<Vec<SessionData>> {
         let mut sessions = Vec::new();
@@ -113,6 +165,8 @@ impl SessionState {
 
     /// Get a specific session by name
     pub fn get_session(&self, name: &str) -> CommandResult<Option<SessionData>> {
+        validate_session_name(name)?;
+
         let path = self.session_path(name);
 
         if !path.exists() {
@@ -125,6 +179,8 @@ impl SessionState {
 
     /// Create a new session
     pub fn create_session(&self, data: SessionData) -> CommandResult<()> {
+        validate_session_name(&data.name)?;
+
         let session_dir = self.sessions_dir.join(&data.name);
 
         // Check if session already exists
@@ -145,6 +201,8 @@ impl SessionState {
     /// Update an existing session
     #[allow(dead_code)]
     pub fn update_session(&self, data: &SessionData) -> CommandResult<()> {
+        validate_session_name(&data.name)?;
+
         let path = self.session_path(&data.name);
 
         if !path.exists() {
@@ -158,15 +216,22 @@ impl SessionState {
     /// Update last activity timestamp for a session
     #[allow(dead_code)]
     pub fn touch_session(&self, name: &str) -> CommandResult<()> {
-        if let Some(mut data) = self.get_session(name)? {
-            data.last_activity = Utc::now();
-            self.update_session(&data)?;
-        }
+        validate_session_name(name)?;
+
+        let mut data = self
+            .get_session(name)?
+            .ok_or_else(|| format!("Session '{}' does not exist", name))?;
+
+        data.last_activity = Utc::now();
+        self.update_session(&data)?;
+
         Ok(())
     }
 
     /// Destroy (delete) a session
     pub fn destroy_session(&self, name: &str) -> CommandResult<()> {
+        validate_session_name(name)?;
+
         let session_dir = self.sessions_dir.join(name);
 
         if !session_dir.exists() {
@@ -179,6 +244,10 @@ impl SessionState {
 
     /// Check if a session exists
     pub fn session_exists(&self, name: &str) -> bool {
+        // Return false if validation fails (invalid names cannot exist)
+        if validate_session_name(name).is_err() {
+            return false;
+        }
         self.session_path(name).exists()
     }
 
@@ -204,7 +273,7 @@ mod tests {
         SessionData {
             name: name.to_string(),
             udid: udid.to_string(),
-            platform: "ios".to_string(),
+            platform: Platform::Ios,
             app: None,
             created_at: Utc::now(),
             last_activity: Utc::now(),
@@ -273,5 +342,89 @@ mod tests {
 
         let result = state.get_session("nonexistent").unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_path_traversal_prevention() {
+        let temp_dir = TempDir::new().unwrap();
+        let state = SessionState::with_dir(temp_dir.path());
+
+        let attack_names = vec![
+            "../evil",
+            "../../etc/passwd",
+            ".",
+            "..",
+            "./session",
+            "../../../root",
+            "valid/../evil",
+        ];
+
+        for name in attack_names {
+            let data = create_test_session_data(name, "udid");
+            let result = state.create_session(data);
+            assert!(result.is_err(), "Should reject: {}", name);
+        }
+    }
+
+    #[test]
+    fn test_valid_session_names() {
+        let temp_dir = TempDir::new().unwrap();
+        let state = SessionState::with_dir(temp_dir.path());
+
+        let valid_names = vec![
+            "my-session",
+            "test_123",
+            "session1",
+            "dev-ios-sim",
+            "TEST_ANDROID",
+        ];
+
+        for name in valid_names {
+            let data = create_test_session_data(name, "udid");
+            let result = state.create_session(data);
+            assert!(result.is_ok(), "Should accept: {}", name);
+        }
+    }
+
+    #[test]
+    fn test_invalid_characters() {
+        let temp_dir = TempDir::new().unwrap();
+        let state = SessionState::with_dir(temp_dir.path());
+
+        let invalid_names = vec![
+            "session with spaces",
+            "session@special",
+            "session!exclaim",
+            "session/slash",
+            "session\\backslash",
+        ];
+
+        for name in invalid_names {
+            let data = create_test_session_data(name, "udid");
+            let result = state.create_session(data);
+            assert!(result.is_err(), "Should reject: {}", name);
+        }
+    }
+
+    #[test]
+    fn test_empty_session_name() {
+        let temp_dir = TempDir::new().unwrap();
+        let state = SessionState::with_dir(temp_dir.path());
+
+        let data = create_test_session_data("", "udid");
+        assert!(state.create_session(data).is_err());
+
+        let data = create_test_session_data("   ", "udid");
+        assert!(state.create_session(data).is_err());
+    }
+
+    #[test]
+    fn test_touch_nonexistent_session_fails() {
+        let temp_dir = TempDir::new().unwrap();
+        let state = SessionState::with_dir(temp_dir.path());
+
+        let result = state.touch_session("nonexistent");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
     }
 }

@@ -87,6 +87,7 @@ impl SessionResolver {
 mod tests {
     use super::*;
     use crate::cli::session::state::SessionData;
+    use crate::types::Platform;
     use chrono::Utc;
     use tempfile::TempDir;
 
@@ -100,7 +101,7 @@ mod tests {
         SessionData {
             name: name.to_string(),
             udid: udid.to_string(),
-            platform: "ios".to_string(),
+            platform: Platform::Ios,
             app: None,
             created_at: Utc::now(),
             last_activity: Utc::now(),

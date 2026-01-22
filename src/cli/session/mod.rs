@@ -17,6 +17,7 @@ use chrono::Utc;
 use clap::{Args, Subcommand};
 
 use crate::cli::helpers::{CommandResult, OutputFormat};
+use crate::types::Platform;
 
 /// Session management arguments
 #[derive(Args, Debug)]
@@ -51,9 +52,9 @@ pub enum SessionCommands {
         #[arg(long)]
         udid: String,
 
-        /// Platform (ios or android). Auto-detected if not specified.
-        #[arg(short = 'p', long, default_value = "ios")]
-        platform: String,
+        /// Platform (ios or android). Default: ios.
+        #[arg(short = 'p', long, value_enum, default_value = "ios")]
+        platform: Platform,
     },
 
     /// Destroy an existing session
@@ -77,6 +78,25 @@ pub async fn run(args: SessionArgs, current_session: Option<&str>) -> CommandRes
     }
 }
 
+/// Generate JSON representation of a SessionData for output.
+fn session_to_json(session: &SessionData) -> serde_json::Value {
+    serde_json::json!({
+        "name": session.name,
+        "udid": session.udid,
+        "platform": session.platform.as_str(),
+        "app": session.app,
+        "created_at": session.created_at.to_rfc3339(),
+        "last_activity": session.last_activity.to_rfc3339(),
+        "last_snapshot": session.last_snapshot.as_ref().map(|snap| {
+            serde_json::json!({
+                "snapshot_id": snap.snapshot_id,
+                "timestamp": snap.timestamp.to_rfc3339(),
+                "ref_count": snap.ref_count,
+            })
+        }),
+    })
+}
+
 /// List all active sessions
 async fn list_sessions(format: OutputFormat) -> CommandResult {
     let state = SessionState::new();
@@ -84,26 +104,7 @@ async fn list_sessions(format: OutputFormat) -> CommandResult {
 
     match format {
         OutputFormat::Json => {
-            let output: Vec<_> = sessions
-                .iter()
-                .map(|s| {
-                    serde_json::json!({
-                        "name": s.name,
-                        "udid": s.udid,
-                        "platform": s.platform,
-                        "app": s.app,
-                        "created_at": s.created_at.to_rfc3339(),
-                        "last_activity": s.last_activity.to_rfc3339(),
-                        "last_snapshot": s.last_snapshot.as_ref().map(|snap| {
-                            serde_json::json!({
-                                "snapshot_id": snap.snapshot_id,
-                                "timestamp": snap.timestamp.to_rfc3339(),
-                                "ref_count": snap.ref_count,
-                            })
-                        }),
-                    })
-                })
-                .collect();
+            let output: Vec<_> = sessions.iter().map(session_to_json).collect();
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
         OutputFormat::Text => {
@@ -141,21 +142,7 @@ async fn show_session(current_session: Option<&str>, format: OutputFormat) -> Co
 
     match format {
         OutputFormat::Json => {
-            let output = serde_json::json!({
-                "name": session.name,
-                "udid": session.udid,
-                "platform": session.platform,
-                "app": session.app,
-                "created_at": session.created_at.to_rfc3339(),
-                "last_activity": session.last_activity.to_rfc3339(),
-                "last_snapshot": session.last_snapshot.as_ref().map(|snap| {
-                    serde_json::json!({
-                        "snapshot_id": snap.snapshot_id,
-                        "timestamp": snap.timestamp.to_rfc3339(),
-                        "ref_count": snap.ref_count,
-                    })
-                }),
-            });
+            let output = session_to_json(&session);
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
         OutputFormat::Text => {
@@ -178,16 +165,7 @@ async fn show_session(current_session: Option<&str>, format: OutputFormat) -> Co
 }
 
 /// Create a new session
-async fn create_session(name: String, udid: String, platform: String) -> CommandResult {
-    // Validate platform
-    if platform != "ios" && platform != "android" {
-        return Err(format!(
-            "Invalid platform '{}'. Must be 'ios' or 'android'.",
-            platform
-        )
-        .into());
-    }
-
+async fn create_session(name: String, udid: String, platform: Platform) -> CommandResult {
     let state = SessionState::new();
 
     // Check if session already exists
