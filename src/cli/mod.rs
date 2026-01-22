@@ -4,6 +4,7 @@ pub mod device;
 pub mod helpers;
 pub mod idb;
 pub mod record;
+pub mod session;
 pub mod snapshot;
 
 use clap::{Parser, Subcommand};
@@ -14,6 +15,10 @@ use clap::{Parser, Subcommand};
 #[command(version)]
 #[command(disable_help_subcommand = true)]
 pub struct Cli {
+    /// Session name (can also be set via AGENT_MOBILE_SESSION env var)
+    #[arg(long, global = true, env = "AGENT_MOBILE_SESSION")]
+    pub session: Option<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -23,6 +28,10 @@ pub enum Commands {
     // ==================== Core Commands (AI Agent 向け) ====================
     /// Tap an element by ref, text, coordinates, or key
     Tap(core::TapArgs),
+
+    /// Long press on an element by ref, text, coordinates, or position
+    #[command(name = "long-press")]
+    LongPress(core::LongPressArgs),
 
     /// Fill a text field (clear + type)
     Fill(core::FillArgs),
@@ -61,6 +70,9 @@ pub enum Commands {
 
     /// Device management (list, boot, shutdown)
     Device(device::DeviceArgs),
+
+    /// Session management (list, show, create, destroy)
+    Session(session::SessionArgs),
 
     /// IDB-compatible commands (full idb CLI compatibility)
     Idb {

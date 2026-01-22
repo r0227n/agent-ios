@@ -59,7 +59,7 @@ pub async fn run(args: TapArgs) -> CommandResult {
 }
 
 /// Resolve target to coordinates
-async fn resolve_coords(
+pub async fn resolve_coords(
     target: &Target,
     snapshot_path: Option<&PathBuf>,
     platform: Platform,
@@ -88,7 +88,7 @@ async fn resolve_coords(
 }
 
 /// Resolve special position to coordinates
-async fn resolve_position(
+pub async fn resolve_position(
     position: &str,
     platform: Platform,
     udid: Option<&str>,
@@ -103,7 +103,7 @@ async fn resolve_position(
 }
 
 /// Get screen dimensions
-async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandResult<(f64, f64)> {
+pub async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandResult<(f64, f64)> {
     match platform {
         Platform::Ios => {
             // Get screen size from snapshot's root element

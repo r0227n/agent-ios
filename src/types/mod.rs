@@ -3,6 +3,7 @@
 //! This module re-exports types from the core module for backward compatibility.
 //! New code should use `crate::core::types` directly.
 
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -23,10 +24,12 @@ pub use target::{Address, CompanionInfo, TargetDescription, TargetType};
 // ============================================================================
 
 /// Supported mobile platforms.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
+    #[value(name = "ios")]
     Ios,
+    #[value(name = "android")]
     Android,
 }
 

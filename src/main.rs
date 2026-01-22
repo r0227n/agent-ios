@@ -23,11 +23,15 @@ async fn main() {
 
 async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
+    let session = cli.session.as_deref();
 
     match cli.command {
         // ==================== Core Commands ====================
         Commands::Tap(args) => {
             cli::core::tap::run(args).await?;
+        }
+        Commands::LongPress(args) => {
+            cli::core::long_press::run(args).await?;
         }
         Commands::Fill(args) => {
             cli::core::fill::run(args).await?;
@@ -66,6 +70,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         Commands::Device(args) => {
             cli::device::run(args).await?;
+        }
+        Commands::Session(args) => {
+            cli::session::run(args, session).await?;
         }
 
         // ==================== IDB Commands ====================
