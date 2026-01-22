@@ -25,9 +25,9 @@ fn test_app_list_json() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
-    let output = run_cli_command_with_udid("app", &["list", "-o", "json"], &udid);
+    let output = run_cli_command_with_udid("app", &["list", "-f", "json"], &udid);
 
-    assert_success(&output, "app list -o json");
+    assert_success(&output, "app list -f json");
     let json = assert_valid_json(&output);
     assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
 }

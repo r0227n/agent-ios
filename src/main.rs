@@ -25,6 +25,47 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
 
     match cli.command {
+        // ==================== Core Commands ====================
+        Commands::Tap(args) => {
+            cli::core::tap::run(args).await?;
+        }
+        Commands::Fill(args) => {
+            cli::core::fill::run(args).await?;
+        }
+        Commands::Type(args) => {
+            cli::core::type_cmd::run(args).await?;
+        }
+        Commands::Swipe(args) => {
+            cli::core::swipe::run(args).await?;
+        }
+        Commands::Scroll(args) => {
+            cli::core::scroll::run(args).await?;
+        }
+        Commands::Get(args) => {
+            cli::core::get::run(args).await?;
+        }
+        Commands::Is(args) => {
+            cli::core::is_cmd::run(args).await?;
+        }
+        Commands::Wait(args) => {
+            cli::core::wait::run(args).await?;
+        }
+        Commands::Screenshot(args) => {
+            cli::core::screenshot::run(args).await?;
+        }
+        Commands::Snapshot(args) => {
+            cli::snapshot::run(args).await?;
+        }
+
+        // ==================== Existing Commands ====================
+        Commands::App(args) => {
+            cli::app::run(args).await?;
+        }
+        Commands::Device(args) => {
+            cli::device::run(args).await?;
+        }
+
+        // ==================== IDB Commands ====================
         Commands::Idb { command } => match *command {
             IdbCommands::ListTargets { only, human } => {
                 cli::idb::list_targets::run(only, human).await?;
@@ -514,18 +555,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 cli::idb::shell::run(no_prompt, udid).await?;
             }
         },
-        Commands::Hid(args) => {
-            cli::hid::run(args).await?;
-        }
-        Commands::App(args) => {
-            cli::app::run(args).await?;
-        }
-        Commands::Device(args) => {
-            cli::device::run(args).await?;
-        }
-        Commands::Snapshot(args) => {
-            cli::snapshot::run(args).await?;
-        }
     }
 
     Ok(())

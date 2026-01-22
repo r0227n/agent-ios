@@ -1,6 +1,6 @@
 //! Clipboard feature integration tests.
 //!
-//! Tests for `agent-mobile clipboard` commands.
+//! Tests for `agent-mobile device pbcopy/pbpaste` commands.
 //! Note: Clipboard is iOS-only via xcrun simctl pbcopy/pbpaste.
 //!
 //! IMPORTANT: These tests share the system clipboard and must run sequentially.
@@ -13,9 +13,9 @@ use crate::common::{assert_success, get_available_udid, get_stdout, run_cli_comm
 fn test_clipboard_copy() {
     let udid = get_available_udid();
 
-    let output = run_cli_command_with_udid("clipboard", &["copy", "TestCopyBasic"], &udid);
+    let output = run_cli_command_with_udid("device", &["pbcopy", "TestCopyBasic"], &udid);
 
-    assert_success(&output, "clipboard copy TestCopyBasic");
+    assert_success(&output, "device pbcopy TestCopyBasic");
 }
 
 /// Test clipboard paste command (includes copy for isolation).
@@ -27,13 +27,13 @@ fn test_clipboard_paste() {
     let unique_text = "PasteTest_unique_42";
 
     // Copy first to ensure clean state
-    let copy_output = run_cli_command_with_udid("clipboard", &["copy", unique_text], &udid);
-    assert_success(&copy_output, "clipboard copy (setup)");
+    let copy_output = run_cli_command_with_udid("device", &["pbcopy", unique_text], &udid);
+    assert_success(&copy_output, "device pbcopy (setup)");
 
     // Then paste immediately
-    let output = run_cli_command_with_udid("clipboard", &["paste"], &udid);
+    let output = run_cli_command_with_udid("device", &["pbpaste"], &udid);
 
-    assert_success(&output, "clipboard paste");
+    assert_success(&output, "device pbpaste");
     let stdout = get_stdout(&output);
     assert!(
         stdout.contains(unique_text),
@@ -52,12 +52,12 @@ fn test_clipboard_roundtrip() {
     let test_text = "RoundtripTest_abc_789";
 
     // Copy
-    let copy_output = run_cli_command_with_udid("clipboard", &["copy", test_text], &udid);
-    assert_success(&copy_output, "clipboard copy");
+    let copy_output = run_cli_command_with_udid("device", &["pbcopy", test_text], &udid);
+    assert_success(&copy_output, "device pbcopy");
 
     // Paste immediately
-    let paste_output = run_cli_command_with_udid("clipboard", &["paste"], &udid);
-    assert_success(&paste_output, "clipboard paste");
+    let paste_output = run_cli_command_with_udid("device", &["pbpaste"], &udid);
+    assert_success(&paste_output, "device pbpaste");
 
     let stdout = get_stdout(&paste_output);
     assert!(
@@ -77,12 +77,12 @@ fn test_clipboard_special_chars() {
     let test_text = "SpecialChars_!@#$_xyz";
 
     // Copy with special characters
-    let copy_output = run_cli_command_with_udid("clipboard", &["copy", test_text], &udid);
-    assert_success(&copy_output, "clipboard copy (special chars)");
+    let copy_output = run_cli_command_with_udid("device", &["pbcopy", test_text], &udid);
+    assert_success(&copy_output, "device pbcopy (special chars)");
 
     // Paste immediately
-    let paste_output = run_cli_command_with_udid("clipboard", &["paste"], &udid);
-    assert_success(&paste_output, "clipboard paste");
+    let paste_output = run_cli_command_with_udid("device", &["pbpaste"], &udid);
+    assert_success(&paste_output, "device pbpaste");
 
     let stdout = get_stdout(&paste_output);
     assert!(

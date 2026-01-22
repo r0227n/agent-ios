@@ -1,10 +1,10 @@
 //! Data types for UI snapshot representation.
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Complete UI snapshot with metadata and elements.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     /// Unique snapshot identifier (e.g., "snap_abc12def")
     pub snapshot_id: String,
@@ -17,7 +17,7 @@ pub struct Snapshot {
 }
 
 /// Single UI element with reference ID for AI agent interaction.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotElement {
     /// Reference ID for quick interaction (e.g., "@e1", "@e2")
     #[serde(rename = "ref")]
@@ -50,24 +50,24 @@ pub struct SnapshotElement {
     pub value: Option<String>,
 
     /// Child element indices (for tree structure)
-    #[serde(skip)]
+    #[serde(skip, default)]
     pub children_indices: Vec<usize>,
 
     /// Depth in the tree (0 = root)
-    #[serde(skip)]
+    #[serde(skip, default)]
     pub depth: u32,
 
     /// Whether the element is interactive/tappable
-    #[serde(skip)]
+    #[serde(skip, default)]
     pub is_interactive: bool,
 
     /// Parent element index (None for root)
-    #[serde(skip)]
+    #[serde(skip, default)]
     pub parent_index: Option<usize>,
 }
 
 /// Element frame coordinates.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Frame {
     pub x: f64,
     pub y: f64,
