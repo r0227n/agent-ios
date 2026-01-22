@@ -60,6 +60,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Snapshot(args) => {
             cli::snapshot::run(args).await?;
         }
+        Commands::Console(args) => {
+            cli::console::run(args).await?;
+        }
 
         // ==================== Existing Commands ====================
         Commands::App(args) => {
