@@ -46,6 +46,7 @@ fn convert_element(element: &AccessibilityElement) -> RawElement {
     if element.clickable
         && !all_traits.contains(&"button".to_string())
         && !all_traits.contains(&"text_input".to_string())
+        && !all_traits.contains(&"clickable".to_string())
     {
         all_traits.push("clickable".to_string());
     }

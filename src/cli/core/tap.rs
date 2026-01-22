@@ -106,24 +106,13 @@ async fn resolve_position(
 async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandResult<(f64, f64)> {
     match platform {
         Platform::Ios => {
-            // Try to get screen size from snapshot's root element
-            match get_ios_screen_size_from_snapshot(udid).await {
-                Ok(size) => Ok(size),
-                Err(_) => {
-                    // Default iPhone screen size in points (iPhone 13/14/15)
-                    Ok((390.0, 844.0))
-                }
-            }
+            // Get screen size from snapshot's root element
+            get_ios_screen_size_from_snapshot(udid).await
         }
         Platform::Android => {
             // Use adb to get actual screen size
-            match crate::platform::android::adb::input::get_screen_size(udid).await {
-                Ok((w, h)) => Ok((w as f64, h as f64)),
-                Err(_) => {
-                    // Default Android screen size in pixels
-                    Ok((1080.0, 2340.0))
-                }
-            }
+            let (w, h) = crate::platform::android::adb::input::get_screen_size(udid).await?;
+            Ok((w as f64, h as f64))
         }
     }
 }

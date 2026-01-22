@@ -276,10 +276,11 @@ pub fn io_screenshot_bytes(udid: &str, format: ImageFormat) -> Result<Vec<u8>> {
 
     io_screenshot(udid, &temp_path, format)?;
 
-    let data = std::fs::read(&temp_path)
-        .map_err(|e| SimctlError::InvalidOutput(format!("Failed to read screenshot: {}", e)))?;
+    let data = std::fs::read(&temp_path);
+    let _ = std::fs::remove_file(&temp_path); // Cleanup regardless of read success
 
-    let _ = std::fs::remove_file(&temp_path);
+    let data =
+        data.map_err(|e| SimctlError::InvalidOutput(format!("Failed to read screenshot: {}", e)))?;
 
     Ok(data)
 }

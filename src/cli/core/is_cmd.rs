@@ -22,7 +22,7 @@ use super::tap::{resolve_platform, take_snapshot};
 /// is コマンド引数
 #[derive(Args, Debug)]
 pub struct IsArgs {
-    /// State to check: visible, enabled, focused, exists
+    /// State to check: visible, exists, enabled, disabled, interactive
     pub state: String,
 
     /// Element ref (@eN) or "text"

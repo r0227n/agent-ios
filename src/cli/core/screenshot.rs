@@ -2,7 +2,7 @@
 //!
 //! ```bash
 //! agent-mobile screenshot --output output.png
-//! agent-mobile screenshot --output /tmp/ --type jpeg
+//! agent-mobile screenshot --output /tmp/ --format jpeg
 //! ```
 
 use clap::Args;
@@ -223,6 +223,11 @@ async fn get_booted_simulator_udid() -> Result<String, Box<dyn std::error::Error
         .args(["simctl", "list", "devices", "booted", "-j"])
         .output()
         .await?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("xcrun simctl list devices booted failed: {}", stderr).into());
+    }
 
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
     json["devices"]
