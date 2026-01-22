@@ -93,9 +93,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Kill => {
                 cli::idb::kill::run().await?;
             }
-            IdbCommands::Screenshot { dest_path, udid } => {
-                cli::idb::screenshot::run(dest_path, udid).await?;
-            }
             IdbCommands::Focus { udid } => {
                 cli::idb::focus::run(udid).await?;
             }

@@ -7,22 +7,15 @@
 //! ```
 
 use std::io::Write;
-use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use clap::Args;
-use tokio::time::sleep;
 
-use crate::cli::helpers::{with_client, CommandResult, DeviceArgs, OutputWriter};
+use crate::cli::helpers::{CommandResult, DeviceArgs};
+use crate::platform::ios::simctl::management as simctl;
 
 use super::tap::resolve_platform;
 use crate::types::Platform;
-
-/// Maximum retry attempts
-const MAX_RETRIES: u32 = 5;
-
-/// Initial retry delay
-const INITIAL_RETRY_DELAY_MS: u64 = 1000;
 
 /// screenshot コマンド引数
 #[derive(Args, Debug)]
@@ -48,65 +41,59 @@ pub async fn run(args: ScreenshotArgs) -> CommandResult {
     }
 }
 
-/// Execute screenshot on iOS with retry logic and simctl fallback
+/// Execute screenshot on iOS using xcrun simctl
 async fn execute_screenshot_ios(udid: Option<&str>, path: Option<&str>) -> CommandResult {
-    let mut attempt = 0;
+    // Determine UDID
+    let udid = match udid {
+        Some(u) => u.to_string(),
+        None => get_booted_simulator_udid().await?,
+    };
 
-    loop {
-        attempt += 1;
-
-        match try_screenshot_ios(udid, path).await {
-            Ok(()) => return Ok(()),
-            Err(e) if should_retry(e.as_ref(), attempt) => {
-                let delay_ms = INITIAL_RETRY_DELAY_MS * (1 << (attempt - 1));
-                eprintln!(
-                    "Screenshot attempt {} failed (framebuffer not ready), retrying in {}ms...",
-                    attempt, delay_ms
-                );
-                sleep(Duration::from_millis(delay_ms)).await;
-            }
-            Err(e) => {
-                if is_framebuffer_error(e.as_ref()) && attempt >= MAX_RETRIES {
-                    // Fallback to xcrun simctl for simulators
-                    eprintln!("Falling back to xcrun simctl...");
-                    return try_screenshot_simctl(udid, path).await;
-                }
-                return Err(e);
-            }
+    // Handle output based on path
+    match path {
+        Some("-") => {
+            // Output raw binary to stdout
+            let image_data = simctl::io_screenshot_bytes(&udid)?;
+            let mut stdout = std::io::stdout();
+            stdout.write_all(&image_data)?;
+            stdout.flush()?;
+        }
+        Some(p) => {
+            // Write to file
+            simctl::io_screenshot(&udid, p)?;
+        }
+        None => {
+            // Output base64
+            let image_data = simctl::io_screenshot_bytes(&udid)?;
+            let base64 = BASE64.encode(&image_data);
+            println!("{}", base64);
         }
     }
+
+    Ok(())
 }
 
-/// Try to take screenshot on iOS
-async fn try_screenshot_ios(udid: Option<&str>, path: Option<&str>) -> CommandResult {
-    let path = path.map(|s| s.to_string());
+/// Get the UDID of a booted simulator
+async fn get_booted_simulator_udid() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    use tokio::process::Command;
 
-    with_client(udid, |mut client| async move {
-        let image_data = client.screenshot().await?;
+    let output = Command::new("xcrun")
+        .args(["simctl", "list", "devices", "booted", "-j"])
+        .output()
+        .await?;
 
-        match path.as_deref() {
-            Some("-") => {
-                // Output raw binary to stdout
-                let mut stdout = std::io::stdout();
-                stdout.write_all(&image_data)?;
-                stdout.flush()?;
-            }
-            Some(p) => {
-                // Write to file
-                let mut writer = OutputWriter::from_path(p)?;
-                writer.write_all(&image_data)?;
-                writer.flush()?;
-            }
-            None => {
-                // Output base64
-                let base64 = BASE64.encode(&image_data);
-                println!("{}", base64);
-            }
-        }
-
-        Ok(())
-    })
-    .await
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    json["devices"]
+        .as_object()
+        .and_then(|devices| {
+            devices.values().find_map(|sims| {
+                sims.as_array()
+                    .and_then(|arr| arr.first())
+                    .and_then(|sim| sim["udid"].as_str())
+                    .map(|s| s.to_string())
+            })
+        })
+        .ok_or_else(|| "No booted simulator found".into())
 }
 
 /// Execute screenshot on Android
@@ -146,89 +133,6 @@ async fn execute_screenshot_android(udid: Option<&str>, path: Option<&str>) -> C
             // Output base64
             let base64 = BASE64.encode(&image_data);
             println!("{}", base64);
-        }
-    }
-
-    Ok(())
-}
-
-/// Check if error is retryable
-fn should_retry(error: &dyn std::error::Error, attempt: u32) -> bool {
-    if attempt >= MAX_RETRIES {
-        return false;
-    }
-    is_framebuffer_error(error)
-}
-
-/// Check if error is framebuffer related
-fn is_framebuffer_error(error: &dyn std::error::Error) -> bool {
-    error.to_string().contains("No Image available to encode")
-}
-
-/// Fallback screenshot using xcrun simctl (for iOS Simulators)
-async fn try_screenshot_simctl(udid: Option<&str>, path: Option<&str>) -> CommandResult {
-    use tokio::process::Command;
-
-    // Determine UDID
-    let udid = match udid {
-        Some(u) => u.to_string(),
-        None => {
-            // Get booted simulator UDID
-            let output = Command::new("xcrun")
-                .args(["simctl", "list", "devices", "booted", "-j"])
-                .output()
-                .await?;
-            let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-            json["devices"]
-                .as_object()
-                .and_then(|devices| {
-                    devices.values().find_map(|sims| {
-                        sims.as_array()
-                            .and_then(|arr| arr.first())
-                            .and_then(|sim| sim["udid"].as_str())
-                            .map(|s| s.to_string())
-                    })
-                })
-                .ok_or_else(|| "No booted simulator found")?
-        }
-    };
-
-    // For base64 or stdout output, use a temp file
-    let (temp_path, is_temp) = match path {
-        Some("-") | None => {
-            let temp = format!("/tmp/agent_mobile_screenshot_{}.png", std::process::id());
-            (temp, true)
-        }
-        Some(p) => (p.to_string(), false),
-    };
-
-    // Execute xcrun simctl io screenshot
-    let output = Command::new("xcrun")
-        .args(["simctl", "io", &udid, "screenshot", &temp_path])
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("xcrun simctl screenshot failed: {}", stderr).into());
-    }
-
-    // Handle output based on original request
-    if is_temp {
-        let image_data = std::fs::read(&temp_path)?;
-        std::fs::remove_file(&temp_path).ok(); // Clean up temp file
-
-        match path {
-            Some("-") => {
-                let mut stdout = std::io::stdout();
-                stdout.write_all(&image_data)?;
-                stdout.flush()?;
-            }
-            None => {
-                let base64 = BASE64.encode(&image_data);
-                println!("{}", base64);
-            }
-            _ => unreachable!(),
         }
     }
 
