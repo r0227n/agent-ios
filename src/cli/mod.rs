@@ -3,6 +3,7 @@ pub mod core;
 pub mod device;
 pub mod helpers;
 pub mod idb;
+pub mod record;
 pub mod snapshot;
 
 use clap::{Parser, Subcommand};
@@ -50,6 +51,9 @@ pub enum Commands {
 
     /// Capture UI snapshot with element references for AI agents
     Snapshot(snapshot::SnapshotArgs),
+
+    /// Record screen to MP4 video file
+    Record(record::RecordArgs),
 
     // ==================== Existing Commands ====================
     /// Application management (launch, terminate, install, list)
