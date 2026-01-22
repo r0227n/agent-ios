@@ -42,6 +42,10 @@ pub struct LongPressArgs {
 
 /// Execute the long-press command
 pub async fn run(args: LongPressArgs) -> CommandResult {
+    if args.duration <= 0.0 {
+        return Err("duration must be greater than 0 seconds".into());
+    }
+
     let platform = resolve_platform(args.device.platform.as_deref()).await?;
     let target = Target::parse(&args.target);
 
@@ -71,7 +75,8 @@ async fn execute_long_press(
             use crate::cli::idb::hid::events;
 
             with_client(udid, |mut client| async move {
-                // tap_to_events with duration creates a long press (DOWN + DELAY + UP)
+                // Passing Some(duration) to tap_to_events inserts a delay between DOWN and UP,
+                // turning a regular tap (immediate DOWN+UP) into a long press (DOWN + DELAY + UP).
                 let events = events::tap_to_events(x, y, Some(duration));
                 client.hid(events).await?;
                 Ok(())
