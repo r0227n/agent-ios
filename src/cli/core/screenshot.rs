@@ -1,14 +1,10 @@
 //! screenshot コマンド - スクリーンショット
 //!
 //! ```bash
-//! agent-mobile screenshot output.png
-//! agent-mobile screenshot              # base64 出力
-//! agent-mobile screenshot -            # stdout に PNG バイナリ
+//! agent-mobile screenshot --output output.png
+//! agent-mobile screenshot --output /tmp/ --type jpeg
 //! ```
 
-use std::io::Write;
-
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use clap::Args;
 
 use crate::cli::helpers::{CommandResult, DeviceArgs};
@@ -17,58 +13,203 @@ use crate::platform::ios::simctl::management as simctl;
 use super::tap::resolve_platform;
 use crate::types::Platform;
 
+/// Supported image formats for screenshots
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageFormat {
+    Png,
+    Jpeg,
+}
+
+impl ImageFormat {
+    /// Get file extension for this format
+    pub fn extension(&self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Jpeg => "jpeg",
+        }
+    }
+
+    /// Get simctl --type parameter value (iOS)
+    pub fn simctl_type(&self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Jpeg => "jpeg",
+        }
+    }
+
+    /// Check if format is supported on Android
+    pub fn is_android_supported(&self) -> bool {
+        matches!(self, Self::Png)
+    }
+}
+
+impl std::str::FromStr for ImageFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "png" => Ok(Self::Png),
+            "jpg" | "jpeg" => Ok(Self::Jpeg),
+            _ => Err(format!(
+                "Unsupported image format: {}. Use 'png' or 'jpeg'.",
+                s
+            )),
+        }
+    }
+}
+
+impl Default for ImageFormat {
+    fn default() -> Self {
+        Self::Png
+    }
+}
+
 /// screenshot コマンド引数
 #[derive(Args, Debug)]
 pub struct ScreenshotArgs {
-    /// Output path (omit for base64, "-" for stdout binary)
-    pub path: Option<String>,
+    /// Output file or directory path
+    #[arg(
+        short = 'o',
+        long,
+        long_help = "Output file or directory path\n\
+                     \n\
+                     Modes:\n  \
+                     • If path ends with '/': treat as directory and auto-generate filename\n  \
+                     • Otherwise: treat as full file path\n  \
+                     • If omitted: current directory with timestamp filename"
+    )]
+    pub output: Option<String>,
+
+    /// Image format (png or jpeg)
+    #[arg(short = 't', long, default_value = "png")]
+    pub format: ImageFormat,
 
     #[command(flatten)]
     pub device: DeviceArgs,
 }
 
+/// Generate timestamp-based filename
+fn generate_filename(format: ImageFormat) -> String {
+    let now = chrono::Local::now();
+    format!(
+        "screenshot_{}.{}",
+        now.format("%Y%m%d_%H%M%S"),
+        format.extension()
+    )
+}
+
+/// Validate output path
+///
+/// Returns Ok(()) if valid, Err with error message if invalid.
+///
+/// Valid paths:
+/// - Paths containing '/', '\', or '.' (file or directory paths)
+///
+/// Invalid paths:
+/// - Empty strings
+/// - Format-like strings (e.g., "json", "base64") without path separators
+/// - Paths with invalid characters (<, >, |, \0, \n, \r)
+fn validate_output_path(output: &str) -> Result<(), String> {
+    // Empty string
+    if output.trim().is_empty() {
+        return Err("Output path cannot be empty".to_string());
+    }
+
+    // Check for format-like strings (no path separators and no file extension)
+    if !output.contains('/') && !output.contains('\\') && !output.contains('.') {
+        // Might be a format name like "json", "base64", etc.
+        return Err(format!(
+            "Invalid output path: '{}'. Did you mean to use a file path?\n\
+            Use '--output /path/to/file.png' for file output.",
+            output
+        ));
+    }
+
+    // Check for invalid path characters
+    let invalid_chars = ['<', '>', '|', '\0', '\n', '\r'];
+    for ch in invalid_chars {
+        if output.contains(ch) {
+            return Err(format!(
+                "Invalid character '{}' in output path",
+                ch.escape_default()
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Resolve output path based on user input
+///
+/// Logic:
+/// 1. If `output` is None: current directory + timestamp filename
+/// 2. If `output` ends with '/': directory + timestamp filename
+/// 3. Otherwise: treat as full file path
+fn resolve_output_path(
+    output: Option<&str>,
+    format: ImageFormat,
+) -> Result<String, std::io::Error> {
+    match output {
+        None => {
+            // Default: current directory + timestamp filename
+            Ok(generate_filename(format))
+        }
+        Some(out) => {
+            // Validate input first
+            validate_output_path(out)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+
+            // Check if it's a directory path
+            if out.ends_with('/') || out.ends_with(std::path::MAIN_SEPARATOR) {
+                // Directory specified, generate filename
+                let filename = generate_filename(format);
+                return Ok(format!("{}{}", out, filename));
+            }
+
+            // Check if path exists and is a directory
+            let path_obj = std::path::Path::new(out);
+            if path_obj.exists() && path_obj.is_dir() {
+                let filename = generate_filename(format);
+                return Ok(path_obj.join(filename).to_string_lossy().to_string());
+            }
+
+            // Treat as full file path
+            Ok(out.to_string())
+        }
+    }
+}
+
 /// Execute the screenshot command
 pub async fn run(args: ScreenshotArgs) -> CommandResult {
     let platform = resolve_platform(args.device.platform.as_deref()).await?;
+    let resolved_path = resolve_output_path(args.output.as_deref(), args.format)?;
 
     match platform {
         Platform::Ios => {
-            execute_screenshot_ios(args.device.udid.as_deref(), args.path.as_deref()).await
+            execute_screenshot_ios(args.device.udid.as_deref(), &resolved_path, args.format).await
         }
         Platform::Android => {
-            execute_screenshot_android(args.device.udid.as_deref(), args.path.as_deref()).await
+            execute_screenshot_android(args.device.udid.as_deref(), &resolved_path, args.format)
+                .await
         }
     }
 }
 
 /// Execute screenshot on iOS using xcrun simctl
-async fn execute_screenshot_ios(udid: Option<&str>, path: Option<&str>) -> CommandResult {
+async fn execute_screenshot_ios(
+    udid: Option<&str>,
+    path: &str,
+    format: ImageFormat,
+) -> CommandResult {
     // Determine UDID
     let udid = match udid {
         Some(u) => u.to_string(),
         None => get_booted_simulator_udid().await?,
     };
 
-    // Handle output based on path
-    match path {
-        Some("-") => {
-            // Output raw binary to stdout
-            let image_data = simctl::io_screenshot_bytes(&udid)?;
-            let mut stdout = std::io::stdout();
-            stdout.write_all(&image_data)?;
-            stdout.flush()?;
-        }
-        Some(p) => {
-            // Write to file
-            simctl::io_screenshot(&udid, p)?;
-        }
-        None => {
-            // Output base64
-            let image_data = simctl::io_screenshot_bytes(&udid)?;
-            let base64 = BASE64.encode(&image_data);
-            println!("{}", base64);
-        }
-    }
+    // File mode
+    simctl::io_screenshot(&udid, path, format)?;
+    println!("Screenshot saved to: {}", path);
 
     Ok(())
 }
@@ -97,8 +238,21 @@ async fn get_booted_simulator_udid() -> Result<String, Box<dyn std::error::Error
 }
 
 /// Execute screenshot on Android
-async fn execute_screenshot_android(udid: Option<&str>, path: Option<&str>) -> CommandResult {
+async fn execute_screenshot_android(
+    udid: Option<&str>,
+    path: &str,
+    format: ImageFormat,
+) -> CommandResult {
     use tokio::process::Command;
+
+    // Validate format support on Android
+    if !format.is_android_supported() {
+        eprintln!(
+            "Warning: {} format may not be supported on all Android devices. \
+            PNG is recommended for maximum compatibility.",
+            format.extension()
+        );
+    }
 
     // Use adb to capture screenshot
     let serial_arg = udid
@@ -116,25 +270,142 @@ async fn execute_screenshot_android(udid: Option<&str>, path: Option<&str>) -> C
         return Err(format!("adb screencap failed: {}", stderr).into());
     }
 
-    let image_data = output.stdout;
+    let bytes = output.stdout;
 
-    match path {
-        Some("-") => {
-            // Output raw binary to stdout
-            let mut stdout = std::io::stdout();
-            stdout.write_all(&image_data)?;
-            stdout.flush()?;
-        }
-        Some(p) => {
-            // Write to file
-            std::fs::write(p, &image_data)?;
-        }
-        None => {
-            // Output base64
-            let base64 = BASE64.encode(&image_data);
-            println!("{}", base64);
-        }
+    // PNG is always returned by adb screencap -p
+    // If JPEG is requested, we'd need conversion (not implemented)
+    if format != ImageFormat::Png {
+        eprintln!(
+            "Note: Android always captures in PNG format. \
+            Conversion to {} is not implemented.",
+            format.extension()
+        );
     }
 
+    // File mode
+    std::fs::write(path, &bytes)?;
+    println!("Screenshot saved to: {}", path);
+
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    // validate_output_path() のテスト
+
+    #[test]
+    fn test_validate_output_path_valid_file() {
+        assert!(validate_output_path("/tmp/test.png").is_ok());
+        assert!(validate_output_path("./output.png").is_ok());
+        assert!(validate_output_path("test.png").is_ok());
+    }
+
+    #[test]
+    fn test_validate_output_path_valid_directory() {
+        assert!(validate_output_path("/tmp/").is_ok());
+        assert!(validate_output_path("./dir/").is_ok());
+    }
+
+    #[test]
+    fn test_validate_output_path_empty() {
+        assert!(validate_output_path("").is_err());
+        assert!(validate_output_path("  ").is_err());
+    }
+
+    #[test]
+    fn test_validate_output_path_format_like() {
+        // フォーマット名のような文字列はエラー
+        assert!(validate_output_path("json").is_err());
+        assert!(validate_output_path("base64").is_err());
+        assert!(validate_output_path("yaml").is_err());
+    }
+
+    #[test]
+    fn test_validate_output_path_invalid_chars() {
+        assert!(validate_output_path("test|file.png").is_err());
+        assert!(validate_output_path("test<file.png").is_err());
+        assert!(validate_output_path("test>file.png").is_err());
+    }
+
+    // ImageFormat のテスト
+
+    #[test]
+    fn test_image_format_from_str() {
+        assert_eq!(ImageFormat::from_str("png").unwrap(), ImageFormat::Png);
+        assert_eq!(ImageFormat::from_str("PNG").unwrap(), ImageFormat::Png);
+        assert_eq!(ImageFormat::from_str("jpeg").unwrap(), ImageFormat::Jpeg);
+        assert_eq!(ImageFormat::from_str("jpg").unwrap(), ImageFormat::Jpeg);
+        assert!(ImageFormat::from_str("gif").is_err());
+    }
+
+    #[test]
+    fn test_image_format_extension() {
+        assert_eq!(ImageFormat::Png.extension(), "png");
+        assert_eq!(ImageFormat::Jpeg.extension(), "jpeg");
+    }
+
+    #[test]
+    fn test_image_format_android_support() {
+        assert!(ImageFormat::Png.is_android_supported());
+        assert!(!ImageFormat::Jpeg.is_android_supported());
+    }
+
+    // resolve_output_path() のテスト
+
+    #[test]
+    fn test_resolve_output_path_none() {
+        let result = resolve_output_path(None, ImageFormat::Png);
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with("screenshot_"));
+        assert!(path.ends_with(".png"));
+    }
+
+    #[test]
+    fn test_resolve_output_path_directory_with_slash() {
+        let result = resolve_output_path(Some("/tmp/"), ImageFormat::Png);
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with("/tmp/screenshot_"));
+        assert!(path.ends_with(".png"));
+    }
+
+    #[test]
+    fn test_resolve_output_path_full_path() {
+        let result = resolve_output_path(Some("/tmp/test.png"), ImageFormat::Png);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "/tmp/test.png");
+    }
+
+    #[test]
+    fn test_resolve_output_path_invalid_format_like() {
+        let result = resolve_output_path(Some("json"), ImageFormat::Png);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_output_path_invalid_chars() {
+        let result = resolve_output_path(Some("test|file.png"), ImageFormat::Png);
+        assert!(result.is_err());
+    }
+
+    // generate_filename() のテスト
+
+    #[test]
+    fn test_generate_filename_format() {
+        let filename = generate_filename(ImageFormat::Png);
+        assert!(filename.starts_with("screenshot_"));
+        assert!(filename.ends_with(".png"));
+        assert!(filename.contains("_")); // timestamp separator
+    }
+
+    #[test]
+    fn test_generate_filename_jpeg() {
+        let filename = generate_filename(ImageFormat::Jpeg);
+        assert!(filename.starts_with("screenshot_"));
+        assert!(filename.ends_with(".jpeg"));
+    }
 }

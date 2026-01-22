@@ -2,6 +2,7 @@
 //!
 //! This module provides a simple, high-level API for controlling iOS devices.
 
+use crate::cli::core::screenshot::ImageFormat;
 use crate::cli::idb::hid::events::{swipe_to_events, tap_to_events, text_to_events};
 use crate::companion::CompanionResolver;
 use crate::grpc::{IdbClient, LaunchConfig};
@@ -55,7 +56,7 @@ impl IosDevice {
     ///
     /// PNG image data as bytes.
     pub async fn screenshot(&self) -> Result<Vec<u8>> {
-        Ok(simctl::io_screenshot_bytes(&self.udid)?)
+        Ok(simctl::io_screenshot_bytes(&self.udid, ImageFormat::Png)?)
     }
 
     /// Tap at screen coordinates.

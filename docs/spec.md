@@ -257,9 +257,9 @@ agent-mobile wait idle              # アニメーション完了待ち
 ### screenshot - スクリーンショット
 
 ```bash
-agent-mobile screenshot [path]
-agent-mobile screenshot                    # stdout にbase64出力
-agent-mobile screenshot ./screen.png
+agent-mobile screenshot                    # カレントディレクトリにタイムスタンプ付きファイル
+agent-mobile screenshot ./screen.png       # 指定パスに保存
+agent-mobile screenshot /tmp/              # ディレクトリ指定（自動ファイル名生成）
 ```
 
 ---

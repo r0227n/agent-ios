@@ -12,7 +12,7 @@ fn test_screenshot_to_file() {
     let temp_path = temp_file.path().to_str().unwrap();
 
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "screenshot", "--udid", &udid, temp_path])
+        .args(["screenshot", "--udid", &udid, "--output", temp_path])
         .output()
         .expect("Failed to run screenshot command");
 
@@ -40,43 +40,16 @@ fn test_screenshot_to_file() {
 }
 
 #[test]
-fn test_screenshot_to_stdout() {
-    let udid = get_available_udid();
-    ensure_framebuffer_ready(&udid);
-
-    let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "screenshot", "--udid", &udid, "-"])
-        .output()
-        .expect("Failed to run screenshot command");
-
-    // フレームバッファが初期化されていない場合はテストをスキップ
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("No Image available to encode")
-            || stderr.contains("framebuffer not ready")
-        {
-            eprintln!("Skipping test: framebuffer not ready");
-            return;
-        }
-        panic!("Screenshot command failed: {}", stderr);
-    }
-
-    assert!(!output.stdout.is_empty(), "No data written to stdout");
-    assert_eq!(
-        &output.stdout[0..4],
-        &[0x89, 0x50, 0x4E, 0x47],
-        "Stdout is not a valid PNG"
-    );
-}
-
-#[test]
 fn test_screenshot_without_udid() {
     // Warm up the default simulator's framebuffer
     let udid = get_available_udid();
     ensure_framebuffer_ready(&udid);
 
+    let temp_file = NamedTempFile::new().unwrap();
+    let temp_path = temp_file.path().to_str().unwrap();
+
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "screenshot", "-"])
+        .args(["screenshot", "--output", temp_path])
         .output()
         .expect("Failed to run screenshot command");
 
@@ -93,15 +66,25 @@ fn test_screenshot_without_udid() {
             stderr
         );
     } else {
-        // If succeeded, verify PNG output
-        assert_eq!(&output.stdout[0..4], &[0x89, 0x50, 0x4E, 0x47]);
+        // If succeeded, verify PNG file was created
+        let file_content = fs::read(temp_path).expect("Failed to read screenshot file");
+        assert_eq!(&file_content[0..4], &[0x89, 0x50, 0x4E, 0x47]);
     }
 }
 
 #[test]
 fn test_screenshot_invalid_udid() {
+    let temp_file = NamedTempFile::new().unwrap();
+    let temp_path = temp_file.path().to_str().unwrap();
+
     let output = Command::new("./target/debug/agent-mobile")
-        .args(["idb", "screenshot", "--udid", "INVALID_UDID_12345", "-"])
+        .args([
+            "screenshot",
+            "--udid",
+            "INVALID_UDID_12345",
+            "--output",
+            temp_path,
+        ])
         .output()
         .expect("Failed to run screenshot command");
 
@@ -109,7 +92,7 @@ fn test_screenshot_invalid_udid() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("No companion found for UDID"),
+        stderr.contains("Invalid device") || stderr.contains("No companion found for UDID"),
         "Expected UDID error, got: {}",
         stderr
     );
