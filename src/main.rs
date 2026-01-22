@@ -29,6 +29,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Tap(args) => {
             cli::core::tap::run(args).await?;
         }
+        Commands::LongPress(args) => {
+            cli::core::long_press::run(args).await?;
+        }
         Commands::Fill(args) => {
             cli::core::fill::run(args).await?;
         }

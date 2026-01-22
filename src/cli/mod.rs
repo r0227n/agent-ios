@@ -23,6 +23,10 @@ pub enum Commands {
     /// Tap an element by ref, text, coordinates, or key
     Tap(core::TapArgs),
 
+    /// Long press on an element by ref, text, coordinates, or position
+    #[command(name = "long-press")]
+    LongPress(core::LongPressArgs),
+
     /// Fill a text field (clear + type)
     Fill(core::FillArgs),
 
