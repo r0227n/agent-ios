@@ -23,6 +23,7 @@ async fn main() {
 
 async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
+    let session = cli.session.as_deref();
 
     match cli.command {
         // ==================== Core Commands ====================
@@ -66,6 +67,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         Commands::Device(args) => {
             cli::device::run(args).await?;
+        }
+        Commands::Session(args) => {
+            cli::session::run(args, session).await?;
         }
 
         // ==================== IDB Commands ====================
