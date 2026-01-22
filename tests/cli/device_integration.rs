@@ -22,9 +22,9 @@ fn test_device_list() {
 /// Test device list with JSON output.
 #[test]
 fn test_device_list_json() {
-    let output = run_cli_command("device", &["list", "-o", "json"]);
+    let output = run_cli_command("device", &["list", "-f", "json"]);
 
-    assert_success(&output, "device list -o json");
+    assert_success(&output, "device list -f json");
     let json = assert_valid_json(&output);
     assert!(json.is_array(), "Expected JSON array, got: {:?}", json);
 }

@@ -102,11 +102,7 @@ fn extract_element(node: &serde_json::Value) -> Option<RawElement> {
 
 /// Normalize iOS element type by removing "AX" prefix.
 fn normalize_ios_element_type(raw_type: &str) -> String {
-    if raw_type.starts_with("AX") {
-        raw_type[2..].to_string()
-    } else {
-        raw_type.to_string()
-    }
+    raw_type.strip_prefix("AX").unwrap_or(raw_type).to_string()
 }
 
 #[cfg(test)]

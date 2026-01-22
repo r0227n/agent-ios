@@ -10,7 +10,7 @@ use crate::cli::snapshot::types::{Frame, RawElement};
 /// Converts UIAutomator's AccessibilityElement structure into the common
 /// RawElement format used for snapshot display.
 pub fn extract_android_elements(elements: &[AccessibilityElement]) -> Vec<RawElement> {
-    elements.iter().map(|e| convert_element(e)).collect()
+    elements.iter().map(convert_element).collect()
 }
 
 /// Convert a single AccessibilityElement to RawElement.
@@ -40,25 +40,19 @@ fn convert_element(element: &AccessibilityElement) -> RawElement {
 
     // Add additional traits based on Android-specific attributes
     let mut all_traits = traits;
-    if element.scrollable {
-        if !all_traits.contains(&"scrollable".to_string()) {
-            all_traits.push("scrollable".to_string());
-        }
+    if element.scrollable && !all_traits.contains(&"scrollable".to_string()) {
+        all_traits.push("scrollable".to_string());
     }
-    if element.clickable {
-        if !all_traits.contains(&"button".to_string())
-            && !all_traits.contains(&"text_input".to_string())
-        {
-            all_traits.push("clickable".to_string());
-        }
+    if element.clickable
+        && !all_traits.contains(&"button".to_string())
+        && !all_traits.contains(&"text_input".to_string())
+        && !all_traits.contains(&"clickable".to_string())
+    {
+        all_traits.push("clickable".to_string());
     }
 
     // Convert children recursively
-    let children = element
-        .children
-        .iter()
-        .map(|c| convert_element(c))
-        .collect();
+    let children = element.children.iter().map(convert_element).collect();
 
     RawElement {
         element_type,

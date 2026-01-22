@@ -59,7 +59,7 @@ pub fn assert_failure(output: &Output, context: &str) {
 /// Assert that the output is valid JSON and return parsed value.
 pub fn assert_valid_json(output: &Output) -> serde_json::Value {
     let stdout = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(&stdout).expect(&format!("Failed to parse JSON: {}", stdout))
+    serde_json::from_str(&stdout).unwrap_or_else(|_| panic!("Failed to parse JSON: {}", stdout))
 }
 
 /// Assert that the output contains expected text.

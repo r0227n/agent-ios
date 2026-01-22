@@ -161,7 +161,6 @@ No Image available to encode
 ### Affected Commands
 
 - `idb screenshot <dest_path> --udid <udid>`
-- `idb screenshot -` (stdout output)
 
 ### Root Cause
 

@@ -3,6 +3,8 @@
 //! This module provides functions to execute ADB commands and parse their output
 //! for Android device/emulator management.
 
+#![allow(dead_code)]
+
 use std::process::Command;
 use thiserror::Error;
 

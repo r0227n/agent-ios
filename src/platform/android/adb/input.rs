@@ -3,6 +3,8 @@
 //! This module provides functions to execute ADB input commands for
 //! touch/gesture interactions with Android devices.
 
+#![allow(dead_code)]
+
 use super::{AdbError, Result};
 use tokio::process::Command;
 

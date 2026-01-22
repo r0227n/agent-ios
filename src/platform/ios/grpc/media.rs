@@ -4,21 +4,11 @@ use std::io::Write;
 use tokio::sync::watch;
 
 use crate::platform::ios::proto::idb::payload::Source as PayloadSource;
-use crate::platform::ios::proto::idb::{AddMediaRequest, Payload, ScreenshotRequest};
+use crate::platform::ios::proto::idb::{AddMediaRequest, Payload};
 
 use super::client::IdbClient;
 
 impl IdbClient {
-    /// Take a screenshot and return the image data as PNG bytes
-    pub async fn screenshot(
-        &mut self,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        let request = tonic::Request::new(ScreenshotRequest {});
-        let response = self.client.screenshot(request).await?;
-        let inner = response.into_inner();
-        Ok(inner.image_data)
-    }
-
     /// Add media files (photos/videos) to the device
     pub async fn add_media(
         &mut self,

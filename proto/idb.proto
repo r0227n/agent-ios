@@ -50,7 +50,6 @@ service CompanionService {
   // Video/Audio
   rpc add_media(stream AddMediaRequest) returns (AddMediaResponse) {}
   rpc record(stream RecordRequest) returns (stream RecordResponse) {}
-  rpc screenshot(ScreenshotRequest) returns (ScreenshotResponse) {}
   rpc video_stream(stream VideoStreamRequest) returns (stream VideoStreamResponse) {}
   // Crash Operations
   rpc crash_delete(CrashLogQuery) returns (CrashLogResponse) {}
@@ -137,13 +136,6 @@ message LaunchRequest {
 message LaunchResponse {
   ProcessOutput output = 3;
   DebuggerInfo debugger = 4;
-}
-
-message ScreenshotRequest {}
-
-message ScreenshotResponse {
-  bytes image_data = 1;
-  string image_format = 2;
 }
 
 message FocusRequest {}

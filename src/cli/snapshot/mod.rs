@@ -6,8 +6,8 @@
 //! Supports both iOS (via idb gRPC) and Android (via ADB/UIAutomator).
 
 mod collector;
-mod extractor;
-mod ref_generator;
+pub mod extractor;
+pub mod ref_generator;
 mod tree_printer;
 pub mod types;
 

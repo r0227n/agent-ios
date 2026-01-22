@@ -3,6 +3,8 @@
 //! This module provides functions for launching, terminating, installing,
 //! and managing Android applications.
 
+#![allow(dead_code)]
+
 use super::{AdbError, Result};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;

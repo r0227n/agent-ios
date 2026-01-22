@@ -85,7 +85,7 @@ impl ScrollDirection {
 
     /// Get swipe coordinates for this direction (assuming center origin).
     /// Returns (start_offset, end_offset) where offset is (dx, dy) from center.
-    pub fn to_swipe_offsets(&self, distance: f64) -> ((f64, f64), (f64, f64)) {
+    pub fn to_swipe_offsets(self, distance: f64) -> ((f64, f64), (f64, f64)) {
         let half = distance / 2.0;
         match self {
             // Swipe up = finger moves from bottom to top

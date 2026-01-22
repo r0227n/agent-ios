@@ -2,9 +2,11 @@
 //!
 //! This module provides a simple, high-level API for controlling iOS devices.
 
+use crate::cli::core::screenshot::ImageFormat;
 use crate::cli::idb::hid::events::{swipe_to_events, tap_to_events, text_to_events};
 use crate::companion::CompanionResolver;
 use crate::grpc::{IdbClient, LaunchConfig};
+use crate::platform::ios::simctl::management as simctl;
 use std::collections::HashMap;
 use tokio::sync::watch;
 
@@ -17,6 +19,7 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 /// a simplified interface for common mobile automation tasks.
 pub struct IosDevice {
     client: IdbClient,
+    udid: String,
 }
 
 impl IosDevice {
@@ -34,8 +37,17 @@ impl IosDevice {
     /// An `IosDevice` instance connected to the target device.
     pub async fn connect(udid: Option<&str>) -> Result<Self> {
         let resolver = CompanionResolver::new();
-        let client = resolver.connect(udid).await?;
-        Ok(Self { client })
+        let resolved = resolver.resolve(udid)?;
+        let client = match &resolved.address {
+            crate::types::Address::DomainSocket { path } => IdbClient::connect_uds(path).await?,
+            crate::types::Address::Tcp { host, port } => {
+                IdbClient::connect_tcp(host, *port).await?
+            }
+        };
+        Ok(Self {
+            client,
+            udid: resolved.udid,
+        })
     }
 
     /// Take a screenshot of the device screen.
@@ -43,8 +55,13 @@ impl IosDevice {
     /// # Returns
     ///
     /// PNG image data as bytes.
-    pub async fn screenshot(&mut self) -> Result<Vec<u8>> {
-        self.client.screenshot().await
+    pub async fn screenshot(&self) -> Result<Vec<u8>> {
+        let udid = self.udid.clone();
+        let data = tokio::task::spawn_blocking(move || {
+            simctl::io_screenshot_bytes(&udid, ImageFormat::Png)
+        })
+        .await??;
+        Ok(data)
     }
 
     /// Tap at screen coordinates.

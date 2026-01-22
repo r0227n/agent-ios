@@ -23,7 +23,6 @@ pub mod memory;
 pub mod notification;
 pub mod permissions;
 pub mod photos;
-pub mod screenshot;
 pub mod settings;
 pub mod shell;
 pub mod target;
@@ -86,16 +85,6 @@ pub enum IdbCommands {
 
     /// Kill the idb daemon
     Kill,
-
-    /// Take a screenshot of the target device
-    Screenshot {
-        /// Destination path for the screenshot or "-" for stdout
-        dest_path: String,
-
-        /// Target device/simulator UDID
-        #[arg(short, long)]
-        udid: Option<String>,
-    },
 
     /// Bring simulator window to front
     Focus {

@@ -20,10 +20,7 @@ pub mod time;
 
 // Re-export commonly used items
 pub use client::{with_client, CommandResult};
-#[allow(deprecated)]
-pub use common_args::{
-    DeviceArgs, DeviceFormatArgs, DeviceOutputArgs, FormatArgs, FormatOutputArgs,
-};
+pub use common_args::{DeviceArgs, DeviceFormatArgs};
 pub use file_container::{file_container, file_container_with_root, DefaultContainer};
 pub use format::OutputFormat;
 pub use output::OutputWriter;

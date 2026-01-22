@@ -3,8 +3,12 @@
 //! This module provides direct access to simulator lifecycle operations
 //! without going through idb_companion.
 
+#![allow(dead_code)]
+
 use std::process::Command;
 use thiserror::Error;
+
+use crate::cli::core::screenshot::ImageFormat;
 
 #[derive(Debug, Error)]
 pub enum SimctlError {
@@ -234,6 +238,51 @@ pub fn privacy_reset(udid: &str, service: &str, bundle_id: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Take a screenshot of a simulator using xcrun simctl io with specified format.
+pub fn io_screenshot(udid: &str, output_path: &str, format: ImageFormat) -> Result<()> {
+    let output = Command::new("xcrun")
+        .args([
+            "simctl",
+            "io",
+            udid,
+            "screenshot",
+            &format!("--type={}", format.simctl_type()),
+            output_path,
+        ])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(SimctlError::CommandFailed(stderr.to_string()));
+    }
+
+    Ok(())
+}
+
+/// Take a screenshot and return bytes with specified format.
+pub fn io_screenshot_bytes(udid: &str, format: ImageFormat) -> Result<Vec<u8>> {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let temp_path = format!(
+        "/tmp/agent_mobile_screenshot_{}_{}.{}",
+        std::process::id(),
+        nanos,
+        format.extension()
+    );
+
+    io_screenshot(udid, &temp_path, format)?;
+
+    let data = std::fs::read(&temp_path);
+    let _ = std::fs::remove_file(&temp_path); // Cleanup regardless of read success
+
+    let data =
+        data.map_err(|e| SimctlError::InvalidOutput(format!("Failed to read screenshot: {}", e)))?;
+
+    Ok(data)
 }
 
 #[cfg(test)]

@@ -113,17 +113,16 @@ fn should_display(elements: &[SnapshotElement], index: usize, options: &PrintOpt
     }
 
     // Interactive only filter
-    if options.interactive_only {
-        if !element.is_interactive && !has_interactive_descendants(elements, index) {
-            return false;
-        }
+    if options.interactive_only
+        && !element.is_interactive
+        && !has_interactive_descendants(elements, index)
+    {
+        return false;
     }
 
     // Compact filter (remove empty structural elements)
-    if options.compact {
-        if is_empty_structure(element) && element.children_indices.is_empty() {
-            return false;
-        }
+    if options.compact && is_empty_structure(element) && element.children_indices.is_empty() {
+        return false;
     }
 
     true
