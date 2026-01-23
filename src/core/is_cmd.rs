@@ -21,7 +21,7 @@ use agent_mobile_gateway::DeviceResolver;
 /// is コマンド引数
 #[derive(Args, Debug)]
 pub struct IsArgs {
-    /// State to check: visible, exists, enabled, disabled, interactive
+    /// State to check: visible, exists, enabled, disabled, interactive, checked
     pub state: String,
 
     /// Element ref (@eN) or "text"
@@ -69,9 +69,20 @@ pub async fn run(args: IsArgs) -> CommandResult {
                 Err(_) => false,
             }
         }
+        "checked" => {
+            // Check if element is checked (Switch/CheckBox)
+            match ref_resolver::resolve_from_snapshot(&snapshot, &target) {
+                Ok(element) => element
+                    .value
+                    .as_ref()
+                    .map(|v| v == "1" || v.to_lowercase() == "true")
+                    .unwrap_or(false),
+                Err(_) => false,
+            }
+        }
         _ => {
             return Err(format!(
-                "Unknown state: {}. Valid states: visible, exists, enabled, disabled, interactive",
+                "Unknown state: {}. Valid states: visible, exists, enabled, disabled, interactive, checked",
                 args.state
             )
             .into());
