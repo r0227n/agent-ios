@@ -1,4 +1,5 @@
 pub mod app;
+pub mod console;
 pub mod core;
 pub mod device;
 pub mod helpers;
@@ -66,6 +67,9 @@ pub enum Commands {
 
     /// Record screen to MP4 video file
     Record(record::RecordArgs),
+
+    /// Stream device console output (logs)
+    Console(console::ConsoleArgs),
 
     // ==================== Existing Commands ====================
     /// Application management (launch, terminate, install, list)

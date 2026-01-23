@@ -106,9 +106,21 @@ impl CompanionResolver {
                 })
             }
 
-            // Case 2: UDID specified but no companion - try to spawn if UDID is valid
+            // Case 2: UDID specified but no companion in state - try fallback methods
             Some(u) => {
-                // First verify the UDID is valid (exists in simctl)
+                // Fallback 1: Try direct socket path
+                // When idb_companion is started directly (not via Python idb), the state file
+                // is not updated. Check if the socket file exists directly.
+                let socket_path = format!("/tmp/idb/{}_companion.sock", u);
+                if std::path::Path::new(&socket_path).exists() {
+                    return Ok(ResolvedCompanion {
+                        address: Address::DomainSocket { path: socket_path },
+                        udid: u.to_string(),
+                        was_spawned: false,
+                    });
+                }
+
+                // Fallback 2: Try to spawn if UDID is valid (exists in simctl)
                 // Only spawn for valid UDIDs to provide clear error messages
                 if let Some(target_type) = self.determine_target_type(u) {
                     if let Some(spawner) = &self.spawner {
@@ -172,6 +184,22 @@ impl CompanionResolver {
         match &resolved.address {
             Address::DomainSocket { path } => IdbClient::connect_uds(path).await,
             Address::Tcp { host, port } => IdbClient::connect_tcp(host, *port).await,
+        }
+    }
+
+    /// Connect to the resolved companion for streaming (no request timeout)
+    ///
+    /// Use this method for long-running streaming RPCs (e.g., log, video)
+    /// where the default 30-second timeout would cause transport errors.
+    pub async fn connect_streaming(
+        &self,
+        udid: Option<&str>,
+    ) -> Result<IdbClient, Box<dyn std::error::Error + Send + Sync>> {
+        let resolved = self.resolve(udid)?;
+
+        match &resolved.address {
+            Address::DomainSocket { path } => IdbClient::connect_uds_streaming(path).await,
+            Address::Tcp { host, port } => IdbClient::connect_tcp_streaming(host, *port).await,
         }
     }
 }

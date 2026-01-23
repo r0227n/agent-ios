@@ -12,6 +12,8 @@ pub enum OutputWriter {
     Stdout(io::Stdout),
     /// Write to a file
     File(File),
+    /// Write to both file and stdout (tee mode)
+    Tee { file: File, stdout: io::Stdout },
 }
 
 impl OutputWriter {
@@ -38,6 +40,21 @@ impl OutputWriter {
         }
     }
 
+    /// Create a writer that outputs to both file and stdout (tee mode).
+    ///
+    /// If path is "-", returns stdout-only writer.
+    /// Otherwise, creates a file and also writes to stdout.
+    pub fn tee_from_path(path: &str) -> io::Result<Self> {
+        if path == "-" {
+            Ok(Self::Stdout(io::stdout()))
+        } else {
+            Ok(Self::Tee {
+                file: File::create(path)?,
+                stdout: io::stdout(),
+            })
+        }
+    }
+
     /// Check if output is to stdout
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn is_stdout(&self) -> bool {
@@ -50,6 +67,12 @@ impl Write for OutputWriter {
         match self {
             Self::Stdout(s) => s.write(buf),
             Self::File(f) => f.write(buf),
+            Self::Tee { file, stdout } => {
+                // Write to both using write_all to avoid partial writes
+                stdout.write_all(buf)?;
+                file.write_all(buf)?;
+                Ok(buf.len())
+            }
         }
     }
 
@@ -57,6 +80,10 @@ impl Write for OutputWriter {
         match self {
             Self::Stdout(s) => s.flush(),
             Self::File(f) => f.flush(),
+            Self::Tee { file, stdout } => {
+                stdout.flush()?;
+                file.flush()
+            }
         }
     }
 }

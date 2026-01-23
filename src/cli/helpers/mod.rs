@@ -19,7 +19,7 @@ pub mod signal;
 pub mod time;
 
 // Re-export commonly used items
-pub use client::{with_client, CommandResult};
+pub use client::{with_client, with_client_streaming, CommandResult};
 pub use common_args::{DeviceArgs, DeviceFormatArgs};
 pub use file_container::{file_container, file_container_with_root, DefaultContainer};
 pub use format::OutputFormat;

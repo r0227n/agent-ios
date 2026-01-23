@@ -157,6 +157,111 @@ impl IdbClient {
             },
         })
     }
+
+    /// Connect to idb_companion via Unix Domain Socket for streaming (no request timeout)
+    ///
+    /// Use this method for long-running streaming RPCs (e.g., log, video)
+    /// where the default 30-second timeout would cause transport errors.
+    pub async fn connect_uds_streaming(
+        socket_path: &str,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let mut last_error = None;
+
+        for attempt in 0..Self::MAX_RETRIES {
+            if attempt > 0 {
+                let delay = Duration::from_secs(1 << (attempt - 1));
+                sleep(delay).await;
+            }
+
+            match Self::try_connect_uds_streaming(socket_path).await {
+                Ok(client) => return Ok(client),
+                Err(e) => {
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| "Connection failed".into()))
+    }
+
+    /// UDS接続の実際の試行（ストリーミング用、タイムアウトなし）
+    async fn try_connect_uds_streaming(
+        socket_path: &str,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let socket_path_owned = socket_path.to_string();
+
+        // ストリーミング用: リクエストタイムアウトを設定しない
+        let endpoint =
+            Endpoint::try_from("http://[::]:50051")?.connect_timeout(Self::DEFAULT_CONNECT_TIMEOUT);
+
+        let channel = endpoint
+            .connect_with_connector(service_fn(move |_: Uri| {
+                let path = socket_path_owned.clone();
+                async move {
+                    let stream = UnixStream::connect(path).await?;
+                    Ok::<_, std::io::Error>(TokioIo::new(stream))
+                }
+            }))
+            .await?;
+
+        let client = CompanionServiceClient::new(channel);
+
+        Ok(Self {
+            client,
+            address: Address::DomainSocket {
+                path: socket_path.to_string(),
+            },
+        })
+    }
+
+    /// Connect to idb_companion via TCP for streaming (no request timeout)
+    ///
+    /// Use this method for long-running streaming RPCs (e.g., log, video)
+    /// where the default 30-second timeout would cause transport errors.
+    pub async fn connect_tcp_streaming(
+        host: &str,
+        port: u16,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let mut last_error = None;
+
+        for attempt in 0..Self::MAX_RETRIES {
+            if attempt > 0 {
+                let delay = Duration::from_secs(1 << (attempt - 1));
+                sleep(delay).await;
+            }
+
+            match Self::try_connect_tcp_streaming(host, port).await {
+                Ok(client) => return Ok(client),
+                Err(e) => {
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| "Connection failed".into()))
+    }
+
+    /// TCP接続の実際の試行（ストリーミング用、タイムアウトなし）
+    async fn try_connect_tcp_streaming(
+        host: &str,
+        port: u16,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let addr = format!("http://{}:{}", host, port);
+        // ストリーミング用: リクエストタイムアウトを設定しない
+        let channel = Channel::from_shared(addr)?
+            .connect_timeout(Self::DEFAULT_CONNECT_TIMEOUT)
+            .connect()
+            .await?;
+        let client = CompanionServiceClient::new(channel);
+
+        Ok(Self {
+            client,
+            address: Address::Tcp {
+                host: host.to_string(),
+                port,
+            },
+        })
+    }
 }
 
 /// Extract trace files from tar payload data

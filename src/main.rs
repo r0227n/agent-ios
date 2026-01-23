@@ -66,6 +66,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Record(args) => {
             cli::record::run(args).await?;
         }
+        Commands::Console(args) => {
+            cli::console::run(args).await?;
+        }
 
         // ==================== Existing Commands ====================
         Commands::App(args) => {
