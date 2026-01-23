@@ -255,22 +255,26 @@ agent-browser wait --text "Welcome"
 - 既存: `wait <selector>` は要素待機
 - 追加: `--text` オプションでテキスト待機
 
+**現在の実装状況:**
+- 🟡 **実装状況要確認** - src/core/wait.rs の詳細確認待ち
+- WaitArgs に text フィールドが追加されているかを確認
+
 **参考実装:**
 - agent-mobile: `src/core/wait.rs` (既存)
 
 **実装例:**
 ```rust
-// src/core/wait.rs に追加
+// src/core/wait.rs に追加予定
 pub struct WaitArgs {
     pub selector: Option<String>,
-    pub text: Option<String>, // 新規
+    pub text: Option<String>, // 新規（要確認）
     pub timeout: Option<u64>,
 }
 ```
 
 ---
 
-### 🔴 wait --timeout - タイムアウト設定
+### ✅ wait --timeout - タイムアウト設定
 
 **agent-browserでの仕様:**
 ```bash
@@ -278,20 +282,24 @@ agent-browser wait <selector> --timeout 5000
 # 5秒でタイムアウト
 ```
 
-**モバイル実装方針:**
-- **共通**: 既存のwaitコマンドに `--timeout` オプション追加
+**実装状況: ✅ 完了**
 
-**技術的検討事項:**
-- デフォルト: 30000ms
-- カスタマイズ可能に
+**実装詳細:**
+- src/core/wait.rs:196-224 にタイムアウト解析機能を実装
+- 形式対応: `"10s"` (秒)、`"1m"` (分)、`"30"` (秒)
+- デフォルト: 30秒
+- ポーリング間隔: 500ms
+- UIアイドル判定: 3回連続で要素数が変わらない
+
+**使用例:**
+```bash
+agent-mobile wait visible @e1 --timeout 10s
+agent-mobile wait gone @button --timeout 1m
+agent-mobile wait idle --timeout 30
+```
 
 **参考実装:**
-- agent-mobile: `src/core/wait.rs`
-
-**実装例:**
-```rust
-// src/core/wait.rs に追加（既にtimeoutフィールドがあるか確認）
-```
+- agent-mobile: `src/core/wait.rs` (実装済み)
 
 ---
 
@@ -422,18 +430,90 @@ pub struct SnapshotArgs {
 
 ## 実装優先順位まとめ
 
-### Phase 1（即座に実装）
-1. `is visible`, `is checked` - 既存isコマンドの拡張
-2. `get count`, `get box` - 既存getコマンドの拡張
-3. `wait --text`, `wait --timeout` - 既存waitコマンドの拡張
+### Phase 1（✅ 完了）
+1. ✅ `is visible`, `is checked` - 既存isコマンドの拡張
+   - コミット 8263dd25 で実装完了
+   - is checked: value属性で "1" または "true" で判定
+2. ✅ `get count`, `get box` - 既存getコマンドの拡張
+   - コミット 8263dd25 で実装完了
+   - get count: マッチ数をカウント
+   - get box: frame情報を返す（get frameのエイリアス）
+3. ✅ `wait --timeout` - 既存waitコマンドの拡張
+   - 実装済み: Duration形式で "10s", "1m", "30" 対応
+   - デフォルトタイムアウト: 30秒
+4. 🟡 `wait --text` - テキスト出現待機
+   - 実装状況: **確認が必要**
+   - 計画: ポーリングで `find text` を実行
 
-### Phase 2（短期）
-4. `check`, `uncheck` - HIDイベントで実装可能
-5. `get attr` - アクセシビリティ情報から抽出
+### Phase 2（未実装）
+5. ❌ `check`, `uncheck` - HIDイベントで実装可能
+   - UICheckbox/UISwitch のトグル操作
+   - 冪等性対応：既に目的状態ならスキップ
+6. ❌ `get attr` - アクセシビリティ情報から抽出
+   - 計画: iOS (AX*属性) ⇔ Android (XML属性) マッピング
 
-### Phase 3（中期）
-6. `select` - Picker操作（やや複雑）
-7. `snapshot` フィルター - 既存機能の拡張
+### Phase 3（部分実装 🟡）
+7. ✅ `snapshot` フィルター - **既に大部分実装済み**
+   - ✅ `-i, --interactive` - インタラクティブ要素のみ表示
+   - ✅ `-c, --compact` - 空要素削除
+   - ✅ `-d, --depth N` - 階層深さ制限
+   - ✅ `-o, --output FILE` - ファイル出力
+   - ✅ `-f, --format {text|json}` - 出力形式指定
+   - ❌ `-s, --scope <selector>` - **未実装**（スコープ限定）
+   - 実装箇所: src/snapshot/mod.rs lines 23-58
+8. ❌ `select` - Picker操作（やや複雑）
+   - iOS: UIPickerView（WheelChangedイベント）
+   - Android: Spinner/DropDownMenu（adb shell input）
+
+---
+
+## 実装状況サマリー（更新日: 2026-01-24）
+
+### ✅ 完了フェーズ
+
+| コマンド | 状態 | 実装ファイル | コミット |
+|---------|------|------------|---------|
+| `is checked` | ✅ 完了 | src/core/is_cmd.rs:72-81 | 8263dd25 |
+| `is visible` | ✅ 完了 | src/core/is_cmd.rs | 既存 |
+| `is enabled` | ✅ 完了 | src/core/is_cmd.rs | 既存 |
+| `get count` | ✅ 完了 | src/core/get.rs:58-93 | 8263dd25 |
+| `get box` | ✅ 完了 | src/core/get.rs:111-126 | 8263dd25 |
+| `get frame` | ✅ 完了 | src/core/get.rs | 既存 |
+| `wait --timeout` | ✅ 完了 | src/core/wait.rs:196-224 | 既存 |
+| `snapshot -i` | ✅ 完了 | src/snapshot/mod.rs:23-58 | 既存 |
+| `snapshot -c` | ✅ 完了 | src/snapshot/mod.rs:23-58 | 既存 |
+| `snapshot -d` | ✅ 完了 | src/snapshot/mod.rs:23-58 | 既存 |
+| `snapshot -f` | ✅ 完了 | src/snapshot/mod.rs:23-58 | 既存 |
+
+### 🟡 確認待ち
+
+| コマンド | 状態 | 備考 |
+|---------|------|------|
+| `wait --text` | 🟡 要確認 | ポーリングロジック実装状況の確認が必要 |
+
+### ❌ 未実装フェーズ
+
+| コマンド | フェーズ | 優先度 | 技術方針 |
+|---------|---------|--------|--------|
+| `check` | Phase 2 | 🔴 高 | HIDイベント（tap+WheelChanged） |
+| `uncheck` | Phase 2 | 🔴 高 | HIDイベント（tap） |
+| `get attr` | Phase 2 | 🔴 高 | アクセシビリティ属性抽出 |
+| `snapshot -s` | Phase 3 | 🟡 中 | セレクタスコープ限定 |
+| `select` | Phase 3 | 🟡 中 | Picker操作（複雑） |
+
+### コア機能実装状況（参考）
+
+| 機能 | 状態 | 実装ファイル |
+|------|------|------------|
+| `tap` | ✅ | src/core/find.rs + src/platform/ios/grpc/hid.rs |
+| `long-press` | ✅ | src/core |
+| `fill` | ✅ | src/core |
+| `type` | ✅ | src/core |
+| `swipe` | ✅ | src/core |
+| `scroll` | ✅ | src/core |
+| `find` | ✅ | src/core/find.rs (セマンティックロケーター) |
+| `screenshot` | ✅ | src/platform/ios/grpc |
+| `snapshot` | ✅ | src/snapshot/mod.rs |
 
 ---
 

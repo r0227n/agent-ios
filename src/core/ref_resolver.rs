@@ -30,6 +30,9 @@ pub struct ResolvedElement {
     pub enabled: bool,
     pub value: Option<String>,
     pub traits: Vec<String>,
+    pub placeholder: Option<String>,
+    pub depth: u32,
+    pub is_interactive: bool,
 }
 
 impl ResolvedElement {
@@ -68,6 +71,9 @@ impl ResolvedElement {
             enabled: true,
             value: None,
             traits: vec![],
+            placeholder: None,
+            depth: 0,
+            is_interactive: false,
         }
     }
 }
@@ -208,6 +214,9 @@ pub fn to_resolved(elem: &SnapshotElement) -> ResolvedElement {
         enabled: elem.enabled,
         value: elem.value.clone(),
         traits: elem.traits.clone(),
+        placeholder: elem.placeholder.clone(),
+        depth: elem.depth,
+        is_interactive: elem.is_interactive,
     }
 }
 
@@ -317,6 +326,9 @@ mod tests {
             enabled: true,
             value: None,
             traits: vec![],
+            placeholder: None,
+            depth: 0,
+            is_interactive: true,
         };
         assert_eq!(elem.center(), (125.0, 215.0));
     }
@@ -331,6 +343,9 @@ mod tests {
             enabled: true,
             value: None,
             traits: vec![],
+            placeholder: None,
+            depth: 0,
+            is_interactive: true,
         };
         assert!(elem.is_text_input());
 
@@ -342,6 +357,9 @@ mod tests {
             enabled: true,
             value: None,
             traits: vec![],
+            placeholder: None,
+            depth: 0,
+            is_interactive: true,
         };
         assert!(!elem.is_text_input());
     }

@@ -144,7 +144,11 @@ pub async fn run(args: GetArgs) -> CommandResult {
                 "y" => element.frame.y.to_string(),
                 "width" => element.frame.width.to_string(),
                 "height" => element.frame.height.to_string(),
-                _ => return Err(format!("Unknown attribute: {}", attr_name).into()),
+                "placeholder" => element.placeholder.clone().unwrap_or_default(),
+                "traits" => element.traits.join(", "),
+                "depth" => element.depth.to_string(),
+                "interactive" | "is_interactive" => element.is_interactive.to_string(),
+                _ => return Err(format!("Unknown attribute: {}. Valid attributes: enabled, label, text, value, type, x, y, width, height, placeholder, traits, depth, interactive", attr_name).into()),
             }
         }
         _ if property == "all" || property.starts_with('@') => {

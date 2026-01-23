@@ -167,7 +167,7 @@ pub async fn take_snapshot(
 }
 
 /// Execute tap gesture
-async fn execute_tap(
+pub async fn execute_tap(
     platform: Platform,
     udid: Option<&str>,
     x: f64,

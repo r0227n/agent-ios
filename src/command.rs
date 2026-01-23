@@ -24,6 +24,15 @@ pub enum Commands {
     /// Tap an element by ref, text, coordinates, or key
     Tap(crate::core::TapArgs),
 
+    /// Check a checkbox/switch (idempotent: only taps if not already checked)
+    Check(crate::core::CheckArgs),
+
+    /// Uncheck a checkbox/switch (idempotent: only taps if not already unchecked)
+    Uncheck(crate::core::CheckArgs),
+
+    /// Select a value from a picker/spinner
+    Select(crate::core::SelectArgs),
+
     /// Long press on an element by ref, text, coordinates, or position
     #[command(name = "long-press")]
     LongPress(crate::core::LongPressArgs),

@@ -34,6 +34,15 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Tap(args) => {
             core::tap::run(args).await?;
         }
+        Commands::Check(args) => {
+            core::check::run(args, true).await?;
+        }
+        Commands::Uncheck(args) => {
+            core::check::run(args, false).await?;
+        }
+        Commands::Select(args) => {
+            core::select::run(args).await?;
+        }
         Commands::LongPress(args) => {
             core::long_press::run(args).await?;
         }

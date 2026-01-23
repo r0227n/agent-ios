@@ -33,6 +33,10 @@ pub struct SnapshotArgs {
     #[arg(short = 'd', long)]
     pub depth: Option<u32>,
 
+    /// Scope to subtree rooted at element (@eN ref or "text")
+    #[arg(short = 's', long)]
+    pub scope: Option<String>,
+
     /// Output to file instead of stdout
     #[arg(short = 'o', long)]
     pub output: Option<String>,
@@ -148,6 +152,7 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
     let interactive = args.interactive;
     let compact = args.compact;
     let depth = args.depth;
+    let scope = args.scope.clone();
     let output_path = args.output.clone();
     let format = args.format;
     let no_scroll = args.no_scroll;
@@ -174,6 +179,13 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
 
         // Generate refs
         let elements = ref_generator::generate_refs(&raw_elements);
+
+        // Apply scope filtering if specified
+        let elements = if let Some(scope_target) = &scope {
+            extract_subtree(&elements, scope_target)?
+        } else {
+            elements
+        };
 
         // Create snapshot
         let snapshot = Snapshot {
@@ -202,6 +214,7 @@ async fn run_android(args: SnapshotArgs) -> CommandResult {
     let interactive = args.interactive;
     let compact = args.compact;
     let depth = args.depth;
+    let scope = args.scope.clone();
     let output_path = args.output.clone();
     let format = args.format;
     let no_scroll = args.no_scroll;
@@ -234,6 +247,13 @@ async fn run_android(args: SnapshotArgs) -> CommandResult {
 
     // Generate refs
     let elements = ref_generator::generate_refs(&raw_elements);
+
+    // Apply scope filtering if specified
+    let elements = if let Some(scope_target) = &scope {
+        extract_subtree(&elements, scope_target)?
+    } else {
+        elements
+    };
 
     // Create snapshot
     let snapshot = Snapshot {
@@ -283,6 +303,83 @@ fn output_snapshot(
     }
 
     Ok(())
+}
+
+/// Extract a subtree rooted at the specified element.
+///
+/// Finds the root element by @eN ref or text, then collects all descendants.
+/// Adjusts depth values so the root element has depth 0.
+fn extract_subtree(
+    elements: &[types::SnapshotElement],
+    scope_target: &str,
+) -> CommandResult<Vec<types::SnapshotElement>> {
+    // Find the root element index
+    let root_index = if scope_target.starts_with('@') {
+        // @eN ref format
+        elements
+            .iter()
+            .position(|e| e.ref_id == scope_target)
+            .ok_or_else(|| format!("Element not found: {}", scope_target))?
+    } else {
+        // Text search
+        let text_lower = scope_target.to_lowercase();
+        elements
+            .iter()
+            .position(|e| {
+                e.label
+                    .as_ref()
+                    .map(|l| l.to_lowercase().contains(&text_lower))
+                    .unwrap_or(false)
+                    || e.value
+                        .as_ref()
+                        .map(|v| v.to_lowercase().contains(&text_lower))
+                        .unwrap_or(false)
+            })
+            .ok_or_else(|| format!("Element with text '{}' not found", scope_target))?
+    };
+
+    let root_depth = elements[root_index].depth;
+
+    // Collect all descendants (elements with the root as ancestor)
+    // We use the parent_index chain to determine ancestry
+    let mut result = Vec::new();
+    for (idx, elem) in elements.iter().enumerate() {
+        // Check if this element is the root or a descendant of root
+        if is_descendant_or_self(elements, idx, root_index) {
+            let mut elem_clone = elem.clone();
+            // Adjust depth relative to root
+            elem_clone.depth = elem.depth.saturating_sub(root_depth);
+            result.push(elem_clone);
+        }
+    }
+
+    if result.is_empty() {
+        return Err(format!("No elements found in subtree for: {}", scope_target).into());
+    }
+
+    Ok(result)
+}
+
+/// Check if an element at `idx` is the root or a descendant of element at `root_idx`.
+fn is_descendant_or_self(elements: &[types::SnapshotElement], idx: usize, root_idx: usize) -> bool {
+    if idx == root_idx {
+        return true;
+    }
+
+    // Walk up the parent chain
+    let mut current = idx;
+    while let Some(parent_idx) = elements.get(current).and_then(|e| e.parent_index) {
+        if parent_idx == root_idx {
+            return true;
+        }
+        if parent_idx >= current {
+            // Prevent infinite loops from malformed data
+            break;
+        }
+        current = parent_idx;
+    }
+
+    false
 }
 
 /// Generate a unique snapshot ID.
