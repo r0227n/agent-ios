@@ -16,18 +16,37 @@ pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sy
 /// 2. Connecting to a companion (with optional UDID)
 /// 3. Executing the provided closure with the client
 ///
+/// # UDID Resolution Priority
+///
+/// The UDID parameter passed here follows this priority order (enforced at CLI layer):
+/// 1. **Session UDID** (highest priority)
+///    - Set via `apply_session_udid_option!` macro in main.rs
+///    - SessionResolver converts session name → UDID
+///    - Main.rs macro applies resolved UDID before calling command
+/// 2. **Explicit UDID** (mid priority)
+///    - From --udid flag or -u short form
+///    - Passed directly to this helper
+/// 3. **Auto-detection** (lowest priority)
+///    - If no UDID: CompanionResolver auto-selects single companion
+///    - If multiple companions exist: error, user must specify UDID
+///
 /// # Example
 ///
 /// ```ignore
 /// use crate::helpers::{with_client, CommandResult};
 ///
-/// pub async fn run(udid: Option<String>) -> CommandResult {
-///     with_client(udid.as_deref(), |mut client| async move {
+/// pub async fn run(udid: Option<&str>) -> CommandResult {
+///     with_client(udid, |mut client| async move {
 ///         client.focus().await?;
 ///         Ok(())
 ///     }).await
 /// }
 /// ```
+///
+/// # See Also
+///
+/// - `apply_session_udid_option!` macro in main.rs: Applies session UDID before command execution
+/// - `CompanionResolver`: Handles actual UDID resolution and companion connection
 pub async fn with_client<F, Fut, T>(udid: Option<&str>, f: F) -> CommandResult<T>
 where
     F: FnOnce(IdbClient) -> Fut,

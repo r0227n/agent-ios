@@ -46,6 +46,33 @@ pub struct ResolvedCompanion {
 }
 
 /// Unified companion resolution with optional auto-spawning
+///
+/// # Responsibilities
+///
+/// CompanionResolver handles three core tasks:
+/// 1. **UDID Resolution**: Determines which companion to use based on priority:
+///    - If a Session UDID is available (set via `apply_session_udid_option!` macro in main.rs)
+///    - If an explicit UDID is provided via command-line
+///    - If only one companion exists, auto-select it
+///    - Otherwise, error asking user to specify UDID
+///
+/// 2. **Companion Spawning**: Auto-spawns the companion if not already running
+///    - For unspecified UDID with single companion: auto-spawn and connect
+///    - For explicit UDID: spawn if needed, then connect
+///
+/// 3. **Connection Management**: Establishes gRPC connection to the companion
+///    - Uses `connect()` method to create IdbClient
+///    - Handles connection errors appropriately
+///
+/// # UDID Resolution Priority
+///
+/// The priority order is enforced at the CLI layer (main.rs):
+/// 1. Session UDID (highest priority) - Set via `apply_session_udid_option!` macro
+/// 2. Explicit UDID (--udid flag or -u short form)
+/// 3. Auto-detection (lowest priority) - Single companion or error
+///
+/// Note: SessionResolver handles converting session names to UDIDs.
+/// This resolver only consumes the already-resolved UDID.
 pub struct CompanionResolver {
     state: CompanionState,
     spawner: Option<CompanionSpawner>,
