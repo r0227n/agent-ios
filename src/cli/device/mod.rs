@@ -6,8 +6,9 @@
 use clap::{Args, Subcommand};
 use serde::Serialize;
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::{CommandResult, OutputFormat};
-use crate::types::Platform;
 
 /// Device command arguments.
 #[derive(Args, Debug)]
@@ -110,8 +111,8 @@ async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send 
         return Ok(Platform::Ios);
     }
 
-    if crate::platform::android::adb::is_adb_available() {
-        let devices = crate::platform::android::adb::list_devices();
+    if agent_mobile_platform_android::adb::is_adb_available() {
+        let devices = agent_mobile_platform_android::adb::list_devices();
         if let Ok(devs) = devices {
             if !devs.is_empty() {
                 return Ok(Platform::Android);
@@ -185,7 +186,7 @@ pub async fn run(args: DeviceArgs) -> CommandResult {
 async fn execute_list(platform: Platform, format: &OutputFormat) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::companion::CompanionLister;
+            use agent_mobile_platform_ios::companion::CompanionLister;
 
             let targets = match CompanionLister::new() {
                 Ok(lister) => lister.list_targets(None).unwrap_or_default(),
@@ -217,7 +218,7 @@ async fn execute_list(platform: Platform, format: &OutputFormat) -> CommandResul
             Ok(())
         }
         Platform::Android => {
-            use crate::platform::android::adb;
+            use agent_mobile_platform_android::adb;
             use std::collections::HashSet;
 
             // 1. 起動中デバイスを取得
@@ -293,8 +294,8 @@ async fn execute_list(platform: Platform, format: &OutputFormat) -> CommandResul
 async fn execute_boot(platform: Platform, name: &str, headless: bool) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::companion::CompanionLister;
-            use crate::platform::ios::simctl::management;
+            use agent_mobile_platform_ios::companion::CompanionLister;
+            use agent_mobile_platform_ios::simctl::management;
 
             // Check if name looks like a UDID or a device name
             let udid = if name.contains('-') && name.len() > 30 {
@@ -349,7 +350,7 @@ async fn execute_boot(platform: Platform, name: &str, headless: bool) -> Command
 async fn execute_shutdown(platform: Platform, udid: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::platform::ios::simctl::management;
+            use agent_mobile_platform_ios::simctl::management;
 
             management::shutdown(udid)?;
             println!("Shutdown simulator: {}", udid);
@@ -383,7 +384,7 @@ async fn get_default_udid(
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match platform {
         Platform::Ios => {
-            use crate::companion::CompanionLister;
+            use agent_mobile_platform_ios::companion::CompanionLister;
 
             let targets = match CompanionLister::new() {
                 Ok(lister) => lister.list_targets(None).unwrap_or_default(),
@@ -401,7 +402,7 @@ async fn get_default_udid(
             }
         }
         Platform::Android => {
-            let devices = crate::platform::android::adb::list_devices()?;
+            let devices = agent_mobile_platform_android::adb::list_devices()?;
             if let Some((serial, _)) = devices.first() {
                 Ok(serial.clone())
             } else {
@@ -415,7 +416,7 @@ async fn get_default_udid(
 async fn execute_pbcopy(platform: Platform, udid: &str, text: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::platform::ios::simctl::management;
+            use agent_mobile_platform_ios::simctl::management;
             management::pbcopy(udid, text)?;
             println!("Copied to clipboard");
             Ok(())
@@ -432,7 +433,7 @@ async fn execute_pbcopy(platform: Platform, udid: &str, text: &str) -> CommandRe
 async fn execute_pbpaste(platform: Platform, udid: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::platform::ios::simctl::management;
+            use agent_mobile_platform_ios::simctl::management;
             let text = management::pbpaste(udid)?;
             print!("{}", text);
             Ok(())

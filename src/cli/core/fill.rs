@@ -5,12 +5,11 @@
 //! agent-mobile fill "Email" "user@example.com"
 //! ```
 
-use std::path::PathBuf;
-
 use clap::Args;
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
-use crate::types::Platform;
 
 use super::ref_resolver::{self, Target};
 use super::tap::{resolve_platform, take_snapshot};
@@ -24,10 +23,6 @@ pub struct FillArgs {
     /// Text to fill
     pub text: String,
 
-    /// Snapshot file to use (instead of taking fresh snapshot)
-    #[arg(long)]
-    pub snapshot: Option<PathBuf>,
-
     #[command(flatten)]
     pub device: DeviceArgs,
 }
@@ -38,11 +33,7 @@ pub async fn run(args: FillArgs) -> CommandResult {
     let target = Target::parse(&args.target);
 
     // Get snapshot and resolve element
-    let snapshot = if let Some(path) = args.snapshot.as_ref() {
-        ref_resolver::load_snapshot_from_file(path)?
-    } else {
-        take_snapshot(platform, args.device.udid.as_deref()).await?
-    };
+    let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
     let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
     let (x, y) = element.center();
@@ -108,7 +99,7 @@ async fn execute_fill_android(
     text: &str,
     clear_len: usize,
 ) -> CommandResult {
-    use crate::platform::android::adb::input;
+    use agent_mobile_platform_android::adb::input;
 
     // 1. Tap to focus
     input::tap(udid, x, y).await?;

@@ -1,7 +1,8 @@
 //! dsym install command implementation
 
+use agent_mobile_core::Compression;
+
 use crate::cli::helpers::{with_client, CommandResult, OutputFormat};
-use crate::types::Compression;
 use serde_json::json;
 
 /// Install dSYM symbols to the target

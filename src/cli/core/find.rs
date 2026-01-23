@@ -21,16 +21,15 @@
 //! agent-mobile find type Button -f json --all
 //! ```
 
-use std::path::PathBuf;
-
 use clap::{Args, Subcommand, ValueEnum};
 use serde::Serialize;
 
-use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
-use crate::cli::snapshot::types::{Frame, Snapshot, SnapshotElement};
-use crate::types::Platform;
+use agent_mobile_core::snapshot::Frame;
+use agent_mobile_core::Platform;
 
-use super::ref_resolver;
+use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::cli::snapshot::types::{Snapshot, SnapshotElement};
+
 use super::tap::{resolve_platform, take_snapshot};
 
 /// find コマンド引数
@@ -58,10 +57,6 @@ pub struct FindArgs {
     /// Output format
     #[arg(short = 'f', long, value_enum, default_value = "text", global = true)]
     pub format: FindOutputFormat,
-
-    /// Snapshot file to use (instead of taking fresh snapshot)
-    #[arg(long, global = true)]
-    pub snapshot: Option<PathBuf>,
 
     #[command(flatten)]
     pub device: DeviceArgs,
@@ -240,11 +235,7 @@ pub async fn run(args: FindArgs) -> CommandResult {
     }
 
     // Get snapshot
-    let snapshot = if let Some(path) = args.snapshot.as_ref() {
-        ref_resolver::load_snapshot_from_file(path)?
-    } else {
-        take_snapshot(platform, args.device.udid.as_deref()).await?
-    };
+    let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
     // Find matching elements
     let matches = find_elements(&snapshot, &args.locator);
@@ -534,7 +525,7 @@ async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> 
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::input;
+            use agent_mobile_platform_android::adb::input;
             input::tap(udid, x, y).await?;
             Ok(())
         }
@@ -561,7 +552,7 @@ async fn execute_long_press(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::input;
+            use agent_mobile_platform_android::adb::input;
             let duration_ms = (duration * 1000.0) as u64;
             input::long_press(udid, x, y, duration_ms).await?;
             Ok(())
@@ -606,7 +597,7 @@ async fn execute_fill(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::input;
+            use agent_mobile_platform_android::adb::input;
 
             // 1. Tap to focus
             input::tap(udid, x, y).await?;
@@ -659,7 +650,7 @@ async fn execute_clear(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::input;
+            use agent_mobile_platform_android::adb::input;
 
             // 1. Tap to focus
             input::tap(udid, x, y).await?;

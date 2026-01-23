@@ -1,9 +1,4 @@
 mod cli;
-mod companion;
-mod grpc;
-mod platform;
-mod simctl;
-mod types;
 
 use clap::Parser;
 use cli::idb::{

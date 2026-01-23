@@ -1,5 +1,6 @@
+use agent_mobile_core::{Compression, InstalledArtifact};
+
 use crate::cli::helpers::{with_client, CommandResult, OutputFormat};
-use crate::types::{Compression, InstalledArtifact};
 use serde_json::json;
 
 pub async fn run(

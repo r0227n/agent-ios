@@ -1,6 +1,6 @@
 //! Erase a simulator (reset to clean state)
 
-use crate::simctl;
+use agent_mobile_platform_ios::simctl;
 
 pub type CommandResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 

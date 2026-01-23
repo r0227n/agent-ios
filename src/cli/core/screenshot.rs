@@ -7,11 +7,12 @@
 
 use clap::Args;
 
+use agent_mobile_core::Platform;
+use agent_mobile_platform_ios::simctl::management as simctl;
+
 use crate::cli::helpers::{CommandResult, DeviceArgs};
-use crate::platform::ios::simctl::management as simctl;
 
 use super::tap::resolve_platform;
-use crate::types::Platform;
 
 /// Supported image formats for screenshots
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -41,6 +42,14 @@ impl ImageFormat {
     /// Check if format is supported on Android
     pub fn is_android_supported(&self) -> bool {
         matches!(self, Self::Png)
+    }
+
+    /// Convert to platform-ios ImageFormat
+    pub fn to_platform_format(&self) -> agent_mobile_platform_ios::ImageFormat {
+        match self {
+            Self::Png => agent_mobile_platform_ios::ImageFormat::Png,
+            Self::Jpeg => agent_mobile_platform_ios::ImageFormat::Jpeg,
+        }
     }
 }
 
@@ -209,7 +218,7 @@ async fn execute_screenshot_ios(
     };
 
     // File mode
-    simctl::io_screenshot(&udid, path, format)?;
+    simctl::io_screenshot(&udid, path, format.to_platform_format())?;
     println!("Screenshot saved to: {}", path);
 
     Ok(())

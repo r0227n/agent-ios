@@ -6,11 +6,12 @@
 //! Supports both iOS (via idb gRPC) and Android (via ADB/UIAutomator).
 
 mod collector;
-pub mod extractor;
 pub mod ref_generator;
 mod tree_printer;
 pub mod types;
 
+use agent_mobile_platform_android::snapshot::extract_android_elements;
+use agent_mobile_platform_ios::snapshot::extract_ios_elements;
 use chrono::Utc;
 use clap::Args;
 
@@ -159,7 +160,7 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
             // --no-scroll: Single accessibility info fetch (original behavior)
             let json_str = client.accessibility_info(None, true).await?;
             let json: serde_json::Value = serde_json::from_str(&json_str)?;
-            extractor::extract_ios_elements(&json)
+            extract_ios_elements(&json)
         } else {
             // Default: Use collector with scrolling to capture all elements
             let config = collector::SnapshotCollectorConfig {
@@ -196,7 +197,7 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
 
 /// Execute snapshot for Android.
 async fn run_android(args: SnapshotArgs) -> CommandResult {
-    use crate::platform::android::adb::uiautomator;
+    use agent_mobile_platform_android::adb::uiautomator;
 
     let interactive = args.interactive;
     let compact = args.compact;
@@ -213,7 +214,7 @@ async fn run_android(args: SnapshotArgs) -> CommandResult {
         // --no-scroll: Single UI dump (original behavior)
         let xml = uiautomator::dump_ui(serial.as_deref()).await?;
         let accessibility_elements = uiautomator::parse_ui_hierarchy(&xml)?;
-        extractor::extract_android_elements(&accessibility_elements)
+        extract_android_elements(&accessibility_elements)
     } else {
         // Default: Use collector with scrolling to capture all elements
         // Get screen size for scroll calculations

@@ -5,15 +5,13 @@
 //! agent-mobile tap "Login"          # テキストでタップ
 //! agent-mobile tap 100,200          # 座標でタップ
 //! agent-mobile tap home             # ハードウェアキー
-//! agent-mobile tap @e1 --snapshot snap.json
 //! ```
-
-use std::path::PathBuf;
 
 use clap::Args;
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
-use crate::types::Platform;
 
 use super::ref_resolver::{self, Target};
 
@@ -22,10 +20,6 @@ use super::ref_resolver::{self, Target};
 pub struct TapArgs {
     /// Target: @eN ref, "text", x,y coordinates, or key (home, back, enter, etc.)
     pub target: String,
-
-    /// Snapshot file to use (instead of taking fresh snapshot)
-    #[arg(long)]
-    pub snapshot: Option<PathBuf>,
 
     /// Duration of tap in seconds
     #[arg(long)]
@@ -46,13 +40,7 @@ pub async fn run(args: TapArgs) -> CommandResult {
     }
 
     // Get coordinates from target
-    let (x, y) = resolve_coords(
-        &target,
-        args.snapshot.as_ref(),
-        platform,
-        args.device.udid.as_deref(),
-    )
-    .await?;
+    let (x, y) = resolve_coords(&target, platform, args.device.udid.as_deref()).await?;
 
     // Execute tap
     execute_tap(platform, args.device.udid.as_deref(), x, y, args.duration).await
@@ -61,7 +49,6 @@ pub async fn run(args: TapArgs) -> CommandResult {
 /// Resolve target to coordinates
 pub async fn resolve_coords(
     target: &Target,
-    snapshot_path: Option<&PathBuf>,
     platform: Platform,
     udid: Option<&str>,
 ) -> CommandResult<(f64, f64)> {
@@ -72,14 +59,8 @@ pub async fn resolve_coords(
             resolve_position(pos, platform, udid).await
         }
         Target::Ref(_) | Target::Text(_) => {
-            // Need to resolve from snapshot
-            let snapshot = if let Some(path) = snapshot_path {
-                ref_resolver::load_snapshot_from_file(path)?
-            } else {
-                // Take a fresh snapshot
-                take_snapshot(platform, udid).await?
-            };
-
+            // Take a fresh snapshot
+            let snapshot = take_snapshot(platform, udid).await?;
             let element = ref_resolver::resolve_from_snapshot(&snapshot, target)?;
             Ok(element.center())
         }
@@ -111,7 +92,7 @@ pub async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandR
         }
         Platform::Android => {
             // Use adb to get actual screen size
-            let (w, h) = crate::platform::android::adb::input::get_screen_size(udid).await?;
+            let (w, h) = agent_mobile_platform_android::adb::input::get_screen_size(udid).await?;
             Ok((w as f64, h as f64))
         }
     }
@@ -156,7 +137,7 @@ pub async fn take_snapshot(
             with_client(udid.as_deref(), |mut client| async move {
                 let json_str = client.accessibility_info(None, true).await?;
                 let json: serde_json::Value = serde_json::from_str(&json_str)?;
-                let raw_elements = crate::cli::snapshot::extractor::extract_ios_elements(&json);
+                let raw_elements = agent_mobile_platform_ios::snapshot::extract_ios_elements(&json);
                 let elements = crate::cli::snapshot::ref_generator::generate_refs(&raw_elements);
                 Ok(Snapshot {
                     snapshot_id: format!("snap_{}", nanoid::nanoid!(8)),
@@ -167,12 +148,13 @@ pub async fn take_snapshot(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::uiautomator;
+            use agent_mobile_platform_android::adb::uiautomator;
 
             let xml = uiautomator::dump_ui(udid).await?;
             let accessibility_elements = uiautomator::parse_ui_hierarchy(&xml)?;
-            let raw_elements =
-                crate::cli::snapshot::extractor::extract_android_elements(&accessibility_elements);
+            let raw_elements = agent_mobile_platform_android::snapshot::extract_android_elements(
+                &accessibility_elements,
+            );
             let elements = crate::cli::snapshot::ref_generator::generate_refs(&raw_elements);
             Ok(Snapshot {
                 snapshot_id: format!("snap_{}", nanoid::nanoid!(8)),
@@ -203,7 +185,7 @@ async fn execute_tap(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::input;
+            use agent_mobile_platform_android::adb::input;
             input::tap(udid, x, y).await?;
             Ok(())
         }
@@ -215,7 +197,7 @@ async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> Comma
     match platform {
         Platform::Ios => {
             use crate::cli::idb::hid::events;
-            use crate::grpc::idb::hid_event::HidButtonType;
+            use agent_mobile_platform_ios::proto::idb::hid_event::HidButtonType;
 
             // Check if it's a button (home, lock, etc.) or a keyboard key
             let key_lower = key.to_lowercase();
@@ -263,7 +245,7 @@ async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> Comma
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::input::{self, keycodes};
+            use agent_mobile_platform_android::adb::input::{self, keycodes};
 
             let key_lower = key.to_lowercase();
             let keycode = match key_lower.as_str() {
@@ -306,8 +288,8 @@ async fn detect_platform() -> CommandResult<Platform> {
     }
 
     // Try Android (check for connected devices)
-    if crate::platform::android::adb::is_adb_available() {
-        let devices = crate::platform::android::adb::list_devices();
+    if agent_mobile_platform_android::adb::is_adb_available() {
+        let devices = agent_mobile_platform_android::adb::list_devices();
         if let Ok(devs) = devices {
             if !devs.is_empty() {
                 return Ok(Platform::Android);

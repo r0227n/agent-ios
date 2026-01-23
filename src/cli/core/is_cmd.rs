@@ -10,8 +10,6 @@
 //! 結果は stdout に "true" または "false" を出力し、
 //! exit code でも結果を返します (0 = true, 1 = false)。
 
-use std::path::PathBuf;
-
 use clap::Args;
 
 use crate::cli::helpers::{CommandResult, DeviceArgs};
@@ -28,10 +26,6 @@ pub struct IsArgs {
     /// Element ref (@eN) or "text"
     pub target: String,
 
-    /// Snapshot file to use
-    #[arg(long)]
-    pub snapshot: Option<PathBuf>,
-
     #[command(flatten)]
     pub device: DeviceArgs,
 }
@@ -41,11 +35,7 @@ pub async fn run(args: IsArgs) -> CommandResult {
     let platform = resolve_platform(args.device.platform.as_deref()).await?;
 
     // Get snapshot
-    let snapshot = if let Some(path) = args.snapshot.as_ref() {
-        ref_resolver::load_snapshot_from_file(path)?
-    } else {
-        take_snapshot(platform, args.device.udid.as_deref()).await?
-    };
+    let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
     let target = Target::parse(&args.target);
 

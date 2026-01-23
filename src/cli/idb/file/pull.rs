@@ -1,5 +1,6 @@
+use agent_mobile_platform_ios::proto::idb::payload::Source as PayloadSource;
+
 use crate::cli::helpers::{file_container, with_client, CommandResult, OutputWriter};
-use crate::grpc::idb::payload::Source as PayloadSource;
 use std::io::Write;
 
 pub async fn run(

@@ -3,8 +3,8 @@
 //! This module provides utilities for connecting to idb_companion,
 //! reducing boilerplate across command implementations.
 
-use crate::companion::CompanionResolver;
-use crate::grpc::IdbClient;
+use agent_mobile_platform_ios::companion::CompanionResolver;
+use agent_mobile_platform_ios::grpc::IdbClient;
 
 /// Standard result type for CLI commands
 pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;

@@ -1,5 +1,6 @@
+use agent_mobile_platform_ios::proto::idb::xctest_run_response::test_run_info::Status;
+
 use crate::cli::helpers::{with_client, CommandResult};
-use crate::grpc::idb::xctest_run_response::test_run_info::Status;
 
 pub async fn run(
     test_bundle_id: String,

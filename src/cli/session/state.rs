@@ -12,8 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::CommandResult;
-use crate::types::Platform;
 
 /// Get the default sessions directory path based on the platform.
 ///

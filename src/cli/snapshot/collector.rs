@@ -7,9 +7,9 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use crate::cli::helpers::CommandResult;
-
-use super::extractor;
-use super::types::RawElement;
+use agent_mobile_core::snapshot::RawElement;
+use agent_mobile_platform_android::snapshot::extract_android_elements;
+use agent_mobile_platform_ios::snapshot::extract_ios_elements;
 
 /// Configuration for snapshot collection with scrolling.
 #[derive(Debug, Clone)]
@@ -177,7 +177,7 @@ impl SnapshotCollector {
     /// Returns the merged tree of RawElements from all scroll positions.
     pub async fn collect_all(
         &self,
-        client: &mut crate::grpc::IdbClient,
+        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
         progress_fn: Option<ProgressCallback>,
     ) -> CommandResult<Vec<RawElement>> {
         let mut all_elements: Vec<RawElement> = Vec::new();
@@ -200,7 +200,7 @@ impl SnapshotCollector {
         // Get initial elements (NESTED format for tree structure)
         let json_str = client.accessibility_info(None, true).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
-        let initial_elements = extractor::extract_ios_elements(&json);
+        let initial_elements = extract_ios_elements(&json);
         let initial_count =
             merge_element_trees(&mut all_elements, initial_elements, &mut seen_keys);
 
@@ -226,7 +226,7 @@ impl SnapshotCollector {
             // Get elements after scroll (NESTED format)
             let json_str = client.accessibility_info(None, true).await?;
             let json: serde_json::Value = serde_json::from_str(&json_str)?;
-            let new_elements = extractor::extract_ios_elements(&json);
+            let new_elements = extract_ios_elements(&json);
             let new_count = merge_element_trees(&mut all_elements, new_elements, &mut seen_keys);
 
             // Check for completion
@@ -264,7 +264,10 @@ impl SnapshotCollector {
     }
 
     /// Perform a scroll down gesture.
-    async fn scroll_down(&self, client: &mut crate::grpc::IdbClient) -> CommandResult<()> {
+    async fn scroll_down(
+        &self,
+        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
+    ) -> CommandResult<()> {
         use crate::cli::idb::hid::events::swipe_to_events;
 
         // Scroll from middle-bottom to middle-top (vertical scroll down)
@@ -279,7 +282,10 @@ impl SnapshotCollector {
     }
 
     /// Perform a scroll up gesture (opposite of scroll_down).
-    async fn scroll_up(&self, client: &mut crate::grpc::IdbClient) -> CommandResult<()> {
+    async fn scroll_up(
+        &self,
+        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
+    ) -> CommandResult<()> {
         use crate::cli::idb::hid::events::swipe_to_events;
 
         // Scroll from top to bottom (swipe downward to scroll content up)
@@ -297,7 +303,10 @@ impl SnapshotCollector {
     ///
     /// Performs repeated scroll-up gestures until reaching the top of the content.
     /// The top is detected when the accessibility tree is unchanged for 2 consecutive scrolls.
-    async fn scroll_to_top(&self, client: &mut crate::grpc::IdbClient) -> CommandResult<()> {
+    async fn scroll_to_top(
+        &self,
+        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
+    ) -> CommandResult<()> {
         const MAX_SCROLL_UP: u32 = 5;
         let mut prev_snapshot: Option<String> = None;
         let mut consecutive_same = 0;
@@ -345,7 +354,7 @@ impl AndroidSnapshotCollector {
         &self,
         progress_fn: Option<ProgressCallback>,
     ) -> CommandResult<Vec<RawElement>> {
-        use crate::platform::android::adb::uiautomator;
+        use agent_mobile_platform_android::adb::uiautomator;
 
         let mut all_elements: Vec<RawElement> = Vec::new();
         let mut seen_keys: HashSet<String> = HashSet::new();
@@ -367,7 +376,7 @@ impl AndroidSnapshotCollector {
         // Get initial elements
         let xml = uiautomator::dump_ui(self.serial.as_deref()).await?;
         let accessibility_elements = uiautomator::parse_ui_hierarchy(&xml)?;
-        let initial_elements = extractor::extract_android_elements(&accessibility_elements);
+        let initial_elements = extract_android_elements(&accessibility_elements);
         let initial_count =
             merge_element_trees(&mut all_elements, initial_elements, &mut seen_keys);
 
@@ -393,7 +402,7 @@ impl AndroidSnapshotCollector {
             // Get elements after scroll
             let xml = uiautomator::dump_ui(self.serial.as_deref()).await?;
             let accessibility_elements = uiautomator::parse_ui_hierarchy(&xml)?;
-            let new_elements = extractor::extract_android_elements(&accessibility_elements);
+            let new_elements = extract_android_elements(&accessibility_elements);
             let new_count = merge_element_trees(&mut all_elements, new_elements, &mut seen_keys);
 
             // Check for completion
@@ -432,7 +441,7 @@ impl AndroidSnapshotCollector {
 
     /// Perform a scroll down gesture using ADB input swipe.
     async fn scroll_down(&self) -> CommandResult<()> {
-        use crate::platform::android::adb::input;
+        use agent_mobile_platform_android::adb::input;
 
         // Scroll from middle-bottom to middle-top (vertical scroll down)
         let center_x = self.config.screen_width / 2.0;
@@ -454,7 +463,7 @@ impl AndroidSnapshotCollector {
 
     /// Perform a scroll up gesture using ADB input swipe.
     async fn scroll_up(&self) -> CommandResult<()> {
-        use crate::platform::android::adb::input;
+        use agent_mobile_platform_android::adb::input;
 
         // Scroll from top to bottom (swipe downward to scroll content up)
         let center_x = self.config.screen_width / 2.0;
@@ -476,7 +485,7 @@ impl AndroidSnapshotCollector {
 
     /// Scroll to the top of the content before collecting.
     async fn scroll_to_top(&self) -> CommandResult<()> {
-        use crate::platform::android::adb::uiautomator;
+        use agent_mobile_platform_android::adb::uiautomator;
 
         const MAX_SCROLL_UP: u32 = 5;
         let mut prev_snapshot: Option<String> = None;
@@ -509,7 +518,7 @@ impl AndroidSnapshotCollector {
 
 /// Get Android screen dimensions.
 pub async fn get_android_screen_size(serial: Option<&str>) -> CommandResult<(f64, f64)> {
-    use crate::platform::android::adb::input;
+    use agent_mobile_platform_android::adb::input;
 
     let (width, height) = input::get_screen_size(serial).await?;
     Ok((width as f64, height as f64))

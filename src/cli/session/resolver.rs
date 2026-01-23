@@ -87,7 +87,7 @@ impl SessionResolver {
 mod tests {
     use super::*;
     use crate::cli::session::state::SessionData;
-    use crate::types::Platform;
+    use agent_mobile_core::Platform;
     use chrono::Utc;
     use tempfile::TempDir;
 

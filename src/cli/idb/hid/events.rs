@@ -1,4 +1,4 @@
-use crate::grpc::idb::{
+use agent_mobile_platform_ios::proto::idb::{
     hid_event::{self, Event, HidButtonType, HidDirection},
     HidEvent, Point,
 };
@@ -255,7 +255,7 @@ fn char_to_events(ch: char) -> Option<Vec<HidEvent>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grpc::idb::hid_event::{HidButtonType, HidDirection};
+    use agent_mobile_platform_ios::proto::idb::hid_event::{HidButtonType, HidDirection};
 
     #[test]
     fn test_tap_to_events_without_duration() {

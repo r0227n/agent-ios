@@ -44,12 +44,14 @@ pub async fn run(
         || launch_error_timeout.is_some();
 
     let timings = if has_timings {
-        Some(crate::grpc::client::InstrumentsTimings {
-            operation_duration,
-            terminate_timeout,
-            launch_retry_timeout,
-            launch_error_timeout,
-        })
+        Some(
+            agent_mobile_platform_ios::grpc::client::InstrumentsTimings {
+                operation_duration,
+                terminate_timeout,
+                launch_retry_timeout,
+                launch_error_timeout,
+            },
+        )
     } else {
         None
     };

@@ -1,6 +1,7 @@
+use agent_mobile_platform_ios::proto::idb::setting_request::{self, Setting as SettingOneof};
+use agent_mobile_platform_ios::proto::idb::Setting;
+
 use crate::cli::helpers::{with_client, CommandResult};
-use crate::grpc::idb::setting_request::{self, Setting as SettingOneof};
-use crate::grpc::idb::Setting;
 
 /// Set a device setting
 pub async fn set(

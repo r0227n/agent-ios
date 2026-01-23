@@ -7,8 +7,6 @@
 //! agent-mobile get @e1 -f json      # 全プロパティ (JSON)
 //! ```
 
-use std::path::PathBuf;
-
 use clap::Args;
 
 use crate::cli::helpers::{CommandResult, DeviceArgs, OutputFormat};
@@ -32,10 +30,6 @@ pub struct GetArgs {
     #[arg(short = 'f', long, value_enum, default_value = "text")]
     pub format: OutputFormat,
 
-    /// Snapshot file to use
-    #[arg(long)]
-    pub snapshot: Option<PathBuf>,
-
     #[command(flatten)]
     pub device: DeviceArgs,
 }
@@ -57,11 +51,7 @@ pub async fn run(args: GetArgs) -> CommandResult {
     };
 
     // Get snapshot and resolve element
-    let snapshot = if let Some(path) = args.snapshot.as_ref() {
-        ref_resolver::load_snapshot_from_file(path)?
-    } else {
-        take_snapshot(platform, args.device.udid.as_deref()).await?
-    };
+    let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
     let target = Target::parse(&target_str);
     let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;

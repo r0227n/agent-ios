@@ -3,8 +3,8 @@
 //! This module provides utilities for building FileContainer
 //! from CLI arguments (bundle_id, root flags).
 
-use crate::grpc::idb::file_container::Kind as FileContainerKind;
-use crate::grpc::idb::FileContainer;
+use agent_mobile_platform_ios::proto::idb::file_container::Kind as FileContainerKind;
+use agent_mobile_platform_ios::proto::idb::FileContainer;
 
 /// Default container kind when no explicit container is specified
 #[derive(Clone, Copy, Default)]

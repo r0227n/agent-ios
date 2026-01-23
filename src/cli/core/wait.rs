@@ -6,13 +6,13 @@
 //! agent-mobile wait idle
 //! ```
 
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use clap::Args;
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::{CommandResult, DeviceArgs};
-use crate::types::Platform;
 
 use super::ref_resolver::{self, Target};
 use super::tap::{resolve_platform, take_snapshot};
@@ -33,10 +33,6 @@ pub struct WaitArgs {
     /// Polling interval in milliseconds
     #[arg(long, default_value = "500")]
     pub interval: u64,
-
-    /// Snapshot file to use (only for initial check)
-    #[arg(long)]
-    pub snapshot: Option<PathBuf>,
 
     #[command(flatten)]
     pub device: DeviceArgs,
@@ -60,7 +56,6 @@ pub async fn run(args: WaitArgs) -> CommandResult {
                 target_str,
                 timeout,
                 interval,
-                args.snapshot.as_ref(),
             )
             .await
         }
@@ -75,7 +70,6 @@ pub async fn run(args: WaitArgs) -> CommandResult {
                 target_str,
                 timeout,
                 interval,
-                args.snapshot.as_ref(),
             )
             .await
         }
@@ -95,24 +89,13 @@ async fn wait_visible(
     target_str: &str,
     timeout: Duration,
     interval: Duration,
-    snapshot_path: Option<&PathBuf>,
 ) -> CommandResult {
     let target = Target::parse(target_str);
     let deadline = Instant::now() + timeout;
-    let mut first_check = true;
 
     loop {
-        // Use provided snapshot for first check, then take fresh snapshots
-        let snapshot = if first_check {
-            first_check = false;
-            if let Some(path) = snapshot_path {
-                ref_resolver::load_snapshot_from_file(path)?
-            } else {
-                take_snapshot(platform, udid).await?
-            }
-        } else {
-            take_snapshot(platform, udid).await?
-        };
+        // Take a fresh snapshot
+        let snapshot = take_snapshot(platform, udid).await?;
 
         // Try to find element
         if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_ok() {
@@ -139,24 +122,13 @@ async fn wait_gone(
     target_str: &str,
     timeout: Duration,
     interval: Duration,
-    snapshot_path: Option<&PathBuf>,
 ) -> CommandResult {
     let target = Target::parse(target_str);
     let deadline = Instant::now() + timeout;
-    let mut first_check = true;
 
     loop {
-        // Use provided snapshot for first check, then take fresh snapshots
-        let snapshot = if first_check {
-            first_check = false;
-            if let Some(path) = snapshot_path {
-                ref_resolver::load_snapshot_from_file(path)?
-            } else {
-                take_snapshot(platform, udid).await?
-            }
-        } else {
-            take_snapshot(platform, udid).await?
-        };
+        // Take a fresh snapshot
+        let snapshot = take_snapshot(platform, udid).await?;
 
         // Check if element is gone
         if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_err() {

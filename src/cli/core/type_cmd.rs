@@ -6,8 +6,9 @@
 
 use clap::Args;
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
-use crate::types::Platform;
 
 use super::tap::resolve_platform;
 
@@ -47,7 +48,7 @@ async fn execute_type_ios(udid: Option<&str>, text: &str) -> CommandResult {
 
 /// Execute type on Android
 async fn execute_type_android(udid: Option<&str>, text: &str) -> CommandResult {
-    use crate::platform::android::adb::input;
+    use agent_mobile_platform_android::adb::input;
 
     input::text(udid, text).await?;
     Ok(())

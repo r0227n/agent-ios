@@ -3,9 +3,9 @@
 //! This command connects to an idb_companion running on a specific target.
 //! The companion info is stored in /tmp/idb/state for future use.
 
-use crate::companion::CompanionState;
-use crate::grpc::IdbClient;
-use crate::types::Address;
+use agent_mobile_core::Address;
+use agent_mobile_platform_ios::companion::CompanionState;
+use agent_mobile_platform_ios::grpc::IdbClient;
 
 pub type CommandResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 

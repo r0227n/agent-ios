@@ -16,8 +16,9 @@ pub mod state;
 use chrono::Utc;
 use clap::{Args, Subcommand};
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::{CommandResult, OutputFormat};
-use crate::types::Platform;
 
 /// Session management arguments
 #[derive(Args, Debug)]

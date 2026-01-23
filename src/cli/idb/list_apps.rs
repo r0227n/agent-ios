@@ -9,9 +9,9 @@ pub async fn run(udid: Option<String>) -> CommandResult {
             // Use architectures in order as returned from gRPC (matching Python idb behavior)
             let arch = app.architectures.join(", ");
             let process_state = match app.process_state() {
-                crate::grpc::idb::installed_app_info::AppProcessState::Unknown => "Unknown",
-                crate::grpc::idb::installed_app_info::AppProcessState::NotRunning => "Not running",
-                crate::grpc::idb::installed_app_info::AppProcessState::Running => "Running",
+                agent_mobile_platform_ios::proto::idb::installed_app_info::AppProcessState::Unknown => "Unknown",
+                agent_mobile_platform_ios::proto::idb::installed_app_info::AppProcessState::NotRunning => "Not running",
+                agent_mobile_platform_ios::proto::idb::installed_app_info::AppProcessState::Running => "Running",
             };
             let debuggable = if app.debuggable {
                 "Debuggable"
@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn test_process_state_formatting() {
-        use crate::grpc::idb::installed_app_info::AppProcessState;
+        use agent_mobile_platform_ios::proto::idb::installed_app_info::AppProcessState;
 
         let state = AppProcessState::Unknown;
         let formatted = match state {

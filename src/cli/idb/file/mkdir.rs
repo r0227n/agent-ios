@@ -18,7 +18,7 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use crate::cli::helpers::{file_container_with_root, DefaultContainer};
-    use crate::grpc::idb::file_container::Kind as FileContainerKind;
+    use agent_mobile_platform_ios::proto::idb::file_container::Kind as FileContainerKind;
 
     #[test]
     fn test_container_selection_root() {

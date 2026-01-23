@@ -3,10 +3,11 @@
 //! Streams iOS device/simulator logs using idb gRPC log API.
 //! Press Ctrl+C to stop streaming.
 
+use agent_mobile_platform_ios::proto::idb::log_request::Source as LogSource;
+
 use crate::cli::helpers::{
     setup_ctrl_c_handler, with_client_streaming, CommandResult, OutputWriter,
 };
-use crate::grpc::idb::log_request::Source as LogSource;
 use std::io::Write;
 
 /// Stream iOS console output

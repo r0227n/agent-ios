@@ -1,5 +1,6 @@
+use agent_mobile_platform_ios::proto::idb::log_request::Source as LogSource;
+
 use crate::cli::helpers::{setup_ctrl_c_handler, with_client, CommandResult};
-use crate::grpc::idb::log_request::Source as LogSource;
 use std::io::Write;
 
 pub async fn run(

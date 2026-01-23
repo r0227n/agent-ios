@@ -38,23 +38,27 @@
 //!
 //! # Architecture
 //!
-//! The crate is organized into several modules:
+//! The crate is organized as a workspace with the following structure:
 //!
-//! - `api` - High-level programmatic API
-//! - `platform::ios` - iOS-specific implementations (gRPC, companion, simctl)
-//! - `types` - Shared type definitions
-//! - `cli` - CLI command implementations
+//! - `agent-mobile-core` - Shared types and traits
+//! - `agent-mobile-platform-ios` - iOS-specific implementations
+//! - `agent-mobile-platform-android` - Android-specific implementations
+//! - `agent-mobile-gateway` - High-level API
+//!
+//! For backward compatibility, this crate re-exports the workspace crates.
 
-// Re-export modules for library use
-pub mod api;
+// CLI module (local implementation)
 pub mod cli;
-pub mod companion;
-pub mod grpc;
-pub mod platform;
-pub mod simctl;
-pub mod types;
 
-// Convenience re-exports
-pub use api::IosDevice;
-pub use grpc::{IdbClient, LaunchConfig};
-pub use types::{Address, Compression, TargetDescription, TargetType};
+// Re-export workspace crates directly
+pub use agent_mobile_core;
+pub use agent_mobile_gateway;
+pub use agent_mobile_platform_android;
+pub use agent_mobile_platform_ios;
+
+// Convenience re-exports from workspace crates
+pub use agent_mobile_core::{
+    Address, Compression, Platform, ScrollDirection, TargetDescription, TargetType,
+};
+pub use agent_mobile_gateway::IosDevice;
+pub use agent_mobile_platform_ios::{IdbClient, LaunchConfig};

@@ -1,4 +1,4 @@
-use crate::companion::CompanionState;
+use agent_mobile_platform_ios::companion::CompanionState;
 
 /// Format message for killing a companion
 fn format_kill_message(udid: &str, pid: u32) -> String {

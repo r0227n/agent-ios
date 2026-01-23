@@ -1,5 +1,6 @@
+use agent_mobile_platform_ios::proto::idb::video_stream_request::Format;
+
 use crate::cli::helpers::{setup_ctrl_c_handler, with_client, CommandResult};
-use crate::grpc::idb::video_stream_request::Format;
 
 /// Stream raw H264 from the target
 pub async fn run(

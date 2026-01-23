@@ -1,9 +1,9 @@
-use crate::companion::{CompanionLister, CompanionState};
-use crate::grpc::IdbClient;
-use crate::types::{
+use agent_mobile_core::{
     human_format_target, json_format_target, merge_connected_targets, Address, TargetDescription,
     TargetType,
 };
+use agent_mobile_platform_ios::companion::{CompanionLister, CompanionState};
+use agent_mobile_platform_ios::grpc::IdbClient;
 
 pub async fn run(
     only: Option<String>,

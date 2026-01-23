@@ -2,8 +2,6 @@
 //!
 //! @e1, @e2 形式の ref 識別子を座標に変換するシステム。
 
-use std::path::Path;
-
 use crate::cli::helpers::CommandResult;
 use crate::cli::snapshot::types::{Frame, Snapshot, SnapshotElement};
 
@@ -153,30 +151,6 @@ fn is_special_key(s: &str) -> bool {
             | "volume_up"
             | "volume_down"
     )
-}
-
-/// Load a snapshot from a JSON file
-pub fn load_snapshot_from_file(path: &Path) -> CommandResult<Snapshot> {
-    if !path.exists() {
-        return Err(format!(
-            "Snapshot file not found: {}\n\nHint: Run 'agent-mobile snapshot --format json -o <file>' to create a snapshot",
-            path.display()
-        )
-        .into());
-    }
-
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read snapshot file '{}': {}", path.display(), e))?;
-
-    let snapshot: Snapshot = serde_json::from_str(&content).map_err(|e| {
-        format!(
-            "Failed to parse snapshot file '{}': {}\n\nHint: Make sure the file was created with '--format json'",
-            path.display(),
-            e
-        )
-    })?;
-
-    Ok(snapshot)
 }
 
 /// Find an element by ref in a snapshot

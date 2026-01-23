@@ -4,7 +4,7 @@
 //! Note: In the current architecture, disconnection simply means stopping
 //! communication - the companion process continues running.
 
-use crate::companion::CompanionState;
+use agent_mobile_platform_ios::companion::CompanionState;
 
 pub type CommandResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 

@@ -25,12 +25,14 @@ pub async fn run(
         } else if !response.listings.is_empty() {
             // Multiple paths output - print with directory headers
             // Re-sort listings to match input paths order (gRPC response order may differ)
-            let listings_map: std::collections::HashMap<&str, &crate::grpc::idb::FileListing> =
-                response
-                    .listings
-                    .iter()
-                    .filter_map(|l| l.parent.as_ref().map(|p| (p.path.as_str(), l)))
-                    .collect();
+            let listings_map: std::collections::HashMap<
+                &str,
+                &agent_mobile_platform_ios::proto::idb::FileListing,
+            > = response
+                .listings
+                .iter()
+                .filter_map(|l| l.parent.as_ref().map(|p| (p.path.as_str(), l)))
+                .collect();
 
             for path in &paths {
                 if let Some(listing) = listings_map.get(path.as_str()) {
@@ -52,7 +54,7 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use crate::cli::helpers::file_container;
-    use crate::grpc::idb::file_container::Kind as FileContainerKind;
+    use agent_mobile_platform_ios::proto::idb::file_container::Kind as FileContainerKind;
 
     #[test]
     fn test_file_container_creation() {

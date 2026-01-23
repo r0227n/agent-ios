@@ -6,8 +6,9 @@
 use clap::{Args, Subcommand};
 use serde::Serialize;
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::{CommandResult, DeviceArgs, DeviceFormatArgs, OutputFormat};
-use crate::types::Platform;
 
 /// App command arguments.
 #[derive(Args, Debug)]
@@ -158,8 +159,8 @@ async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send 
         return Ok(Platform::Ios);
     }
 
-    if crate::platform::android::adb::is_adb_available() {
-        let devices = crate::platform::android::adb::list_devices();
+    if agent_mobile_platform_android::adb::is_adb_available() {
+        let devices = agent_mobile_platform_android::adb::list_devices();
         if let Ok(devs) = devices {
             if !devs.is_empty() {
                 return Ok(Platform::Android);
@@ -277,7 +278,7 @@ async fn execute_launch(
     match platform {
         Platform::Ios => {
             use crate::cli::helpers::with_client;
-            use crate::grpc::LaunchConfig;
+            use agent_mobile_platform_ios::grpc::LaunchConfig;
             use std::collections::HashMap;
             use tokio::sync::watch;
 
@@ -303,7 +304,7 @@ async fn execute_launch(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::app;
+            use agent_mobile_platform_android::adb::app;
             app::launch(udid, bundle_id).await?;
             println!("Launched {}", bundle_id);
             Ok(())
@@ -331,7 +332,7 @@ async fn execute_terminate(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::app;
+            use agent_mobile_platform_android::adb::app;
             app::terminate(udid, bundle_id).await?;
             println!("Terminated {}", bundle_id);
             Ok(())
@@ -378,7 +379,7 @@ async fn execute_install(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::app;
+            use agent_mobile_platform_android::adb::app;
             println!("Installing {}...", path);
             app::install(udid, path, true).await?;
             println!("Installation complete");
@@ -407,7 +408,7 @@ async fn execute_uninstall(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::app;
+            use agent_mobile_platform_android::adb::app;
             app::uninstall(udid, bundle_id).await?;
             println!("Uninstalled {}", bundle_id);
             Ok(())
@@ -461,7 +462,7 @@ async fn execute_list(
             .await
         }
         Platform::Android => {
-            use crate::platform::android::adb::app;
+            use agent_mobile_platform_android::adb::app;
 
             let apps = app::list_packages(udid, false).await?;
             let unified: Vec<UnifiedAppInfo> = apps
@@ -494,7 +495,7 @@ async fn get_default_udid(
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match platform {
         Platform::Ios => {
-            use crate::companion::CompanionLister;
+            use agent_mobile_platform_ios::companion::CompanionLister;
 
             let targets = match CompanionLister::new() {
                 Ok(lister) => lister.list_targets(None).unwrap_or_default(),
@@ -511,7 +512,7 @@ async fn get_default_udid(
             }
         }
         Platform::Android => {
-            let devices = crate::platform::android::adb::list_devices()?;
+            let devices = agent_mobile_platform_android::adb::list_devices()?;
             if let Some((serial, _)) = devices.first() {
                 Ok(serial.clone())
             } else {
@@ -555,7 +556,7 @@ async fn execute_grant(
                 }
                 Err(_) => {
                     // Fall back to simctl
-                    use crate::platform::ios::simctl::management;
+                    use agent_mobile_platform_ios::simctl::management;
                     management::privacy_grant(udid, permission, bundle_id)?;
                     println!("Granted {} to {} (via simctl)", permission, bundle_id);
                     Ok(())
@@ -607,7 +608,7 @@ async fn execute_revoke(
                 }
                 Err(_) => {
                     // Fall back to simctl
-                    use crate::platform::ios::simctl::management;
+                    use agent_mobile_platform_ios::simctl::management;
                     management::privacy_revoke(udid, permission, bundle_id)?;
                     println!("Revoked {} from {} (via simctl)", permission, bundle_id);
                     Ok(())
@@ -643,7 +644,7 @@ async fn execute_reset(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::platform::ios::simctl::management;
+            use agent_mobile_platform_ios::simctl::management;
             management::privacy_reset(udid, permission, bundle_id)?;
             println!("Reset {} for {}", permission, bundle_id);
             Ok(())

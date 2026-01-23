@@ -2,10 +2,11 @@
 //!
 //! Record xctrace data on the device
 
+use agent_mobile_platform_ios::grpc::XctraceTarget;
+
 use crate::cli::helpers::{
     formatted_time_to_seconds, setup_ctrl_c_handler, with_client, CommandResult,
 };
-use crate::grpc::XctraceTarget;
 use std::collections::HashMap;
 
 /// Record xctrace on the device

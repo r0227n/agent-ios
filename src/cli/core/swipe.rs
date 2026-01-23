@@ -6,12 +6,11 @@
 //! agent-mobile swipe left --distance 300
 //! ```
 
-use std::path::PathBuf;
-
 use clap::Args;
 
+use agent_mobile_core::{Platform, ScrollDirection};
+
 use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
-use crate::types::{Platform, ScrollDirection};
 
 use super::ref_resolver::{self, Target};
 use super::tap::{resolve_platform, take_snapshot};
@@ -41,10 +40,6 @@ pub struct SwipeArgs {
     #[arg(long)]
     pub duration: Option<f64>,
 
-    /// Snapshot file to use
-    #[arg(long)]
-    pub snapshot: Option<PathBuf>,
-
     #[command(flatten)]
     pub device: DeviceArgs,
 }
@@ -58,7 +53,6 @@ pub async fn run(args: SwipeArgs) -> CommandResult {
         &args.direction,
         args.from.as_deref(),
         args.distance,
-        args.snapshot.as_ref(),
         platform,
         args.device.udid.as_deref(),
     )
@@ -80,7 +74,6 @@ async fn parse_swipe_args(
     direction_arg: &str,
     from_ref: Option<&str>,
     distance: Option<f64>,
-    snapshot_path: Option<&PathBuf>,
     platform: Platform,
     udid: Option<&str>,
 ) -> CommandResult<((f64, f64), (f64, f64))> {
@@ -100,11 +93,7 @@ async fn parse_swipe_args(
     let (cx, cy) = if let Some(from_target) = from_ref {
         // Resolve from ref
         let target = Target::parse(from_target);
-        let snapshot = if let Some(path) = snapshot_path {
-            ref_resolver::load_snapshot_from_file(path)?
-        } else {
-            take_snapshot(platform, udid).await?
-        };
+        let snapshot = take_snapshot(platform, udid).await?;
         let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
         element.center()
     } else {
@@ -134,7 +123,7 @@ fn parse_swipe_coords(s: &str) -> Option<((f64, f64), (f64, f64))> {
 async fn get_screen_center(platform: Platform, udid: Option<&str>) -> CommandResult<(f64, f64)> {
     match platform {
         Platform::Android => {
-            match crate::platform::android::adb::input::get_screen_size(udid).await {
+            match agent_mobile_platform_android::adb::input::get_screen_size(udid).await {
                 Ok((w, h)) => Ok((w as f64 / 2.0, h as f64 / 2.0)),
                 Err(_) => Ok((DEFAULT_SCREEN_WIDTH / 2.0, DEFAULT_SCREEN_HEIGHT / 2.0)),
             }
@@ -171,7 +160,7 @@ async fn execute_swipe_android(
     y2: f64,
     duration: Option<f64>,
 ) -> CommandResult {
-    use crate::platform::android::adb::input;
+    use agent_mobile_platform_android::adb::input;
 
     let duration_ms = duration.map(|d| (d * 1000.0) as u64);
     input::swipe(udid, x1, y1, x2, y2, duration_ms).await?;

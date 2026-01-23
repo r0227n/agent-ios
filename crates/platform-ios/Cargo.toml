@@ -1,0 +1,47 @@
+[package]
+name = "agent-mobile-platform-ios"
+version = "0.1.0"
+edition = "2021"
+description = "iOS platform implementation for agent-mobile"
+
+[dependencies]
+agent-mobile-core = { path = "../core" }
+
+# gRPC/Protobuf
+tonic = "0.12"
+prost = "0.13"
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "process"] }
+tokio-stream = "0.1"
+
+# Unix Domain Socket support for tonic
+tower = "0.4"
+hyper-util = "0.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Unix signal handling
+nix = { version = "0.29", features = ["signal", "process"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Regex
+regex = "1"
+
+# Temporary files
+tempfile = "3.19"
+
+# Archive extraction (for trace files)
+flate2 = "1.0"
+tar = "0.4"
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]

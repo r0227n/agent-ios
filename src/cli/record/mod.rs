@@ -12,8 +12,9 @@
 
 use clap::Args;
 
+use agent_mobile_core::Platform;
+
 use crate::cli::helpers::{setup_ctrl_c_handler, CommandResult, DeviceArgs};
-use crate::types::Platform;
 
 use super::core::tap::resolve_platform;
 

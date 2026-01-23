@@ -2,7 +2,8 @@
 //!
 //! Assigns `@e1`, `@e2`, etc. to elements, prioritizing interactive elements.
 
-use super::types::{RawElement, SnapshotElement};
+use super::types::SnapshotElement;
+use agent_mobile_core::snapshot::RawElement;
 
 /// Convert a tree of RawElements into a flat list of SnapshotElements with refs.
 ///
