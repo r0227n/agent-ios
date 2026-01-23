@@ -1,0 +1,24 @@
+[package]
+name = "agent-mobile-platform-android"
+version = "0.1.0"
+edition = "2021"
+description = "Android platform implementation for agent-mobile"
+
+[dependencies]
+agent-mobile-core = { path = "../core" }
+
+# Async runtime
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "process", "sync"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Regex
+regex = "1"
+
+[dev-dependencies]

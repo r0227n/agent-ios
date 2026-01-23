@@ -61,7 +61,7 @@ src/platform/ios/
 1. まず `proto/idb.proto` を確認
 2. RPC 定義があれば → gRPC で実装
 3. なければ → `xcrun simctl` で実装
-4. CLI は `src/cli/idb/` に追加
+4. CLI は `src/idb/` に追加
 
 ### クリップボード実装例（必要な場合）
 

@@ -1,17 +1,21 @@
-mod cli;
-mod companion;
-mod grpc;
-mod platform;
-mod simctl;
-mod types;
+mod app;
+mod command;
+mod console;
+mod core;
+mod device;
+mod helpers;
+mod idb;
+mod record;
+mod session;
+mod snapshot;
 
 use clap::Parser;
-use cli::idb::{
+use command::{Cli, Commands};
+use idb::{
     debugserver, file, target, CrashCommands, DsymCommands, DylibCommands, FrameworkCommands,
     IdbCommands, ListCommands, LocationCommands, NotificationCommands, UrlCommands,
     XctraceCommands,
 };
-use cli::{Cli, Commands};
 
 #[tokio::main]
 async fn main() {
@@ -28,63 +32,63 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match cli.command {
         // ==================== Core Commands ====================
         Commands::Tap(args) => {
-            cli::core::tap::run(args).await?;
+            core::tap::run(args).await?;
         }
         Commands::LongPress(args) => {
-            cli::core::long_press::run(args).await?;
+            core::long_press::run(args).await?;
         }
         Commands::Fill(args) => {
-            cli::core::fill::run(args).await?;
+            core::fill::run(args).await?;
         }
         Commands::Type(args) => {
-            cli::core::type_cmd::run(args).await?;
+            core::type_cmd::run(args).await?;
         }
         Commands::Swipe(args) => {
-            cli::core::swipe::run(args).await?;
+            core::swipe::run(args).await?;
         }
         Commands::Scroll(args) => {
-            cli::core::scroll::run(args).await?;
+            core::scroll::run(args).await?;
         }
         Commands::Get(args) => {
-            cli::core::get::run(args).await?;
+            core::get::run(args).await?;
         }
         Commands::Is(args) => {
-            cli::core::is_cmd::run(args).await?;
+            core::is_cmd::run(args).await?;
         }
         Commands::Wait(args) => {
-            cli::core::wait::run(args).await?;
+            core::wait::run(args).await?;
         }
         Commands::Screenshot(args) => {
-            cli::core::screenshot::run(args).await?;
+            core::screenshot::run(args).await?;
         }
         Commands::Find(args) => {
-            cli::core::find::run(args).await?;
+            core::find::run(args).await?;
         }
         Commands::Snapshot(args) => {
-            cli::snapshot::run(args).await?;
+            snapshot::run(args).await?;
         }
         Commands::Record(args) => {
-            cli::record::run(args).await?;
+            record::run(args).await?;
         }
         Commands::Console(args) => {
-            cli::console::run(args).await?;
+            console::run(args).await?;
         }
 
         // ==================== Existing Commands ====================
         Commands::App(args) => {
-            cli::app::run(args).await?;
+            app::run(args).await?;
         }
         Commands::Device(args) => {
-            cli::device::run(args).await?;
+            device::run(args).await?;
         }
         Commands::Session(args) => {
-            cli::session::run(args, session).await?;
+            session::run(args, session).await?;
         }
 
         // ==================== IDB Commands ====================
         Commands::Idb { command } => match *command {
             IdbCommands::ListTargets { only, human } => {
-                cli::idb::list_targets::run(only, human).await?;
+                idb::list_targets::run(only, human).await?;
             }
             IdbCommands::Launch {
                 bundle_id,
@@ -95,7 +99,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 wait_for,
                 pid_file,
             } => {
-                cli::idb::launch::run(
+                idb::launch::run(
                     bundle_id,
                     app_arguments,
                     udid,
@@ -107,17 +111,17 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 .await?;
             }
             IdbCommands::Kill => {
-                cli::idb::kill::run().await?;
+                idb::kill::run().await?;
             }
             IdbCommands::Focus { udid } => {
-                cli::idb::focus::run(udid).await?;
+                idb::focus::run(udid).await?;
             }
             IdbCommands::Log {
                 udid,
                 source,
                 log_arguments,
             } => {
-                cli::idb::log::run(udid, source, log_arguments).await?;
+                idb::log::run(udid, source, log_arguments).await?;
             }
             IdbCommands::Install {
                 bundle_path,
@@ -127,7 +131,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 compression,
                 format,
             } => {
-                cli::idb::install::run(
+                idb::install::run(
                     bundle_path,
                     udid,
                     make_debuggable,
@@ -138,7 +142,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 .await?;
             }
             IdbCommands::Uninstall { bundle_id, udid } => {
-                cli::idb::uninstall::run(bundle_id, udid).await?;
+                idb::uninstall::run(bundle_id, udid).await?;
             }
             IdbCommands::Approve {
                 bundle_id,
@@ -146,7 +150,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 scheme,
                 udid,
             } => {
-                cli::idb::permissions::approve(bundle_id, permissions, scheme, udid).await?;
+                idb::permissions::approve(bundle_id, permissions, scheme, udid).await?;
             }
             IdbCommands::Crash { command } => match command {
                 CrashCommands::List {
@@ -156,10 +160,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     name,
                     udid,
                 } => {
-                    cli::idb::crash::list(since, before, bundle_id, name, udid).await?;
+                    idb::crash::list(since, before, bundle_id, name, udid).await?;
                 }
                 CrashCommands::Show { name, udid } => {
-                    cli::idb::crash::show(name, udid).await?;
+                    idb::crash::show(name, udid).await?;
                 }
                 CrashCommands::Delete {
                     since,
@@ -169,7 +173,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     all,
                     udid,
                 } => {
-                    cli::idb::crash::delete(since, before, bundle_id, name, all, udid).await?;
+                    idb::crash::delete(since, before, bundle_id, name, all, udid).await?;
                 }
             },
             IdbCommands::File { command } => match command {
@@ -178,7 +182,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     bundle_id,
                     udid,
                 } => {
-                    cli::idb::file::ls::run(paths, udid, bundle_id).await?;
+                    idb::file::ls::run(paths, udid, bundle_id).await?;
                 }
                 file::FileCommands::Mkdir {
                     path,
@@ -186,7 +190,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     root,
                     udid,
                 } => {
-                    cli::idb::file::mkdir::run(path, bundle_id, root, udid).await?;
+                    idb::file::mkdir::run(path, bundle_id, root, udid).await?;
                 }
                 file::FileCommands::Mv {
                     src_paths,
@@ -195,14 +199,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     root,
                     udid,
                 } => {
-                    cli::idb::file::mv::run(src_paths, dst_path, bundle_id, root, udid).await?;
+                    idb::file::mv::run(src_paths, dst_path, bundle_id, root, udid).await?;
                 }
                 file::FileCommands::Rm {
                     paths,
                     udid,
                     bundle_id,
                 } => {
-                    cli::idb::file::rm::run(paths, udid, bundle_id).await?;
+                    idb::file::rm::run(paths, udid, bundle_id).await?;
                 }
                 file::FileCommands::Pull {
                     src_path,
@@ -210,7 +214,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     bundle_id,
                     udid,
                 } => {
-                    cli::idb::file::pull::run(src_path, dst_path, udid, bundle_id).await?;
+                    idb::file::pull::run(src_path, dst_path, udid, bundle_id).await?;
                 }
                 file::FileCommands::Push {
                     src_path,
@@ -218,28 +222,28 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     bundle_id,
                     udid,
                 } => {
-                    cli::idb::file::push::run(src_path, dst_path, udid, bundle_id).await?;
+                    idb::file::push::run(src_path, dst_path, udid, bundle_id).await?;
                 }
                 file::FileCommands::Tail {
                     path,
                     bundle_id,
                     udid,
                 } => {
-                    cli::idb::file::tail::run(path, udid, bundle_id).await?;
+                    idb::file::tail::run(path, udid, bundle_id).await?;
                 }
                 file::FileCommands::Read {
                     src_path,
                     bundle_id,
                     udid,
                 } => {
-                    cli::idb::file::read::run(src_path, udid, bundle_id).await?;
+                    idb::file::read::run(src_path, udid, bundle_id).await?;
                 }
                 file::FileCommands::Write {
                     dst_path,
                     bundle_id,
                     udid,
                 } => {
-                    cli::idb::file::write::run(dst_path, udid, bundle_id).await?;
+                    idb::file::write::run(dst_path, udid, bundle_id).await?;
                 }
             },
             IdbCommands::Tap {
@@ -248,27 +252,27 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 duration,
                 udid,
             } => {
-                cli::idb::hid::tap::run(x, y, duration, udid).await?;
+                idb::hid::tap::run(x, y, duration, udid).await?;
             }
             IdbCommands::Button {
                 button,
                 duration,
                 udid,
             } => {
-                cli::idb::hid::button::run(button, duration, udid).await?;
+                idb::hid::button::run(button, duration, udid).await?;
             }
             IdbCommands::Key {
                 keycode,
                 duration,
                 udid,
             } => {
-                cli::idb::hid::key::run(keycode, duration, udid).await?;
+                idb::hid::key::run(keycode, duration, udid).await?;
             }
             IdbCommands::KeySequence { key_sequence, udid } => {
-                cli::idb::hid::key_sequence::run(key_sequence, udid).await?;
+                idb::hid::key_sequence::run(key_sequence, udid).await?;
             }
             IdbCommands::Text { text, udid } => {
-                cli::idb::hid::text::run(text, udid).await?;
+                idb::hid::text::run(text, udid).await?;
             }
             IdbCommands::Swipe {
                 x_start,
@@ -279,11 +283,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 delta,
                 udid,
             } => {
-                cli::idb::hid::swipe::run(x_start, y_start, x_end, y_end, duration, delta, udid)
-                    .await?;
+                idb::hid::swipe::run(x_start, y_start, x_end, y_end, duration, delta, udid).await?;
             }
             IdbCommands::ListApps { udid } => {
-                cli::idb::list_apps::run(udid).await?;
+                idb::list_apps::run(udid).await?;
             }
             IdbCommands::Location { command } => match command {
                 LocationCommands::SetLocation {
@@ -291,7 +294,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     longitude,
                     udid,
                 } => {
-                    cli::idb::location::run(latitude, longitude, udid).await?;
+                    idb::location::run(latitude, longitude, udid).await?;
                 }
             },
             IdbCommands::Notification { command } => match command {
@@ -300,7 +303,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     json_payload,
                     udid,
                 } => {
-                    cli::idb::notification::run(bundle_id, json_payload, udid).await?;
+                    idb::notification::run(bundle_id, json_payload, udid).await?;
                 }
             },
             IdbCommands::Revoke {
@@ -309,7 +312,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 scheme,
                 udid,
             } => {
-                cli::idb::permissions::revoke(bundle_id, permissions, scheme, udid).await?;
+                idb::permissions::revoke(bundle_id, permissions, scheme, udid).await?;
             }
             IdbCommands::Set {
                 name,
@@ -318,39 +321,39 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 domain,
                 udid,
             } => {
-                cli::idb::settings::set(name, value, value_type, domain, udid).await?;
+                idb::settings::set(name, value, value_type, domain, udid).await?;
             }
             IdbCommands::Get { name, domain, udid } => {
-                cli::idb::settings::get(name, domain, udid).await?;
+                idb::settings::get(name, domain, udid).await?;
             }
             IdbCommands::List { command } => match command {
                 ListCommands::Locale { udid } => {
-                    cli::idb::settings::list_locale(udid).await?;
+                    idb::settings::list_locale(udid).await?;
                 }
             },
             IdbCommands::Terminate { bundle_id, udid } => {
-                cli::idb::terminate::run(bundle_id, udid).await?;
+                idb::terminate::run(bundle_id, udid).await?;
             }
             IdbCommands::Url { command } => match command {
                 UrlCommands::Open { url, udid } => {
-                    cli::idb::url::run(url, udid).await?;
+                    idb::url::run(url, udid).await?;
                 }
             },
             IdbCommands::Media { command } => match command {
-                cli::idb::media::MediaCommands::AddMedia { file_paths, udid } => {
-                    cli::idb::media::add_media(file_paths, udid).await?;
+                idb::media::MediaCommands::AddMedia { file_paths, udid } => {
+                    idb::media::add_media(file_paths, udid).await?;
                 }
             },
             IdbCommands::Video { command } => match command {
-                cli::idb::video::VideoCommands::RecordVideo {
+                idb::video::VideoCommands::RecordVideo {
                     output_file,
                     format,
                     fps,
                     udid,
                 } => {
-                    cli::idb::video::record::run(output_file, format, fps, udid).await?;
+                    idb::video::record::run(output_file, format, fps, udid).await?;
                 }
-                cli::idb::video::VideoCommands::VideoStream {
+                idb::video::VideoCommands::VideoStream {
                     output_file,
                     fps,
                     format,
@@ -358,7 +361,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     scale_factor,
                     udid,
                 } => {
-                    cli::idb::video::stream::run(
+                    idb::video::stream::run(
                         output_file,
                         fps,
                         format,
@@ -370,25 +373,25 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
             },
             IdbCommands::PhotosClear { udid } => {
-                cli::idb::photos::clear(udid).await?;
+                idb::photos::clear(udid).await?;
             }
             IdbCommands::AccessibilityDescribeAll { nested, udid } => {
-                cli::idb::accessibility::describe_all(nested, udid).await?;
+                idb::accessibility::describe_all(nested, udid).await?;
             }
             IdbCommands::AccessibilityDescribePoint { x, y, nested, udid } => {
-                cli::idb::accessibility::describe_point(x, y, nested, udid).await?;
+                idb::accessibility::describe_point(x, y, nested, udid).await?;
             }
             IdbCommands::ContactsUpdate { db_path, udid } => {
-                cli::idb::contacts::update(db_path, udid).await?;
+                idb::contacts::update(db_path, udid).await?;
             }
             IdbCommands::ContactsClear { udid } => {
-                cli::idb::contacts::clear(udid).await?;
+                idb::contacts::clear(udid).await?;
             }
             IdbCommands::KeychainClear { udid } => {
-                cli::idb::keychain::clear(udid).await?;
+                idb::keychain::clear(udid).await?;
             }
             IdbCommands::SimulateMemoryWarning { udid } => {
-                cli::idb::memory::simulate_warning(udid).await?;
+                idb::memory::simulate_warning(udid).await?;
             }
             IdbCommands::XctestInstall {
                 test_bundle_path,
@@ -397,78 +400,72 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 format,
                 udid,
             } => {
-                cli::idb::xctest_install::run(
-                    test_bundle_path,
-                    udid,
-                    skip_signing,
-                    compression,
-                    format,
-                )
-                .await?;
+                idb::xctest_install::run(test_bundle_path, udid, skip_signing, compression, format)
+                    .await?;
             }
             IdbCommands::XctestList { udid } => {
-                cli::idb::xctest_list::run(udid).await?;
+                idb::xctest_list::run(udid).await?;
             }
             IdbCommands::XctestListBundle {
                 bundle_id,
                 app_path,
                 udid,
             } => {
-                cli::idb::xctest_list_bundle::run(bundle_id, app_path, udid).await?;
+                idb::xctest_list_bundle::run(bundle_id, app_path, udid).await?;
             }
             IdbCommands::XctestRun {
                 test_bundle_id,
                 tests_to_run,
                 udid,
             } => {
-                cli::idb::xctest_run::run(test_bundle_id, tests_to_run, udid).await?;
+                idb::xctest_run::run(test_bundle_id, tests_to_run, udid).await?;
             }
             IdbCommands::Target { command } => match command {
                 target::TargetCommands::Boot { udid, headless } => {
-                    cli::idb::target::boot::run(udid, headless).await?;
+                    idb::target::boot::run(udid, headless).await?;
                 }
                 target::TargetCommands::Shutdown { udid } => {
-                    cli::idb::target::shutdown::run(udid).await?;
+                    idb::target::shutdown::run(udid).await?;
                 }
                 target::TargetCommands::Erase { udid } => {
-                    cli::idb::target::erase::run(udid).await?;
+                    idb::target::erase::run(udid).await?;
                 }
                 target::TargetCommands::Create {
                     name,
                     device_type,
                     os_version,
                 } => {
-                    cli::idb::target::create::run(name, device_type, os_version).await?;
+                    idb::target::create::run(name, device_type, os_version).await?;
                 }
                 target::TargetCommands::Clone { udid } => {
-                    cli::idb::target::clone::run(udid).await?;
+                    idb::target::clone::run(udid).await?;
                 }
                 target::TargetCommands::Delete { udid, all } => {
-                    cli::idb::target::delete::run(udid, all).await?;
+                    idb::target::delete::run(udid, all).await?;
                 }
                 target::TargetCommands::Connect { host, port, udid } => {
-                    cli::idb::target::connect::run(host, port, udid).await?;
+                    idb::target::connect::run(host, port, udid).await?;
                 }
                 target::TargetCommands::Disconnect { udid } => {
-                    cli::idb::target::disconnect::run(udid).await?;
+                    idb::target::disconnect::run(udid).await?;
                 }
                 target::TargetCommands::Describe { udid, diagnostics } => {
-                    cli::idb::target::describe::run(udid, diagnostics).await?;
+                    idb::target::describe::run(udid, diagnostics).await?;
                 }
             },
             IdbCommands::Debugserver { command } => match command {
                 debugserver::DebugServerCommands::Start { bundle_id, udid } => {
-                    cli::idb::debugserver::start::run(bundle_id, udid).await?;
+                    idb::debugserver::start::run(bundle_id, udid).await?;
                 }
                 debugserver::DebugServerCommands::Stop { udid } => {
-                    cli::idb::debugserver::stop::run(udid).await?;
+                    idb::debugserver::stop::run(udid).await?;
                 }
                 debugserver::DebugServerCommands::Status { udid } => {
-                    cli::idb::debugserver::status::run(udid).await?;
+                    idb::debugserver::status::run(udid).await?;
                 }
             },
             IdbCommands::Dap { bundle, port, udid } => {
-                cli::idb::dap::run(bundle, port, udid).await?;
+                idb::dap::run(bundle, port, udid).await?;
             }
             IdbCommands::Dsym { command } => match command {
                 DsymCommands::Install {
@@ -478,8 +475,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     format,
                     udid,
                 } => {
-                    cli::idb::dsym::install(dsym_path, bundle_id, compression, format, udid)
-                        .await?;
+                    idb::dsym::install(dsym_path, bundle_id, compression, format, udid).await?;
                 }
             },
             IdbCommands::Dylib { command } => match command {
@@ -488,7 +484,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     format,
                     udid,
                 } => {
-                    cli::idb::dylib::install(dylib_path, format, udid).await?;
+                    idb::dylib::install(dylib_path, format, udid).await?;
                 }
             },
             IdbCommands::Framework { command } => match command {
@@ -497,7 +493,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     format,
                     udid,
                 } => {
-                    cli::idb::framework::install(framework_path, format, udid).await?;
+                    idb::framework::install(framework_path, format, udid).await?;
                 }
             },
             IdbCommands::Instruments {
@@ -513,7 +509,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 launch_error_timeout,
                 udid,
             } => {
-                cli::idb::instruments::run(
+                idb::instruments::run(
                     template,
                     app_bundle_id,
                     app_args,
@@ -545,7 +541,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     post_args,
                     udid,
                 } => {
-                    cli::idb::xctrace::record(
+                    idb::xctrace::record(
                         template,
                         all_processes,
                         attach,
@@ -565,7 +561,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
             },
             IdbCommands::Shell { no_prompt, udid } => {
-                cli::idb::shell::run(no_prompt, udid).await?;
+                idb::shell::run(no_prompt, udid).await?;
             }
         },
     }

@@ -1,17 +1,42 @@
-//! Core module containing shared types, error definitions, and platform traits.
+//! Core Commands - AI Agent 向け高レベル CLI
 //!
-//! This module provides platform-agnostic types and abstractions that are used
-//! throughout the agent-mobile codebase.
+//! ref 識別子 (@e1, @e2) を使った要素操作を提供します。
+//!
+//! ## コマンド一覧
+//! - `tap` - 要素タップ
+//! - `long-press` - 長押しジェスチャー
+//! - `fill` - テキストフィールド入力 (クリア + 入力)
+//! - `type` - テキスト追記入力
+//! - `swipe` - スワイプジェスチャー
+//! - `scroll` - スクロール
+//! - `get` - 要素情報取得
+//! - `is` - 状態確認
+//! - `wait` - 要素待機
+//! - `screenshot` - スクリーンショット
+//! - `find` - semantic locators による要素検索
 
-pub mod error;
-pub mod traits;
-pub mod types;
+pub mod fill;
+pub mod find;
+pub mod get;
+pub mod is_cmd;
+pub mod long_press;
+pub mod ref_resolver;
+pub mod screenshot;
+pub mod scroll;
+pub mod swipe;
+pub mod tap;
+pub mod type_cmd;
+pub mod wait;
 
-// Re-export commonly used types (allow unused for now as migration progresses)
-#[allow(unused_imports)]
-pub use error::{Error, Result};
-#[allow(unused_imports)]
-pub use types::{
-    human_format_target, json_format_target, merge_connected_targets, Address, CompanionInfo,
-    Compression, InstalledArtifact, Platform, ScrollDirection, TargetDescription, TargetType,
-};
+// Re-export Args for CLI integration
+pub use fill::FillArgs;
+pub use find::FindArgs;
+pub use get::GetArgs;
+pub use is_cmd::IsArgs;
+pub use long_press::LongPressArgs;
+pub use screenshot::ScreenshotArgs;
+pub use scroll::ScrollArgs;
+pub use swipe::SwipeArgs;
+pub use tap::TapArgs;
+pub use type_cmd::TypeArgs;
+pub use wait::WaitArgs;
