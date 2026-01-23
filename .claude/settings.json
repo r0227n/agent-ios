@@ -12,10 +12,13 @@
       "Bash(cargo build:*)",
       "Bash(cargo clean:*)",
       "Bash(cargo test:*)",
-      "Bash(./target/debug/agent-mobile:*)"
+      "Bash(./target/debug/agent-mobile:*)",
+      "Bash(ck:*)"
     ],
     "deny": [
-      "Grep",
+      "Grep"
+    ],
+    "ask": [
       "Bash(grep:*)",
       "Bash(pgrep:*)"
     ],

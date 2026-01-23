@@ -183,7 +183,7 @@ fn truncate_string(s: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::types::Frame;
+    use agent_mobile_core::snapshot::Frame;
 
     fn make_element(
         ref_id: &str,

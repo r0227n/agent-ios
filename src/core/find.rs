@@ -674,7 +674,7 @@ async fn execute_clear(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::types::Frame;
+    use agent_mobile_core::snapshot::Frame;
     use chrono::Utc;
 
     fn create_test_snapshot() -> Snapshot {

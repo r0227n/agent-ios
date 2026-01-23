@@ -124,7 +124,7 @@ pub fn is_empty_structure(element: &SnapshotElement) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::types::Frame;
+    use agent_mobile_core::snapshot::Frame;
 
     fn make_raw(element_type: &str, label: Option<&str>, children: Vec<RawElement>) -> RawElement {
         RawElement {

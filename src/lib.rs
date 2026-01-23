@@ -58,16 +58,3 @@ pub mod idb;
 pub mod record;
 pub mod session;
 pub mod snapshot;
-
-// Re-export workspace crates directly
-pub use agent_mobile_core;
-pub use agent_mobile_gateway;
-pub use agent_mobile_platform_android;
-pub use agent_mobile_platform_ios;
-
-// Convenience re-exports from workspace crates
-pub use agent_mobile_core::{
-    Address, Compression, Platform, ScrollDirection, TargetDescription, TargetType,
-};
-pub use agent_mobile_gateway::IosDevice;
-pub use agent_mobile_platform_ios::{IdbClient, LaunchConfig};

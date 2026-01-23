@@ -54,7 +54,7 @@ pub async fn run(
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::file_container;
+    use crate::helpers::file_container::file_container;
     use agent_mobile_platform_ios::proto::idb::file_container::Kind as FileContainerKind;
 
     #[test]

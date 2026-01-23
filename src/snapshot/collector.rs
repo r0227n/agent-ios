@@ -527,7 +527,7 @@ pub async fn get_android_screen_size(serial: Option<&str>) -> CommandResult<(f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::types::Frame;
+    use agent_mobile_core::snapshot::Frame;
 
     fn make_raw(
         element_type: &str,
