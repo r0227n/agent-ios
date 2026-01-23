@@ -57,6 +57,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Commands::Screenshot(args) => {
             cli::core::screenshot::run(args).await?;
         }
+        Commands::Find(args) => {
+            cli::core::find::run(args).await?;
+        }
         Commands::Snapshot(args) => {
             cli::snapshot::run(args).await?;
         }
