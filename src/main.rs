@@ -320,15 +320,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     idb::file::write::run(dst_path, udid, bundle_id).await?;
                 }
             },
-            IdbCommands::Tap {
-                x,
-                y,
-                duration,
-                mut udid,
-            } => {
-                apply_session_udid_option!(udid, resolved_udid);
-                idb::hid::tap::run(x, y, duration, udid).await?;
-            }
             IdbCommands::Button {
                 button,
                 duration,
@@ -351,22 +342,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             } => {
                 apply_session_udid_option!(udid, resolved_udid);
                 idb::hid::key_sequence::run(key_sequence, udid).await?;
-            }
-            IdbCommands::Text { text, mut udid } => {
-                apply_session_udid_option!(udid, resolved_udid);
-                idb::hid::text::run(text, udid).await?;
-            }
-            IdbCommands::Swipe {
-                x_start,
-                y_start,
-                x_end,
-                y_end,
-                duration,
-                delta,
-                mut udid,
-            } => {
-                apply_session_udid_option!(udid, resolved_udid);
-                idb::hid::swipe::run(x_start, y_start, x_end, y_end, duration, delta, udid).await?;
             }
             IdbCommands::ListApps { mut udid } => {
                 apply_session_udid_option!(udid, resolved_udid);
