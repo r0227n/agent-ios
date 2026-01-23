@@ -10,7 +10,8 @@ use clap::Args;
 
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::{CommandResult, DeviceArgs};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
 use super::tap::{execute_tap, take_snapshot};

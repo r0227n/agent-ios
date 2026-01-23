@@ -4,7 +4,9 @@ use agent_mobile_core::OutputWriter;
 use agent_mobile_gateway::{stream_console_logs, DeviceResolver};
 use clap::Args;
 
-use crate::helpers::{setup_ctrl_c_handler, CommandResult, DeviceArgs};
+use crate::helpers::signal::setup_ctrl_c_handler;
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::DeviceArgs;
 
 /// Console output streaming arguments
 #[derive(Args)]

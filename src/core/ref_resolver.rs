@@ -2,8 +2,10 @@
 //!
 //! @e1, @e2 形式の ref 識別子を座標に変換するシステム。
 
-use crate::helpers::CommandResult;
-use crate::snapshot::types::{Frame, Snapshot, SnapshotElement};
+use agent_mobile_core::snapshot::Frame;
+
+use crate::helpers::client::CommandResult;
+use crate::snapshot::types::{Snapshot, SnapshotElement};
 
 /// UI Element Target type for Core Commands
 #[derive(Debug, Clone)]

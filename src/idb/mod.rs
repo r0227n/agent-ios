@@ -38,7 +38,7 @@ pub mod xctrace;
 
 use clap::Subcommand;
 
-use crate::helpers::OutputFormat;
+use crate::helpers::format::OutputFormat;
 
 #[derive(Subcommand)]
 pub enum IdbCommands {

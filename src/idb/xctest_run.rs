@@ -1,6 +1,6 @@
 use agent_mobile_platform_ios::proto::idb::xctest_run_response::test_run_info::Status;
 
-use crate::helpers::{with_client, CommandResult};
+use crate::helpers::client::{with_client, CommandResult};
 
 pub async fn run(
     test_bundle_id: String,

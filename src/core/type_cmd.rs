@@ -8,7 +8,8 @@ use clap::Args;
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
 use agent_mobile_gateway::DeviceResolver;
 

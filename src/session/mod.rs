@@ -18,7 +18,9 @@ use clap::{Args, Subcommand};
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::{CommandResult, OutputFormat};
+use crate::helpers::client::CommandResult;
+use crate::helpers::format::OutputFormat;
+use state::{SessionData, SessionState};
 
 /// Session management arguments
 #[derive(Args, Debug)]
@@ -204,7 +206,3 @@ async fn destroy_session(name: String) -> CommandResult {
     println!("Session '{}' destroyed", name);
     Ok(())
 }
-
-// Re-export for convenience
-pub use state::SessionData;
-pub use state::SessionState;

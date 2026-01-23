@@ -12,7 +12,8 @@ use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
 
@@ -101,7 +102,7 @@ pub async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandR
 
 /// Get iOS screen size from snapshot's root element
 async fn get_ios_screen_size_from_snapshot(udid: Option<&str>) -> CommandResult<(f64, f64)> {
-    use crate::helpers::with_client;
+    use crate::helpers::client::with_client;
 
     with_client(udid, |mut client| async move {
         let json_str = client.accessibility_info(None, false).await?;

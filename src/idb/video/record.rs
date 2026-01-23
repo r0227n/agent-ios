@@ -1,4 +1,5 @@
-use crate::helpers::{setup_ctrl_c_handler, with_client, CommandResult};
+use crate::helpers::signal::setup_ctrl_c_handler;
+use crate::helpers::client::{with_client, CommandResult};
 
 /// Record the target's screen to a mp4 video file
 pub async fn run(

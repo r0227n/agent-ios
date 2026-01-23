@@ -9,7 +9,9 @@
 
 use clap::Args;
 
-use crate::helpers::{CommandResult, DeviceArgs, OutputFormat};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::format::OutputFormat;
 
 use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;

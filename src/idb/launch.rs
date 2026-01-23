@@ -1,4 +1,5 @@
-use crate::helpers::{setup_ctrl_c_handler, with_client, CommandResult};
+use crate::helpers::signal::setup_ctrl_c_handler;
+use crate::helpers::client::{with_client, CommandResult};
 use agent_mobile_platform_ios::grpc::LaunchConfig;
 use std::collections::HashMap;
 use tokio::sync::watch;

@@ -33,7 +33,7 @@ pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sy
 /// # Example
 ///
 /// ```ignore
-/// use crate::helpers::{with_client, CommandResult};
+/// use crate::helpers::client::{with_client, CommandResult};
 ///
 /// pub async fn run(udid: Option<&str>) -> CommandResult {
 ///     with_client(udid, |mut client| async move {

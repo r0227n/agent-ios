@@ -6,7 +6,7 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use crate::helpers::CommandResult;
+use crate::helpers::client::CommandResult;
 use agent_mobile_core::snapshot::RawElement;
 use agent_mobile_platform_android::snapshot::extract_android_elements;
 use agent_mobile_platform_ios::snapshot::extract_ios_elements;

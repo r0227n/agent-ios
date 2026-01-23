@@ -27,7 +27,8 @@ use serde::Serialize;
 use agent_mobile_core::snapshot::Frame;
 use agent_mobile_core::Platform;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 use crate::snapshot::types::{Snapshot, SnapshotElement};
 
 use super::tap::take_snapshot;

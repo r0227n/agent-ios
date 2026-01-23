@@ -1,4 +1,4 @@
-use crate::helpers::{with_client, CommandResult};
+use crate::helpers::client::{with_client, CommandResult};
 
 pub async fn run(latitude: f64, longitude: f64, udid: Option<String>) -> CommandResult {
     // Validate coordinate ranges

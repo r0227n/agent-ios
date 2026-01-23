@@ -8,7 +8,9 @@ use serde::Serialize;
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::{CommandResult, DeviceArgs, DeviceFormatArgs, OutputFormat};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::{DeviceArgs, DeviceFormatArgs};
+use crate::helpers::format::OutputFormat;
 
 /// App command arguments.
 #[derive(Args, Debug)]
@@ -308,7 +310,7 @@ async fn execute_launch(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
             use agent_mobile_platform_ios::grpc::LaunchConfig;
             use std::collections::HashMap;
             use tokio::sync::watch;
@@ -351,7 +353,7 @@ async fn execute_terminate(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let bundle_id = bundle_id.to_string();
 
@@ -380,7 +382,7 @@ async fn execute_install(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let path = path.to_string();
             let output = *output;
@@ -427,7 +429,7 @@ async fn execute_uninstall(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let bundle_id = bundle_id.to_string();
 
@@ -455,7 +457,7 @@ async fn execute_list(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let output = *output;
 
@@ -572,7 +574,7 @@ async fn execute_grant(
             }
 
             // Try idb gRPC first, fall back to simctl
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let result = with_client(Some(udid), |mut client| async move {
                 let perm_id = ios_permission_to_id(permission);
@@ -624,7 +626,7 @@ async fn execute_revoke(
     match platform {
         Platform::Ios => {
             // Try idb gRPC first, fall back to simctl
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let result = with_client(Some(udid), |mut client| async move {
                 let perm_id = ios_permission_to_id(permission);

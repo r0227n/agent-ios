@@ -10,7 +10,8 @@ use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_platform_ios::simctl::management as simctl;
 
-use crate::helpers::{CommandResult, DeviceArgs};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::DeviceArgs;
 
 use agent_mobile_gateway::DeviceResolver;
 

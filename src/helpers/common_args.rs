@@ -5,7 +5,7 @@
 
 use clap::Args;
 
-use super::OutputFormat;
+use super::format::OutputFormat;
 
 /// Basic device selection arguments (platform + udid).
 ///

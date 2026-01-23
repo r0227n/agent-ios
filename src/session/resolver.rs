@@ -4,7 +4,7 @@
 //! with fallback to explicit UDID or auto-detection.
 
 use super::state::SessionState;
-use crate::helpers::CommandResult;
+use crate::helpers::client::CommandResult;
 
 /// Session resolver for determining target device UDID
 pub struct SessionResolver {

@@ -15,7 +15,9 @@ use agent_mobile_platform_ios::snapshot::extract_ios_elements;
 use chrono::Utc;
 use clap::Args;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs, OutputFormat};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::format::OutputFormat;
 use types::Snapshot;
 
 /// Snapshot command arguments.

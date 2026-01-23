@@ -1,4 +1,4 @@
-use crate::helpers::{with_client, CommandResult};
+use crate::helpers::client::{with_client, CommandResult};
 
 pub async fn run(bundle_id: String, udid: Option<String>) -> CommandResult {
     with_client(udid.as_deref(), |mut client| async move {

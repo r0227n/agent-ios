@@ -8,7 +8,8 @@ use serde::Serialize;
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::{CommandResult, OutputFormat};
+use crate::helpers::client::CommandResult;
+use crate::helpers::format::OutputFormat;
 
 /// Device command arguments.
 #[derive(Args, Debug)]

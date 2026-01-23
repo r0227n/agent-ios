@@ -1,4 +1,4 @@
-use crate::helpers::{with_client, CommandResult};
+use crate::helpers::client::{with_client, CommandResult};
 use agent_mobile_platform_ios::hid::events;
 
 pub async fn run(keycode: u64, duration: Option<f64>, udid: Option<String>) -> CommandResult {

@@ -1,4 +1,5 @@
-use crate::helpers::{file_container_with_root, with_client, CommandResult, DefaultContainer};
+use crate::helpers::file_container::{file_container_with_root, DefaultContainer};
+use crate::helpers::client::{with_client, CommandResult};
 
 pub async fn run(
     src_paths: Vec<String>,

@@ -1,19 +1,18 @@
-//! dylib install command implementation
+//! framework install command implementation
 
-use crate::helpers::client::{with_client, CommandResult};
-use crate::helpers::format::OutputFormat;
+use crate::helpers::{with_client, CommandResult, OutputFormat};
 use serde_json::json;
 
-/// Install a dylib to the target
+/// Install a framework to the target
 pub async fn install(
-    dylib_path: String,
+    framework_path: String,
     format: OutputFormat,
     udid: Option<String>,
 ) -> CommandResult {
     let json_output = format.is_json();
     with_client(udid.as_deref(), |mut client| async move {
-        // Call install_dylib RPC
-        let mut response_stream = client.install_dylib(&dylib_path).await?;
+        // Call install_framework RPC
+        let mut response_stream = client.install_framework(&framework_path).await?;
 
         // Process streaming responses
         let mut artifact_name = String::new();
@@ -37,7 +36,10 @@ pub async fn install(
         // Output result
         if !artifact_name.is_empty() {
             if json_output {
-                println!("{}", json!({"dylib": artifact_name, "uuid": artifact_uuid}));
+                println!(
+                    "{}",
+                    json!({"framework": artifact_name, "uuid": artifact_uuid})
+                );
             } else {
                 println!("Installed: {} {}", artifact_name, artifact_uuid);
             }
