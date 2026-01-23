@@ -184,12 +184,16 @@ async fn resolve_platform(
 }
 
 /// Execute the app command.
-pub async fn run(args: AppArgs) -> CommandResult {
+pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult {
     match args.command {
         AppCommands::Launch {
             bundle_id,
-            device_output,
+            mut device_output,
         } => {
+            // Apply session UDID if not explicitly set
+            if device_output.udid.is_none() {
+                device_output.udid = resolved_udid;
+            }
             let platform = resolve_platform(device_output.platform.as_deref()).await?;
             execute_launch(
                 platform,
@@ -199,14 +203,23 @@ pub async fn run(args: AppArgs) -> CommandResult {
             )
             .await
         }
-        AppCommands::Terminate { bundle_id, device } => {
+        AppCommands::Terminate {
+            bundle_id,
+            mut device,
+        } => {
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
             let platform = resolve_platform(device.platform.as_deref()).await?;
             execute_terminate(platform, device.udid.as_deref(), &bundle_id).await
         }
         AppCommands::Install {
             path,
-            device_output,
+            mut device_output,
         } => {
+            if device_output.udid.is_none() {
+                device_output.udid = resolved_udid;
+            }
             let platform = resolve_platform(device_output.platform.as_deref()).await?;
             execute_install(
                 platform,
@@ -216,11 +229,20 @@ pub async fn run(args: AppArgs) -> CommandResult {
             )
             .await
         }
-        AppCommands::Uninstall { bundle_id, device } => {
+        AppCommands::Uninstall {
+            bundle_id,
+            mut device,
+        } => {
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
             let platform = resolve_platform(device.platform.as_deref()).await?;
             execute_uninstall(platform, device.udid.as_deref(), &bundle_id).await
         }
-        AppCommands::List { device_output } => {
+        AppCommands::List { mut device_output } => {
+            if device_output.udid.is_none() {
+                device_output.udid = resolved_udid;
+            }
             let platform = resolve_platform(device_output.platform.as_deref()).await?;
             execute_list(
                 platform,
@@ -232,8 +254,11 @@ pub async fn run(args: AppArgs) -> CommandResult {
         AppCommands::Grant {
             permission,
             bundle,
-            device,
+            mut device,
         } => {
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
             let platform = resolve_platform(device.platform.as_deref()).await?;
             let udid = match &device.udid {
                 Some(u) => u.clone(),
@@ -244,8 +269,11 @@ pub async fn run(args: AppArgs) -> CommandResult {
         AppCommands::Revoke {
             permission,
             bundle,
-            device,
+            mut device,
         } => {
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
             let platform = resolve_platform(device.platform.as_deref()).await?;
             let udid = match &device.udid {
                 Some(u) => u.clone(),
@@ -256,8 +284,11 @@ pub async fn run(args: AppArgs) -> CommandResult {
         AppCommands::Reset {
             permission,
             bundle,
-            device,
+            mut device,
         } => {
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
             let platform = resolve_platform(device.platform.as_deref()).await?;
             let udid = match &device.udid {
                 Some(u) => u.clone(),
