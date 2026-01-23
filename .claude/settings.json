@@ -14,7 +14,9 @@
       "Bash(cargo test:*)",
       "Bash(./target/debug/agent-mobile:*)"
     ],
-    "deny": [],
+    "deny": [
+      "Grep"
+    ],
     "defaultMode": "plan"
   },
   "hooks": {

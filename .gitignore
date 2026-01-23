@@ -9,6 +9,8 @@ Cargo.lock
 .vscode/
 .mise.local.toml
 
+# ck index
+.ck/
 
 # build files
 undefined/
