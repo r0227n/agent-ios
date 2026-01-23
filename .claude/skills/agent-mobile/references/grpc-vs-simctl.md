@@ -215,7 +215,7 @@ pub fn boot(udid: &str) -> Result<()> {
 権限管理で使用されるパターン:
 
 ```rust
-// src/cli/app/mod.rs
+// src/app/mod.rs
 
 async fn execute_grant(
     platform: Platform,
@@ -316,7 +316,7 @@ impl CompanionClient {
 agent-mobile は `with_client()` ヘルパーで接続を管理:
 
 ```rust
-// src/cli/helpers.rs
+// src/helpers.rs
 
 pub async fn with_client<F, Fut, T>(
     udid: Option<&str>,
@@ -479,7 +479,7 @@ proto に API ある? → YES (approve/revoke)
 
 **実装:**
 ```rust
-// src/cli/app/mod.rs (Pattern 1 参照)
+// src/app/mod.rs (Pattern 1 参照)
 ```
 
 ### Example 3: UI Snapshot
@@ -497,7 +497,7 @@ proto に API ある? → YES (accessibility_info)
 
 **実装:**
 ```rust
-// src/cli/snapshot/mod.rs
+// src/snapshot/mod.rs
 
 let json_str = client.accessibility_info(None, true).await?;
 let json: serde_json::Value = serde_json::from_str(&json_str)?;
