@@ -106,9 +106,15 @@ async fn has_android_device() -> bool {
         Ok(o) if o.status.success() => {
             let stdout = String::from_utf8_lossy(&o.stdout);
             // Check if there's at least one device listed (not just "List of devices attached")
+            // adb devices -l output format: "<serial>\tdevice\t..." or "<serial>\tdevice product:..."
             stdout.lines().skip(1).any(|line| {
                 let line = line.trim();
-                !line.is_empty() && (line.contains("device") || line.contains("emulator"))
+                if line.is_empty() {
+                    return false;
+                }
+                // Split by whitespace and check if the second field is "device"
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                parts.len() >= 2 && parts[1] == "device"
             })
         }
         _ => false,

@@ -24,7 +24,8 @@ pub async fn run(udid: Option<String>, mut writer: OutputWriter) -> CommandResul
     }
     cmd.arg("logcat");
     cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
+    // Inherit stderr to avoid buffer accumulation
+    cmd.stderr(Stdio::inherit());
 
     // Spawn the process
     let mut child = cmd.spawn().map_err(|e| {
@@ -45,6 +46,8 @@ pub async fn run(udid: Option<String>, mut writer: OutputWriter) -> CommandResul
                 if *stop_rx.borrow() {
                     // Kill the child process gracefully
                     child.kill().await.ok();
+                    // Wait for the process to exit to avoid zombie process
+                    child.wait().await.ok();
                     break;
                 }
             }

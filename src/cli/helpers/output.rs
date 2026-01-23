@@ -68,9 +68,10 @@ impl Write for OutputWriter {
             Self::Stdout(s) => s.write(buf),
             Self::File(f) => f.write(buf),
             Self::Tee { file, stdout } => {
-                // Write to both, return file's result
+                // Write to both using write_all to avoid partial writes
                 stdout.write_all(buf)?;
-                file.write(buf)
+                file.write_all(buf)?;
+                Ok(buf.len())
             }
         }
     }
