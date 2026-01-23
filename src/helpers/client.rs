@@ -38,35 +38,6 @@ where
     f(client).await
 }
 
-/// Execute a command with an IdbClient connection for streaming.
-///
-/// This helper function is similar to `with_client`, but uses a streaming connection
-/// that has no request timeout. Use this for long-running streaming RPCs (e.g., log, video)
-/// where the default 30-second timeout would cause transport errors.
-///
-/// # Example
-///
-/// ```ignore
-/// use crate::helpers::{with_client_streaming, CommandResult};
-///
-/// pub async fn run(udid: Option<String>) -> CommandResult {
-///     with_client_streaming(udid.as_deref(), |mut client| async move {
-///         let mut stream = client.log(LogSource::Target, vec![]).await?;
-///         // Process stream indefinitely...
-///         Ok(())
-///     }).await
-/// }
-/// ```
-pub async fn with_client_streaming<F, Fut, T>(udid: Option<&str>, f: F) -> CommandResult<T>
-where
-    F: FnOnce(IdbClient) -> Fut,
-    Fut: std::future::Future<Output = CommandResult<T>>,
-{
-    let resolver = CompanionResolver::new();
-    let client = resolver.connect_streaming(udid).await?;
-    f(client).await
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

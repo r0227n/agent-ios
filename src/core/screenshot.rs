@@ -31,21 +31,13 @@ impl ImageFormat {
         }
     }
 
-    /// Get simctl --type parameter value (iOS)
-    pub fn simctl_type(&self) -> &'static str {
-        match self {
-            Self::Png => "png",
-            Self::Jpeg => "jpeg",
-        }
-    }
-
     /// Check if format is supported on Android
     pub fn is_android_supported(&self) -> bool {
         matches!(self, Self::Png)
     }
 
     /// Convert to platform-ios ImageFormat
-    pub fn to_platform_format(&self) -> agent_mobile_platform_ios::ImageFormat {
+    pub fn to_platform_format(self) -> agent_mobile_platform_ios::ImageFormat {
         match self {
             Self::Png => agent_mobile_platform_ios::ImageFormat::Png,
             Self::Jpeg => agent_mobile_platform_ios::ImageFormat::Jpeg,

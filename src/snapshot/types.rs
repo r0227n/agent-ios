@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 // Re-export core types for backward compatibility
-pub use agent_mobile_core::snapshot::{is_interactive_type, Frame, RawElement};
+pub use agent_mobile_core::snapshot::Frame;
 
 /// Complete UI snapshot with metadata and elements.
 #[derive(Debug, Clone, Serialize, Deserialize)]

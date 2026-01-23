@@ -59,7 +59,7 @@ impl DeviceResolver {
             Ok(o) if o.status.success() => {
                 let stdout = String::from_utf8_lossy(&o.stdout);
                 stdout.lines().skip(1).any(|line| {
-                    let parts: Vec<&str> = line.trim().split_whitespace().collect();
+                    let parts: Vec<&str> = line.split_whitespace().collect();
                     parts.len() >= 2 && parts[1] == "device"
                 })
             }
