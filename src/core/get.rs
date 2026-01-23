@@ -18,7 +18,7 @@ use agent_mobile_gateway::DeviceResolver;
 /// get コマンド引数
 #[derive(Args, Debug)]
 pub struct GetArgs {
-    /// Property to get: text, value, attr, or omit for all
+    /// Property to get: text, value, attr, box, count, or omit for all
     pub property: String,
 
     /// Element ref (@eN) or "text"
@@ -51,9 +51,48 @@ pub async fn run(args: GetArgs) -> CommandResult {
         );
     };
 
-    // Get snapshot and resolve element
+    // Get snapshot
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
+    // Special handling for 'count' property (doesn't require element resolution)
+    if property.to_lowercase() == "count" {
+        let target = Target::parse(&target_str);
+        let count = match target {
+            Target::Ref(_) => {
+                // Ref exists check
+                if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_ok() {
+                    1
+                } else {
+                    0
+                }
+            }
+            Target::Text(text) => {
+                // Count all elements containing text
+                let text_lower = text.to_lowercase();
+                snapshot
+                    .elements
+                    .iter()
+                    .filter(|e| {
+                        e.label
+                            .as_ref()
+                            .map(|l| l.to_lowercase().contains(&text_lower))
+                            .unwrap_or(false)
+                            || e.value
+                                .as_ref()
+                                .map(|v| v.to_lowercase().contains(&text_lower))
+                                .unwrap_or(false)
+                    })
+                    .count()
+            }
+            _ => {
+                return Err("count property requires a ref or text target".into());
+            }
+        };
+        println!("{}", count);
+        return Ok(());
+    }
+
+    // Resolve element for other properties
     let target = Target::parse(&target_str);
     let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
 
@@ -68,6 +107,22 @@ pub async fn run(args: GetArgs) -> CommandResult {
                 "x={}, y={}, width={}, height={}",
                 element.frame.x, element.frame.y, element.frame.width, element.frame.height
             )
+        }
+        "box" => {
+            if args.format.is_json() {
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "x": element.frame.x,
+                    "y": element.frame.y,
+                    "width": element.frame.width,
+                    "height": element.frame.height
+                }))?
+            } else {
+                // JSON-style text output for consistency
+                format!(
+                    r#"{{"x": {}, "y": {}, "width": {}, "height": {}}}"#,
+                    element.frame.x, element.frame.y, element.frame.width, element.frame.height
+                )
+            }
         }
         "center" => {
             let (x, y) = element.center();
@@ -124,7 +179,7 @@ pub async fn run(args: GetArgs) -> CommandResult {
         }
         _ => {
             return Err(format!(
-                "Unknown property: {}. Valid properties: text, value, type, enabled, frame, center, traits, attr, all",
+                "Unknown property: {}. Valid properties: text, value, type, enabled, frame, box, center, traits, attr, count, all",
                 property
             ).into());
         }
