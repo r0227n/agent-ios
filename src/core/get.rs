@@ -11,7 +11,7 @@ use clap::Args;
 
 use crate::helpers::{CommandResult, DeviceArgs, OutputFormat};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -56,9 +56,9 @@ pub async fn run(args: GetArgs) -> CommandResult {
 
     // Special handling for 'count' property (doesn't require element resolution)
     if property.to_lowercase() == "count" {
-        let target = Target::parse(&target_str);
+        let target = ElementTarget::parse(&target_str);
         let count = match target {
-            Target::Ref(_) => {
+            ElementTarget::Ref(_) => {
                 // Ref exists check
                 if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_ok() {
                     1
@@ -66,7 +66,7 @@ pub async fn run(args: GetArgs) -> CommandResult {
                     0
                 }
             }
-            Target::Text(text) => {
+            ElementTarget::Text(text) => {
                 // Count all elements containing text
                 let text_lower = text.to_lowercase();
                 snapshot
@@ -93,7 +93,7 @@ pub async fn run(args: GetArgs) -> CommandResult {
     }
 
     // Resolve element for other properties
-    let target = Target::parse(&target_str);
+    let target = ElementTarget::parse(&target_str);
     let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
 
     // Get the requested property

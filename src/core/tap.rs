@@ -14,7 +14,7 @@ use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::{with_client, CommandResult, DeviceArgs};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 
 /// tap コマンド引数
 #[derive(Args, Debug)]
@@ -33,10 +33,10 @@ pub struct TapArgs {
 /// Execute the tap command
 pub async fn run(args: TapArgs) -> CommandResult {
     let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
-    let target = Target::parse(&args.target);
+    let target = ElementTarget::parse(&args.target);
 
     // Handle special keys
-    if let Target::Key(key) = &target {
+    if let ElementTarget::Key(key) = &target {
         return execute_key(platform, args.device.udid.as_deref(), key).await;
     }
 
@@ -49,23 +49,23 @@ pub async fn run(args: TapArgs) -> CommandResult {
 
 /// Resolve target to coordinates
 pub async fn resolve_coords(
-    target: &Target,
+    target: &ElementTarget,
     platform: Platform,
     udid: Option<&str>,
 ) -> CommandResult<(f64, f64)> {
     match target {
-        Target::Coords(x, y) => Ok((*x, *y)),
-        Target::Position(pos) => {
+        ElementTarget::Coords(x, y) => Ok((*x, *y)),
+        ElementTarget::Position(pos) => {
             // Handle special positions like "center"
             resolve_position(pos, platform, udid).await
         }
-        Target::Ref(_) | Target::Text(_) => {
+        ElementTarget::Ref(_) | ElementTarget::Text(_) => {
             // Take a fresh snapshot
             let snapshot = take_snapshot(platform, udid).await?;
             let element = ref_resolver::resolve_from_snapshot(&snapshot, target)?;
             Ok(element.center())
         }
-        Target::Key(_) => Err("Cannot resolve key to coordinates".into()),
+        ElementTarget::Key(_) => Err("Cannot resolve key to coordinates".into()),
     }
 }
 

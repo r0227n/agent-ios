@@ -11,7 +11,7 @@ use agent_mobile_core::Platform;
 
 use crate::helpers::{with_client, CommandResult, DeviceArgs};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -31,7 +31,7 @@ pub struct FillArgs {
 /// Execute the fill command
 pub async fn run(args: FillArgs) -> CommandResult {
     let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
-    let target = Target::parse(&args.target);
+    let target = ElementTarget::parse(&args.target);
 
     // Get snapshot and resolve element
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;

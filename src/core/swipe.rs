@@ -12,7 +12,7 @@ use agent_mobile_core::{Platform, ScrollDirection};
 
 use crate::helpers::{with_client, CommandResult, DeviceArgs};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -93,7 +93,7 @@ async fn parse_swipe_args(
     // Get start point
     let (cx, cy) = if let Some(from_target) = from_ref {
         // Resolve from ref
-        let target = Target::parse(from_target);
+        let target = ElementTarget::parse(from_target);
         let snapshot = take_snapshot(platform, udid).await?;
         let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
         element.center()

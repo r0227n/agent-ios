@@ -85,9 +85,9 @@ pub struct CompanionInfo {
     pub address: Address,
 }
 
-/// Description of an iOS target (device or simulator)
+/// Device information (iOS target - device or simulator)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TargetDescription {
+pub struct DeviceInfo {
     pub name: String,
     pub udid: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -100,6 +100,10 @@ pub struct TargetDescription {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub companion_info: Option<CompanionInfo>,
 }
+
+/// Deprecated alias for backward compatibility - use DeviceInfo instead
+#[deprecated(since = "0.1.0", note = "use DeviceInfo instead")]
+pub type TargetDescription = DeviceInfo;
 
 #[cfg(test)]
 mod tests {

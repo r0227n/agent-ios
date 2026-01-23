@@ -12,7 +12,7 @@ use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::{CommandResult, DeviceArgs};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::{execute_tap, take_snapshot};
 
 /// check/uncheck コマンド引数
@@ -31,7 +31,7 @@ pub struct CheckArgs {
 /// - `should_check = false`: チェックをOFFにする（uncheck コマンド）
 pub async fn run(args: CheckArgs, should_check: bool) -> CommandResult {
     let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
-    let target = Target::parse(&args.target);
+    let target = ElementTarget::parse(&args.target);
 
     // Get snapshot and resolve element
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;

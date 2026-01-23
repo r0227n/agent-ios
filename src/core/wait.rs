@@ -14,7 +14,7 @@ use agent_mobile_core::Platform;
 
 use crate::helpers::{CommandResult, DeviceArgs};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -105,7 +105,7 @@ async fn wait_visible(
     timeout: Duration,
     interval: Duration,
 ) -> CommandResult {
-    let target = Target::parse(target_str);
+    let target = ElementTarget::parse(target_str);
     let deadline = Instant::now() + timeout;
 
     loop {
@@ -138,7 +138,7 @@ async fn wait_gone(
     timeout: Duration,
     interval: Duration,
 ) -> CommandResult {
-    let target = Target::parse(target_str);
+    let target = ElementTarget::parse(target_str);
     let deadline = Instant::now() + timeout;
 
     loop {

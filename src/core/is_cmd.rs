@@ -14,7 +14,7 @@ use clap::Args;
 
 use crate::helpers::{CommandResult, DeviceArgs};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -38,7 +38,7 @@ pub async fn run(args: IsArgs) -> CommandResult {
     // Get snapshot
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
-    let target = Target::parse(&args.target);
+    let target = ElementTarget::parse(&args.target);
 
     // Check the requested state
     let result = match args.state.to_lowercase().as_str() {

@@ -14,7 +14,7 @@ use agent_mobile_core::Platform;
 
 use crate::helpers::{with_client, CommandResult, DeviceArgs};
 
-use super::ref_resolver::Target;
+use super::ref_resolver::ElementTarget;
 use super::tap::resolve_coords;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -42,7 +42,7 @@ pub async fn run(args: LongPressArgs) -> CommandResult {
     }
 
     let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
-    let target = Target::parse(&args.target);
+    let target = ElementTarget::parse(&args.target);
 
     // Get coordinates from target
     let (x, y) = resolve_coords(&target, platform, args.device.udid.as_deref()).await?;

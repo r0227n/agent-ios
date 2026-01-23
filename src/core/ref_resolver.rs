@@ -5,9 +5,9 @@
 use crate::helpers::CommandResult;
 use crate::snapshot::types::{Frame, Snapshot, SnapshotElement};
 
-/// Target type for Core Commands
+/// UI Element Target type for Core Commands
 #[derive(Debug, Clone)]
-pub enum Target {
+pub enum ElementTarget {
     /// Element reference from snapshot (e.g., "@e1", "@e42")
     Ref(String),
     /// Text to search for in snapshot
@@ -78,39 +78,39 @@ impl ResolvedElement {
     }
 }
 
-impl Target {
-    /// Parse a target string into a Target type
+impl ElementTarget {
+    /// Parse a target string into an ElementTarget type
     pub fn parse(s: &str) -> Self {
         let s = s.trim();
 
         // Check for @eN reference format
         if s.starts_with('@') {
-            return Target::Ref(s.to_string());
+            return ElementTarget::Ref(s.to_string());
         }
 
         // Check for coordinate format (x,y)
         if let Some((x, y)) = parse_coords(s) {
-            return Target::Coords(x, y);
+            return ElementTarget::Coords(x, y);
         }
 
         // Check for special positions (e.g., "center")
         if is_special_position(s) {
-            return Target::Position(s.to_lowercase());
+            return ElementTarget::Position(s.to_lowercase());
         }
 
         // Check for special keys
         if is_special_key(s) {
-            return Target::Key(s.to_lowercase());
+            return ElementTarget::Key(s.to_lowercase());
         }
 
         // Treat as text to search
-        Target::Text(s.to_string())
+        ElementTarget::Text(s.to_string())
     }
 
     /// Check if this target is a special key
     #[allow(dead_code)]
     pub fn is_key(&self) -> bool {
-        matches!(self, Target::Key(_))
+        matches!(self, ElementTarget::Key(_))
     }
 }
 
@@ -223,11 +223,11 @@ pub fn to_resolved(elem: &SnapshotElement) -> ResolvedElement {
 /// Resolve a target to an element from a snapshot
 pub fn resolve_from_snapshot(
     snapshot: &Snapshot,
-    target: &Target,
+    target: &ElementTarget,
 ) -> CommandResult<ResolvedElement> {
     match target {
-        Target::Coords(x, y) => Ok(ResolvedElement::from_coords(*x, *y)),
-        Target::Ref(ref_id) => {
+        ElementTarget::Coords(x, y) => Ok(ResolvedElement::from_coords(*x, *y)),
+        ElementTarget::Ref(ref_id) => {
             let elem = find_by_ref(snapshot, ref_id).ok_or_else(|| {
                 let available_refs: Vec<String> = snapshot
                     .elements
@@ -251,7 +251,7 @@ pub fn resolve_from_snapshot(
             })?;
             Ok(to_resolved(elem))
         }
-        Target::Text(text) => {
+        ElementTarget::Text(text) => {
             let elem = find_by_text(snapshot, text).ok_or_else(|| {
                 format!(
                     "Element with text '{}' not found in snapshot.\n\nHint: Run 'agent-mobile snapshot' to see available elements.",
@@ -260,11 +260,11 @@ pub fn resolve_from_snapshot(
             })?;
             Ok(to_resolved(elem))
         }
-        Target::Key(_) => {
+        ElementTarget::Key(_) => {
             // Keys don't need resolution - they're handled separately
             Err("Cannot resolve key target to element".into())
         }
-        Target::Position(_) => {
+        ElementTarget::Position(_) => {
             // Positions don't need snapshot resolution - they're handled separately
             Err("Cannot resolve position target to element".into())
         }
@@ -276,39 +276,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_target_parse_ref() {
-        let target = Target::parse("@e1");
-        assert!(matches!(target, Target::Ref(r) if r == "@e1"));
+    fn test_element_target_parse_ref() {
+        let target = ElementTarget::parse("@e1");
+        assert!(matches!(target, ElementTarget::Ref(r) if r == "@e1"));
 
-        let target = Target::parse("@e42");
-        assert!(matches!(target, Target::Ref(r) if r == "@e42"));
+        let target = ElementTarget::parse("@e42");
+        assert!(matches!(target, ElementTarget::Ref(r) if r == "@e42"));
     }
 
     #[test]
-    fn test_target_parse_coords() {
-        let target = Target::parse("100,200");
-        assert!(matches!(target, Target::Coords(100.0, 200.0)));
+    fn test_element_target_parse_coords() {
+        let target = ElementTarget::parse("100,200");
+        assert!(matches!(target, ElementTarget::Coords(100.0, 200.0)));
 
-        let target = Target::parse("100.5, 200.5");
-        assert!(matches!(target, Target::Coords(100.5, 200.5)));
+        let target = ElementTarget::parse("100.5, 200.5");
+        assert!(matches!(target, ElementTarget::Coords(100.5, 200.5)));
     }
 
     #[test]
-    fn test_target_parse_key() {
-        let target = Target::parse("home");
-        assert!(matches!(target, Target::Key(k) if k == "home"));
+    fn test_element_target_parse_key() {
+        let target = ElementTarget::parse("home");
+        assert!(matches!(target, ElementTarget::Key(k) if k == "home"));
 
-        let target = Target::parse("ENTER");
-        assert!(matches!(target, Target::Key(k) if k == "enter"));
+        let target = ElementTarget::parse("ENTER");
+        assert!(matches!(target, ElementTarget::Key(k) if k == "enter"));
     }
 
     #[test]
-    fn test_target_parse_text() {
-        let target = Target::parse("Login");
-        assert!(matches!(target, Target::Text(t) if t == "Login"));
+    fn test_element_target_parse_text() {
+        let target = ElementTarget::parse("Login");
+        assert!(matches!(target, ElementTarget::Text(t) if t == "Login"));
 
-        let target = Target::parse("Submit Button");
-        assert!(matches!(target, Target::Text(t) if t == "Submit Button"));
+        let target = ElementTarget::parse("Submit Button");
+        assert!(matches!(target, ElementTarget::Text(t) if t == "Submit Button"));
     }
 
     #[test]

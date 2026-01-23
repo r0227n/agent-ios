@@ -15,7 +15,9 @@
       "Bash(./target/debug/agent-mobile:*)"
     ],
     "deny": [
-      "Grep"
+      "Grep",
+      "Bash(grep:*)",
+      "Bash(pgrep:*)"
     ],
     "defaultMode": "plan"
   },

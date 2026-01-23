@@ -11,7 +11,7 @@ use agent_mobile_core::{Platform, ScrollDirection};
 
 use crate::helpers::{with_client, CommandResult, DeviceArgs};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -89,7 +89,7 @@ async fn parse_scroll_args(
     // Get scroll center point
     let (cx, cy) = if let Some(within_target) = within_ref {
         // Scroll within a specific element
-        let target = Target::parse(within_target);
+        let target = ElementTarget::parse(within_target);
         let snapshot = take_snapshot(platform, udid).await?;
         let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
         element.center()

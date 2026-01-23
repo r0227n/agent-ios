@@ -15,7 +15,7 @@ use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::{with_client, CommandResult, DeviceArgs};
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::{execute_tap, take_snapshot};
 
 /// select コマンド引数
@@ -47,7 +47,7 @@ pub async fn run(args: SelectArgs) -> CommandResult {
 
 /// Execute select on iOS (Picker wheel)
 async fn run_ios(args: SelectArgs) -> CommandResult {
-    let target = Target::parse(&args.target);
+    let target = ElementTarget::parse(&args.target);
     let value_lower = args.value.to_lowercase();
     let udid = args.device.udid.as_deref();
 
@@ -125,7 +125,7 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
 
 /// Execute select on Android (Spinner dropdown)
 async fn run_android(args: SelectArgs) -> CommandResult {
-    let target = Target::parse(&args.target);
+    let target = ElementTarget::parse(&args.target);
     let value_lower = args.value.to_lowercase();
     let udid = args.device.udid.as_deref();
 
