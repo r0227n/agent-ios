@@ -3,7 +3,9 @@
 //! Streams iOS device/simulator logs using idb gRPC log API.
 //! Press Ctrl+C to stop streaming.
 
-use crate::cli::helpers::{setup_ctrl_c_handler, with_client_streaming, CommandResult};
+use crate::cli::helpers::{
+    setup_ctrl_c_handler, with_client_streaming, CommandResult, OutputWriter,
+};
 use crate::grpc::idb::log_request::Source as LogSource;
 use std::io::Write;
 
@@ -11,7 +13,7 @@ use std::io::Write;
 ///
 /// Connects to idb_companion and streams device logs in real-time.
 /// The stream continues until Ctrl+C is pressed.
-pub async fn run(udid: Option<String>) -> CommandResult {
+pub async fn run(udid: Option<String>, mut writer: OutputWriter) -> CommandResult {
     // Setup stop signal for Ctrl+C
     let mut stop_rx = setup_ctrl_c_handler();
 
@@ -33,10 +35,10 @@ pub async fn run(udid: Option<String>) -> CommandResult {
                 response = response_stream.message() => {
                     match response? {
                         Some(log_response) => {
-                            // Write log output to stdout
+                            // Write log output to writer
                             let output = &log_response.output;
-                            std::io::stdout().write_all(output)?;
-                            std::io::stdout().flush()?;
+                            writer.write_all(output)?;
+                            writer.flush()?;
                         }
                         None => break, // Stream ended
                     }
@@ -45,7 +47,7 @@ pub async fn run(udid: Option<String>) -> CommandResult {
         }
 
         // Final newline for clean exit
-        println!();
+        writeln!(writer)?;
 
         Ok(())
     })

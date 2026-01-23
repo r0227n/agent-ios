@@ -3,7 +3,8 @@
 //! Streams Android device logcat using adb command.
 //! Press Ctrl+C to stop streaming.
 
-use crate::cli::helpers::{setup_ctrl_c_handler, CommandResult};
+use crate::cli::helpers::{setup_ctrl_c_handler, CommandResult, OutputWriter};
+use std::io::Write;
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -12,7 +13,7 @@ use tokio::process::Command;
 ///
 /// Spawns an `adb logcat` process and streams its output in real-time.
 /// The stream continues until Ctrl+C is pressed.
-pub async fn run(udid: Option<String>) -> CommandResult {
+pub async fn run(udid: Option<String>, mut writer: OutputWriter) -> CommandResult {
     // Setup stop signal for Ctrl+C
     let mut stop_rx = setup_ctrl_c_handler();
 
@@ -51,7 +52,10 @@ pub async fn run(udid: Option<String>) -> CommandResult {
             // Read lines from logcat
             line = reader.next_line() => {
                 match line? {
-                    Some(line) => println!("{}", line),
+                    Some(line) => {
+                        writeln!(writer, "{}", line)?;
+                        writer.flush()?;
+                    }
                     None => break, // Stream ended
                 }
             }
@@ -59,7 +63,7 @@ pub async fn run(udid: Option<String>) -> CommandResult {
     }
 
     // Final newline for clean exit
-    println!();
+    writeln!(writer)?;
 
     Ok(())
 }

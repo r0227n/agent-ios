@@ -8,11 +8,15 @@ pub mod ios;
 
 use clap::Args;
 
-use crate::cli::helpers::{CommandResult, DeviceArgs};
+use crate::cli::helpers::{CommandResult, DeviceArgs, OutputWriter};
 
 /// Console output streaming arguments
 #[derive(Args)]
 pub struct ConsoleArgs {
+    /// Output file path. Streams to stdout if not specified.
+    #[arg(short = 'o', long)]
+    pub output: Option<String>,
+
     #[command(flatten)]
     pub device: DeviceArgs,
 }
@@ -28,9 +32,18 @@ pub enum Platform {
 pub async fn run(args: ConsoleArgs) -> CommandResult {
     let platform = resolve_platform(args.device.platform.as_deref()).await?;
 
+    // Create output writer with tee mode (outputs to both file and stdout)
+    let writer = match args.output.as_deref() {
+        Some("-") => {
+            return Err("Invalid output path: '-'. Use without -o option for stdout output.".into())
+        }
+        Some(path) => OutputWriter::tee_from_path(path)?,
+        None => OutputWriter::tee_from_path("-")?, // stdout only
+    };
+
     match platform {
-        Platform::Ios => ios::run(args.device.udid).await,
-        Platform::Android => android::run(args.device.udid).await,
+        Platform::Ios => ios::run(args.device.udid, writer).await,
+        Platform::Android => android::run(args.device.udid, writer).await,
     }
 }
 
