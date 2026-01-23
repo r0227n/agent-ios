@@ -12,13 +12,13 @@ use tokio::process::Command;
 ///
 /// Spawns an `adb logcat` process and streams its output in real-time.
 /// The stream continues until Ctrl+C is pressed.
-pub async fn run(serial: Option<String>) -> CommandResult {
+pub async fn run(udid: Option<String>) -> CommandResult {
     // Setup stop signal for Ctrl+C
     let mut stop_rx = setup_ctrl_c_handler();
 
     // Build adb logcat command
     let mut cmd = Command::new("adb");
-    if let Some(s) = &serial {
+    if let Some(s) = &udid {
         cmd.args(["-s", s]);
     }
     cmd.arg("logcat");
