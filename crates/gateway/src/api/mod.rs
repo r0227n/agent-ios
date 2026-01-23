@@ -1,6 +1,6 @@
 //! Programmatic API for mobile automation.
 //!
-//! This module provides a high-level API for controlling iOS devices,
+//! This module provides a high-level API for controlling iOS and Android devices,
 //! designed for use as a library in other Rust projects.
 //!
 //! # Example
@@ -11,7 +11,7 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Connect to a device (auto-selects if only one available)
-//!     let device = IosDevice::connect(None).await?;
+//!     let mut device = IosDevice::connect(None).await?;
 //!
 //!     // Take a screenshot
 //!     let screenshot = device.screenshot().await?;
@@ -27,6 +27,8 @@
 //! }
 //! ```
 
+pub mod android;
 pub mod ios;
 
+pub use android::AndroidDevice;
 pub use ios::IosDevice;

@@ -32,12 +32,12 @@ agent-browser select <selector> <value>
 - Android: adb shell input でタップ + テキスト設定
 
 **参考実装:**
-- agent-mobile: `src/cli/core/find.rs` (tap実装)
+- agent-mobile: `src/core/find.rs` (tap実装)
 - agent-mobile: `src/platform/ios/grpc/hid.rs` (HIDイベント送信)
 
 **実装例:**
 ```rust
-// src/cli/core/select.rs (新規)
+// src/core/select.rs (新規)
 pub async fn select(selector: &str, value: &str) -> Result<()> {
     // 1. 要素を検索（Picker/Spinner）
     // 2. タップして開く
@@ -66,12 +66,12 @@ agent-browser uncheck <selector>
 - 冪等性: 既に目的の状態なら操作スキップ
 
 **参考実装:**
-- agent-mobile: `src/cli/core/tap.rs` (タップ実装)
-- agent-mobile: `src/cli/snapshot/types.rs` (Element.enabled)
+- agent-mobile: `src/core/tap.rs` (タップ実装)
+- agent-mobile: `src/snapshot/types.rs` (Element.enabled)
 
 **実装例:**
 ```rust
-// src/cli/core/check.rs (新規)
+// src/core/check.rs (新規)
 pub async fn check(selector: &str, should_check: bool) -> Result<()> {
     // 1. 要素を検索（type=Switch/CheckBox）
     // 2. 現在の状態を取得（value属性）
@@ -102,12 +102,12 @@ agent-browser get attr <selector> <attribute>
 - 既存実装: `get` コマンドに `--attr` オプション追加
 
 **参考実装:**
-- agent-mobile: `src/cli/core/get.rs` (既存)
-- agent-mobile: `src/cli/snapshot/extractor/extractor_ios.rs` (属性抽出)
+- agent-mobile: `src/core/get.rs` (既存)
+- agent-mobile: `src/snapshot/extractor/extractor_ios.rs` (属性抽出)
 
 **実装例:**
 ```rust
-// src/cli/core/get.rs に追加
+// src/core/get.rs に追加
 pub enum GetTarget {
     Text, Value, Label, Placeholder,
     Attr(String), // 新規: 任意属性
@@ -132,11 +132,11 @@ agent-browser get count <selector>
 - 出力形式: 数値のみ（JSON: `{"count": 5}`）
 
 **参考実装:**
-- agent-mobile: `src/cli/core/find.rs` (--all実装済み)
+- agent-mobile: `src/core/find.rs` (--all実装済み)
 
 **実装例:**
 ```rust
-// src/cli/core/get.rs に追加
+// src/core/get.rs に追加
 pub async fn get_count(selector: &str) -> Result<usize> {
     let elements = find_all(selector).await?;
     Ok(elements.len())
@@ -161,11 +161,11 @@ agent-browser get box <selector>
 - 本質的に `get frame` のエイリアス
 
 **参考実装:**
-- agent-mobile: `src/cli/snapshot/types.rs` (Element.frame)
+- agent-mobile: `src/snapshot/types.rs` (Element.frame)
 
 **実装例:**
 ```rust
-// src/cli/core/get.rs に追加
+// src/core/get.rs に追加
 pub async fn get_box(selector: &str) -> Result<Frame> {
     let element = find_element(selector).await?;
     Ok(element.frame)
@@ -193,11 +193,11 @@ agent-browser is visible <selector>
 - 既存: `is` コマンドに `visible` バリアント追加
 
 **参考実装:**
-- agent-mobile: `src/cli/core/is_cmd.rs` (既存)
+- agent-mobile: `src/core/is_cmd.rs` (既存)
 
 **実装例:**
 ```rust
-// src/cli/core/is_cmd.rs に追加
+// src/core/is_cmd.rs に追加
 pub enum IsCondition {
     Enabled, Disabled,
     Visible, // 新規
@@ -223,11 +223,11 @@ agent-browser is checked <selector>
 - Switch/CheckBox/RadioButton が対象
 
 **参考実装:**
-- agent-mobile: `src/cli/core/is_cmd.rs`
+- agent-mobile: `src/core/is_cmd.rs`
 
 **実装例:**
 ```rust
-// src/cli/core/is_cmd.rs に追加
+// src/core/is_cmd.rs に追加
 pub enum IsCondition {
     Enabled, Disabled,
     Visible,
@@ -256,11 +256,11 @@ agent-browser wait --text "Welcome"
 - 追加: `--text` オプションでテキスト待機
 
 **参考実装:**
-- agent-mobile: `src/cli/core/wait.rs` (既存)
+- agent-mobile: `src/core/wait.rs` (既存)
 
 **実装例:**
 ```rust
-// src/cli/core/wait.rs に追加
+// src/core/wait.rs に追加
 pub struct WaitArgs {
     pub selector: Option<String>,
     pub text: Option<String>, // 新規
@@ -286,11 +286,11 @@ agent-browser wait <selector> --timeout 5000
 - カスタマイズ可能に
 
 **参考実装:**
-- agent-mobile: `src/cli/core/wait.rs`
+- agent-mobile: `src/core/wait.rs`
 
 **実装例:**
 ```rust
-// src/cli/core/wait.rs に追加（既にtimeoutフィールドがあるか確認）
+// src/core/wait.rs に追加（既にtimeoutフィールドがあるか確認）
 ```
 
 ---
@@ -313,11 +313,11 @@ agent-browser snapshot -i
 - 追加: `-i` / `--interactive` フラグ
 
 **参考実装:**
-- agent-mobile: `src/cli/snapshot/mod.rs`
+- agent-mobile: `src/snapshot/mod.rs`
 
 **実装例:**
 ```rust
-// src/cli/snapshot/mod.rs に追加
+// src/snapshot/mod.rs に追加
 pub struct SnapshotArgs {
     pub interactive: bool, // 新規
     pub compact: bool,
@@ -343,11 +343,11 @@ agent-browser snapshot -c
 - フィルタ条件: label.is_empty() && value.is_none() && placeholder.is_none()
 
 **参考実装:**
-- agent-mobile: `src/cli/snapshot/mod.rs`
+- agent-mobile: `src/snapshot/mod.rs`
 
 **実装例:**
 ```rust
-// src/cli/snapshot/mod.rs に追加
+// src/snapshot/mod.rs に追加
 pub struct SnapshotArgs {
     pub interactive: bool,
     pub compact: bool, // 新規
@@ -374,11 +374,11 @@ agent-browser snapshot -d 3
 - 追加: 深さ制限ロジック
 
 **参考実装:**
-- agent-mobile: `src/cli/snapshot/mod.rs`
+- agent-mobile: `src/snapshot/mod.rs`
 
 **実装例:**
 ```rust
-// src/cli/snapshot/mod.rs に追加
+// src/snapshot/mod.rs に追加
 pub struct SnapshotArgs {
     pub interactive: bool,
     pub compact: bool,
@@ -405,11 +405,11 @@ agent-browser snapshot -s "#main"
 - サブツリー抽出: 子要素のみを出力
 
 **参考実装:**
-- agent-mobile: `src/cli/snapshot/mod.rs`
+- agent-mobile: `src/snapshot/mod.rs`
 
 **実装例:**
 ```rust
-// src/cli/snapshot/mod.rs に追加
+// src/snapshot/mod.rs に追加
 pub struct SnapshotArgs {
     pub interactive: bool,
     pub compact: bool,
@@ -439,12 +439,12 @@ pub struct SnapshotArgs {
 
 ## 参考ファイルパス
 
-- `/Users/r0227n/Dev/agent-mobile/src/cli/core/find.rs` - セマンティックロケーター実装
-- `/Users/r0227n/Dev/agent-mobile/src/cli/core/tap.rs` - タップ実装
-- `/Users/r0227n/Dev/agent-mobile/src/cli/core/get.rs` - 情報取得実装
-- `/Users/r0227n/Dev/agent-mobile/src/cli/core/is_cmd.rs` - 状態確認実装
-- `/Users/r0227n/Dev/agent-mobile/src/cli/core/wait.rs` - 待機実装
-- `/Users/r0227n/Dev/agent-mobile/src/cli/snapshot/mod.rs` - スナップショット実装
+- `/Users/r0227n/Dev/agent-mobile/src/core/find.rs` - セマンティックロケーター実装
+- `/Users/r0227n/Dev/agent-mobile/src/core/tap.rs` - タップ実装
+- `/Users/r0227n/Dev/agent-mobile/src/core/get.rs` - 情報取得実装
+- `/Users/r0227n/Dev/agent-mobile/src/core/is_cmd.rs` - 状態確認実装
+- `/Users/r0227n/Dev/agent-mobile/src/core/wait.rs` - 待機実装
+- `/Users/r0227n/Dev/agent-mobile/src/snapshot/mod.rs` - スナップショット実装
 - `/Users/r0227n/Dev/agent-mobile/src/platform/ios/grpc/hid.rs` - HIDイベント送信
 - `/Users/r0227n/Dev/agent-mobile/src/platform/ios/grpc/device.rs` - アクセシビリティ情報取得
 - `/Users/r0227n/Dev/agent-mobile/proto/idb.proto` - gRPC プロトコル定義

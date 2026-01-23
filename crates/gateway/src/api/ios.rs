@@ -211,6 +211,24 @@ impl IosDevice {
         self.client.focus().await
     }
 
+    /// Stream logs from the device
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - Log source (Target, Companion, etc.)
+    /// * `arguments` - Additional log arguments
+    ///
+    /// # Returns
+    ///
+    /// A stream of log responses
+    pub async fn stream_logs(
+        &mut self,
+        source: agent_mobile_platform_ios::proto::idb::log_request::Source,
+        arguments: Vec<String>,
+    ) -> Result<tonic::Streaming<agent_mobile_platform_ios::proto::idb::LogResponse>> {
+        self.client.log(source, arguments).await
+    }
+
     /// Get the underlying gRPC client for advanced operations.
     ///
     /// This provides access to the full set of gRPC methods

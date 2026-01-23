@@ -47,8 +47,17 @@
 //!
 //! For backward compatibility, this crate re-exports the workspace crates.
 
-// CLI module (local implementation)
-pub mod cli;
+// CLI modules (local implementation)
+pub mod app;
+pub mod command;
+pub mod console;
+pub mod core;
+pub mod device;
+pub mod helpers;
+pub mod idb;
+pub mod record;
+pub mod session;
+pub mod snapshot;
 
 // Re-export workspace crates directly
 pub use agent_mobile_core;

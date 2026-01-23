@@ -4,6 +4,11 @@
 //! abstracting over platform-specific implementations.
 
 pub mod api;
+pub mod console;
+pub mod platform;
 
 // Re-export main types
+pub use api::android::AndroidDevice;
 pub use api::ios::IosDevice;
+pub use console::stream_console_logs;
+pub use platform::DeviceResolver;
