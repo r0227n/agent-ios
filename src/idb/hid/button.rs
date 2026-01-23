@@ -1,7 +1,7 @@
 use agent_mobile_platform_ios::proto::idb::hid_event::HidButtonType;
 
 use crate::helpers::{with_client, CommandResult};
-use crate::idb::hid::events;
+use agent_mobile_platform_ios::hid::events;
 
 pub async fn run(button: String, duration: Option<f64>, udid: Option<String>) -> CommandResult {
     // Parse button type

@@ -268,7 +268,7 @@ impl SnapshotCollector {
         &self,
         client: &mut agent_mobile_platform_ios::grpc::IdbClient,
     ) -> CommandResult<()> {
-        use crate::idb::hid::events::swipe_to_events;
+        use agent_mobile_platform_ios::hid::events::swipe_to_events;
 
         // Scroll from middle-bottom to middle-top (vertical scroll down)
         let center_x = self.config.screen_width / 2.0;
@@ -286,7 +286,7 @@ impl SnapshotCollector {
         &self,
         client: &mut agent_mobile_platform_ios::grpc::IdbClient,
     ) -> CommandResult<()> {
-        use crate::idb::hid::events::swipe_to_events;
+        use agent_mobile_platform_ios::hid::events::swipe_to_events;
 
         // Scroll from top to bottom (swipe downward to scroll content up)
         let center_x = self.config.screen_width / 2.0;

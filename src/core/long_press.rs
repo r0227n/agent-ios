@@ -61,7 +61,7 @@ async fn execute_long_press(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
                 // Passing Some(duration) to tap_to_events inserts a delay between DOWN and UP,

@@ -125,7 +125,7 @@ async fn execute_scroll_ios(
     y2: f64,
     duration: f64,
 ) -> CommandResult {
-    use crate::idb::hid::events;
+    use agent_mobile_platform_ios::hid::events;
 
     with_client(udid, |mut client| async move {
         let events = events::swipe_to_events((x1, y1), (x2, y2), Some(duration), None);

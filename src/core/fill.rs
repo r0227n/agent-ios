@@ -65,7 +65,7 @@ async fn execute_fill_ios(
     text: &str,
     clear_len: usize,
 ) -> CommandResult {
-    use crate::idb::hid::events;
+    use agent_mobile_platform_ios::hid::events;
 
     let text = text.to_string();
 

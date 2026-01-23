@@ -516,7 +516,7 @@ async fn execute_action(
 async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
                 let events = events::tap_to_events(x, y, None);
@@ -543,7 +543,7 @@ async fn execute_long_press(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
                 let events = events::tap_to_events(x, y, Some(duration));
@@ -572,7 +572,7 @@ async fn execute_fill(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
             let text = text.to_string();
 
             with_client(udid, |mut client| async move {
@@ -630,7 +630,7 @@ async fn execute_clear(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
                 // 1. Tap to focus

@@ -176,7 +176,7 @@ pub async fn execute_tap(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
                 let events = events::tap_to_events(x, y, duration);
@@ -197,7 +197,7 @@ pub async fn execute_tap(
 async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
             use agent_mobile_platform_ios::proto::idb::hid_event::HidButtonType;
 
             // Check if it's a button (home, lock, etc.) or a keyboard key

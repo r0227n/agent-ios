@@ -34,7 +34,7 @@ pub async fn run(args: TypeArgs) -> CommandResult {
 
 /// Execute type on iOS
 async fn execute_type_ios(udid: Option<&str>, text: &str) -> CommandResult {
-    use crate::idb::hid::events;
+    use agent_mobile_platform_ios::hid::events;
 
     let text = text.to_string();
 
