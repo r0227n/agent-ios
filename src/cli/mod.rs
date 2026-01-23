@@ -4,6 +4,7 @@ pub mod core;
 pub mod device;
 pub mod helpers;
 pub mod idb;
+pub mod record;
 pub mod session;
 pub mod snapshot;
 
@@ -58,8 +59,14 @@ pub enum Commands {
     /// Take screenshot
     Screenshot(core::ScreenshotArgs),
 
+    /// Find elements by semantic locators and optionally perform actions
+    Find(core::FindArgs),
+
     /// Capture UI snapshot with element references for AI agents
     Snapshot(snapshot::SnapshotArgs),
+
+    /// Record screen to MP4 video file
+    Record(record::RecordArgs),
 
     /// Stream device console output (logs)
     Console(console::ConsoleArgs),
