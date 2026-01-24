@@ -6,7 +6,9 @@
 - [ ] tap @eN（参照でタップ）
 - [ ] tap "text"（テキストでタップ）
 - [ ] tap x,y（座標でタップ）
-- [ ] tap home/back/enter（キーでタップ）
+- [ ] tap home（ホームキーでタップ）
+- [ ] tap back（バックキーでタップ）
+- [ ] tap enter（エンターキーでタップ）
 - [ ] tap @eN --duration 0.5
 - [ ] tap "text" --duration 0.5
 - [ ] tap x,y --duration 0.5
@@ -35,6 +37,7 @@
 - [ ] select @eN "value"（参照でピッカーから選択）
 - [ ] select "text" "value"（テキストでピッカーから選択）
 - [ ] select @eN "value" --max-swipes 5
+- [ ] select @eN "value" --max-swipes 10（デフォルト）
 - [ ] select @eN "value" --max-swipes 20
 - [ ] select @eN "value" -p ios
 - [ ] select @eN "value" -p android
@@ -138,12 +141,15 @@
 - [ ] find type Switch
 - [ ] find type Text
 - [ ] find type Image
-- [ ] find type --first（最初の要素のみ）
+- [ ] find type Button --first（最初の要素のみ）
 - [ ] find type Button --last（最後の要素のみ）
 - [ ] find type Button --nth 0（N番目の要素）
 - [ ] find type Button --all（すべて取得）
 - [ ] find type Button --format text
 - [ ] find type Button --format json
+- [ ] find type Button tap（検索してタップ）
+- [ ] find type Button long-press（検索して長押し）
+- [ ] find type Button --nth 1 tap
 - [ ] find type Button -p ios
 - [ ] find type Button -p android
 - [ ] find type Button --session <SESSION>
@@ -155,8 +161,12 @@
 - [ ] find text "text" --last
 - [ ] find text "text" --nth 1
 - [ ] find text "text" --all
+- [ ] find text "text" --exact（完全一致検索）
 - [ ] find text "text" --format text
 - [ ] find text "text" --format json
+- [ ] find text "Login" tap（検索してタップ）
+- [ ] find text "Submit" long-press（検索して長押し）
+- [ ] find text "Login" --exact tap
 - [ ] find text "text" -p ios
 - [ ] find text "text" -p android
 - [ ] find text "text" --session <SESSION>
@@ -168,8 +178,12 @@
 - [ ] find label "label" --last
 - [ ] find label "label" --nth 0
 - [ ] find label "label" --all
+- [ ] find label "label" --exact（完全一致検索）
 - [ ] find label "label" --format text
 - [ ] find label "label" --format json
+- [ ] find label "Email" fill "test@example.com"（検索して入力）
+- [ ] find label "Email" clear（検索してクリア）
+- [ ] find label "Email" --exact fill "user@example.com"
 - [ ] find label "label" -p ios
 - [ ] find label "label" -p android
 - [ ] find label "label" --session <SESSION>
@@ -181,8 +195,12 @@
 - [ ] find placeholder "text" --last
 - [ ] find placeholder "text" --nth 0
 - [ ] find placeholder "text" --all
+- [ ] find placeholder "text" --exact（完全一致検索）
 - [ ] find placeholder "text" --format text
 - [ ] find placeholder "text" --format json
+- [ ] find placeholder "Search..." fill "query"（検索して入力）
+- [ ] find placeholder "Search..." clear（検索してクリア）
+- [ ] find placeholder "Search..." --exact fill "keyword"
 - [ ] find placeholder "text" -p ios
 - [ ] find placeholder "text" -p android
 - [ ] find placeholder "text" --session <SESSION>
@@ -196,6 +214,8 @@
 - [ ] find enabled --all
 - [ ] find enabled --format text
 - [ ] find enabled --format json
+- [ ] find enabled tap（検索してタップ）
+- [ ] find enabled --nth 2 tap
 - [ ] find enabled -p ios
 - [ ] find enabled -p android
 - [ ] find enabled --session <SESSION>
@@ -374,28 +394,29 @@
 ### device boot
 - [ ] device boot iPhone15（シミュレータ起動・名前指定）
 - [ ] device boot 12AB34CD-EF56-GHIJ-KLMN-OPQRSTUVWXYZ（UDID指定）
+- [ ] device boot "iPhone 15" --headless（ヘッドレスモードで起動）
 - [ ] device boot "iPhone 15" -p ios
-- [ ] device boot --session <SESSION>
+- [ ] device boot "Pixel 7" -p android
+- [ ] device boot "iPhone 15" --session <SESSION>
 
 ### device shutdown
-- [ ] device shutdown（シミュレータシャットダウン）
-- [ ] device shutdown -p ios
-- [ ] device shutdown --session <SESSION>
-- [ ] device shutdown -u <UDID>
+- [ ] device shutdown -u <UDID>（シミュレータシャットダウン）
+- [ ] device shutdown -u <UDID> -p ios
+- [ ] device shutdown -u <UDID> --session <SESSION>
 
 ### device pbcopy
 - [ ] device pbcopy "text"（クリップボードにコピー）
+- [ ] device pbcopy "text" -u <UDID>
 - [ ] device pbcopy "text" -p ios
 - [ ] device pbcopy "text" -p android
 - [ ] device pbcopy "text" --session <SESSION>
-- [ ] device pbcopy "text" -u <UDID>
 
 ### device pbpaste
 - [ ] device pbpaste（クリップボードから取得）
+- [ ] device pbpaste -u <UDID>
 - [ ] device pbpaste -p ios
 - [ ] device pbpaste -p android
 - [ ] device pbpaste --session <SESSION>
-- [ ] device pbpaste -u <UDID>
 
 ## セッション管理関連コマンド
 
@@ -439,16 +460,106 @@
 
 ## サマリー
 
-**検証対象パターン総数**: 450+以上のテストケース
-- UI操作コマンド: 70+パターン
-- 要素情報取得: 80+パターン
+**検証対象パターン総数**: 400+以上のテストケース
+- UI操作コマンド: 90+パターン
+- 要素情報取得: 110+パターン
 - 待機処理: 20+パターン
 - 画面/記録: 15+パターン
-- ログ: 10+パターン
+- ログ: 5+パターン
 - アプリ管理: 50+パターン
-- デバイス管理: 35+パターン
+- デバイス管理: 30+パターン
 - セッション管理: 10+パターン
 - グローバルオプション: 15+パターン
 - 出力形式: 4パターン
 
 ※ `agent-mobile idb` は削除予定のため検証対象外
+
+---
+
+## Android対応: CLI統合テスト拡張（2026-01-24実装完了）
+
+### 実装完了内容
+
+#### Week 1: テストインフラ基盤 ✅
+- [x] `tests/cli/common/platform.rs` - プラットフォーム抽象化レイヤー
+- [x] `tests/cli/common/android.rs` - Android専用ユーティリティ
+- [x] `tests/cli/common/mod.rs` - 新規モジュールの統合
+- [x] プラットフォーム検出ロジック（iOS UDID / Android Serial）
+- [x] 単体テスト: 7テスト合格
+
+#### Week 2: Android機能実装 ✅
+- [x] `crates/platform-android/src/adb/screenshot.rs` - スクリーンショット機能
+- [x] `crates/platform-android/src/adb/permission.rs` - 権限管理機能
+- [x] `crates/platform-android/src/lib.rs` - 新機能の公開
+- [x] ビルド検証完了
+
+#### Week 3: コアテスト拡張 ✅
+- [x] `device_integration.rs` - Android対応テスト追加
+- [x] `app_integration.rs` - プラットフォーム非依存テスト追加
+- [x] `snapshot_integration.rs` - プラットフォーム非依存 + Android固有テスト追加
+- [x] 統合テスト: 5テスト合格
+
+#### Week 4: 高度なテスト拡張 ✅
+- [x] `screenshot_integration.rs` - プラットフォーム非依存テスト追加
+- [x] `find_integration.rs` - Android固有テスト追加（セッション対応は後日）
+- [x] Android関連テスト: 8テスト合格、2テスト無視（セッション管理待ち）
+
+#### Week 5: 仕上げとドキュメント 🚧
+- [x] 未使用インポート警告の修正
+- [x] todo.md の更新
+- [ ] テストセットアップスクリプトの作成
+- [ ] README更新
+- [x] CI/CDパイプライン設定（iOS + Android CLI統合テスト追加）
+
+### 追加されたテストケース
+
+**プラットフォーム非依存テスト（iOS/Android両対応）:**
+- app list
+- app launch
+- app terminate
+- snapshot basic
+- snapshot json
+- screenshot basic
+- screenshot format
+
+**Android固有テスト:**
+- device list includes Android
+- device list Android emulator
+- snapshot Android element types
+- find Android element types（TODO: セッション管理対応後）
+- find text Android（TODO: セッション管理対応後）
+
+### 技術的な判断
+
+**プラットフォーム抽象化:**
+- `DeviceIdentifier` 構造体で iOS UDID と Android Serial を統一的に扱う
+- `get_any_available()` で利用可能な任意のデバイスを自動検出（iOS優先）
+- `get_test_bundle_id()` でプラットフォーム別のテストアプリを返す
+
+**Android機能実装:**
+- スクリーンショット: `adb shell screencap` → `adb pull` → cleanup
+- 権限管理: `adb shell pm grant/revoke/reset-permissions`
+
+**制約事項:**
+- `find` コマンドは現在セッション管理を使用（`--session`）
+- `--udid` フラグ対応は将来の実装課題
+- クリップボード機能は iOS専用（`simctl pbcopy/pbpaste`）
+
+### テスト実行状況
+
+```bash
+# プラットフォーム非依存テスト
+cargo test --test cli platform_agnostic -- --nocapture
+# 結果: 5 passed
+
+# Android関連テスト
+cargo test --test cli -- android
+# 結果: 8 passed, 2 ignored
+```
+
+### 後日対応予定
+
+- [ ] `find` コマンドへの `--udid` フラグ追加
+- [ ] Android での権限管理テスト追加
+- [ ] CI/CD での iOS/Android 並列テスト実行
+- [ ] クリップボード機能の Android 対応検討
