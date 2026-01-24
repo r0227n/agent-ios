@@ -4,7 +4,7 @@
 
 use std::io::{self, BufRead, Write};
 
-use crate::helpers::CommandResult;
+use crate::helpers::client::CommandResult;
 
 /// Run an interactive shell for chaining multiple IDB commands
 pub async fn run(no_prompt: bool, _udid: Option<String>) -> CommandResult {

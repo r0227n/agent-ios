@@ -12,14 +12,15 @@ use clap::Args;
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::Target;
+use super::ref_resolver::ElementTarget;
 use super::tap::resolve_coords;
 use agent_mobile_gateway::DeviceResolver;
 
 /// Default long press duration in seconds
-const DEFAULT_LONG_PRESS_DURATION: f64 = 1.0;
+pub(crate) const DEFAULT_LONG_PRESS_DURATION: f64 = 1.0;
 
 /// long-press コマンド引数
 #[derive(Args, Debug)]
@@ -41,8 +42,11 @@ pub async fn run(args: LongPressArgs) -> CommandResult {
         return Err("duration must be greater than 0 seconds".into());
     }
 
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
-    let target = Target::parse(&args.target);
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
+    let target = ElementTarget::parse(&args.target);
 
     // Get coordinates from target
     let (x, y) = resolve_coords(&target, platform, args.device.udid.as_deref()).await?;
@@ -52,7 +56,7 @@ pub async fn run(args: LongPressArgs) -> CommandResult {
 }
 
 /// Execute long press gesture
-async fn execute_long_press(
+pub(crate) async fn execute_long_press(
     platform: Platform,
     udid: Option<&str>,
     x: f64,
@@ -61,7 +65,7 @@ async fn execute_long_press(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
                 // Passing Some(duration) to tap_to_events inserts a delay between DOWN and UP,

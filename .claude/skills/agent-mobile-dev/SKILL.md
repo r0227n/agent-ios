@@ -1,7 +1,8 @@
 ---
 name: agent-mobile-dev
-description: Guide for developing CLI commands in agent-mobile (Rust mobile E2E testing tool). Use when adding new commands, implementing features, or refactoring agent-mobile code. Enforces 4-layer architecture (CLI/Gateway/Platform/Core), platform decision-making (iOS: idb gRPC vs xcrun simctl), and mandatory real-device testing workflow (build → test → device verification → commit).
-version: 1.0.0
+description: Guide for developing CLI commands in agent-mobile (Rust mobile E2E testing tool). Use when adding new commands, implementing features, or refactoring agent-mobile code. Enforces 4-layer architecture (CLI/Gateway/Platform/Core), platform decision-making (iOS: idb gRPC vs xcrun simctl), and mandatory real-device testing workflow (Phase 0 environment setup → design → implement → test → device verification → commit).
+version: 2.0.0
+argument-hint: "[setup-ios|setup-android|<other-args>]"
 ---
 
 # agent-mobile CLI開発スキル
@@ -108,7 +109,46 @@ Rust 2021 | tokio 1.49 | tonic 0.12 + prost 0.13 | clap 4.5
 # → src/core/<name>.rs と tests/cli/<name>_integration.rs を自動生成
 ```
 
-## 開発ワークフロー（必須5ステップ）
+## Phase 0: 環境セットアップ（初回・プラットフォーム切替時）
+
+機能開発を開始する前に、開発環境が正しくセットアップされていることを確認してください。
+
+### iOS環境セットアップ
+
+```bash
+./scripts/setup-ios.sh
+```
+
+**実行内容:**
+1. Xcode & xcrun simctl確認
+2. idb_companionインストール確認
+3. シミュレータ起動（未起動の場合）
+4. agent-mobile接続確認
+
+### Android環境セットアップ
+
+```bash
+./scripts/setup-android.sh
+```
+
+**実行内容:**
+1. Android SDK (adb, emulator)確認
+2. adb server起動
+3. エミュレータ起動（未起動の場合）
+4. agent-mobile接続確認
+
+### セットアップが必要なタイミング
+
+- **初回セットアップ**: agent-mobile開発を初めて行う場合
+- **システムアップデート後**: Xcode、Android Studioなどを更新した場合
+- **プラットフォーム切り替え**: iOS ↔ Android開発を切り替える場合
+- **デバイス検出エラー**: `agent-mobile device list` でデバイスが検出されない場合
+
+**詳細ガイド**: `references/environment-setup.md` 参照
+
+## 開発ワークフロー（必須6ステップ）
+
+**Phase 0 → Design → Implement → Unit Test → Integration Test → Real Device Verification → Commit**
 
 **重要**: 実機確認はビルド成功後の**必須ステップ**です。ビルドが通っても実際の動作を確認するまでコミットしないでください。
 
@@ -589,6 +629,7 @@ iOS実装判断を支援します（proto/idb.proto検索）。
 
 新機能追加時のクイックスタート:
 
+0. **環境確認**: `./scripts/setup-ios.sh` または `./scripts/setup-android.sh` で環境準備
 1. **判断**: `./scripts/platform-check.sh <feature>` で実装方法確認
 2. **生成**: `./scripts/new-command.sh <command>` でテンプレート生成
 3. **実装**: TODOコメントを埋める

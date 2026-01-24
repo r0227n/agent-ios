@@ -9,9 +9,10 @@ use clap::Args;
 
 use agent_mobile_core::{Platform, ScrollDirection};
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -46,7 +47,10 @@ pub struct ScrollArgs {
 
 /// Execute the scroll command
 pub async fn run(args: ScrollArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // Parse scroll parameters
     let ((x1, y1), (x2, y2)) = parse_scroll_args(
@@ -89,7 +93,7 @@ async fn parse_scroll_args(
     // Get scroll center point
     let (cx, cy) = if let Some(within_target) = within_ref {
         // Scroll within a specific element
-        let target = Target::parse(within_target);
+        let target = ElementTarget::parse(within_target);
         let snapshot = take_snapshot(platform, udid).await?;
         let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
         element.center()
@@ -125,7 +129,7 @@ async fn execute_scroll_ios(
     y2: f64,
     duration: f64,
 ) -> CommandResult {
-    use crate::idb::hid::events;
+    use agent_mobile_platform_ios::hid::events;
 
     with_client(udid, |mut client| async move {
         let events = events::swipe_to_events((x1, y1), (x2, y2), Some(duration), None);

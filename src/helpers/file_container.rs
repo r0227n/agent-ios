@@ -48,7 +48,7 @@ pub fn file_container(bundle_id: Option<String>) -> Option<FileContainer> {
 /// # Example
 ///
 /// ```ignore
-/// use crate::helpers::{file_container_with_root, DefaultContainer};
+/// use crate::helpers::file_container::{file_container_with_root, DefaultContainer};
 ///
 /// let container = file_container_with_root(bundle_id, root, DefaultContainer::Media);
 /// client.mkdir(&path, container).await?;

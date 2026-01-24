@@ -15,7 +15,9 @@ use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::{setup_ctrl_c_handler, CommandResult, DeviceArgs};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::signal::setup_ctrl_c_handler;
 
 /// record コマンド引数
 #[derive(Args, Debug)]
@@ -78,7 +80,10 @@ fn resolve_output_path(output: Option<&str>) -> Result<String, std::io::Error> {
 
 /// Execute the record command
 pub async fn run(args: RecordArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
     let resolved_path = resolve_output_path(args.output.as_deref())?;
 
     match platform {

@@ -116,15 +116,10 @@ pub fn has_interactive_descendants(elements: &[SnapshotElement], index: usize) -
     false
 }
 
-/// Check if an element is "empty" (has no label and no value).
-pub fn is_empty_structure(element: &SnapshotElement) -> bool {
-    element.label.is_none() && element.value.is_none() && !element.is_interactive
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::types::Frame;
+    use agent_mobile_core::snapshot::Frame;
 
     fn make_raw(element_type: &str, label: Option<&str>, children: Vec<RawElement>) -> RawElement {
         RawElement {
@@ -274,12 +269,12 @@ mod tests {
             parent_index: None,
         };
 
-        assert!(is_empty_structure(&element));
+        assert!(element.is_empty_structure());
 
         let labeled_element = SnapshotElement {
             label: Some("Title".to_string()),
             ..element.clone()
         };
-        assert!(!is_empty_structure(&labeled_element));
+        assert!(!labeled_element.is_empty_structure());
     }
 }

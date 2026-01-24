@@ -1,4 +1,4 @@
-use crate::helpers::{with_client, CommandResult};
+use crate::helpers::client::{with_client, CommandResult};
 use clap::Subcommand;
 
 #[derive(Subcommand)]

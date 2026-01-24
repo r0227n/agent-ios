@@ -10,9 +10,10 @@ use clap::Args;
 
 use agent_mobile_core::{Platform, ScrollDirection};
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -47,7 +48,10 @@ pub struct SwipeArgs {
 
 /// Execute the swipe command
 pub async fn run(args: SwipeArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // Parse swipe coordinates
     let ((x1, y1), (x2, y2)) = parse_swipe_args(
@@ -93,7 +97,7 @@ async fn parse_swipe_args(
     // Get start point
     let (cx, cy) = if let Some(from_target) = from_ref {
         // Resolve from ref
-        let target = Target::parse(from_target);
+        let target = ElementTarget::parse(from_target);
         let snapshot = take_snapshot(platform, udid).await?;
         let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
         element.center()
@@ -142,7 +146,7 @@ async fn execute_swipe_ios(
     y2: f64,
     duration: Option<f64>,
 ) -> CommandResult {
-    use crate::idb::hid::events;
+    use agent_mobile_platform_ios::hid::events;
 
     with_client(udid, |mut client| async move {
         let events = events::swipe_to_events((x1, y1), (x2, y2), duration, None);

@@ -85,9 +85,9 @@ pub struct CompanionInfo {
     pub address: Address,
 }
 
-/// Description of an iOS target (device or simulator)
+/// Device information (iOS target - device or simulator)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TargetDescription {
+pub struct DeviceInfo {
     pub name: String,
     pub udid: String,
     #[serde(skip_serializing_if = "Option::is_none")]

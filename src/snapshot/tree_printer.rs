@@ -1,6 +1,6 @@
 //! Tree-format text output for snapshots.
 
-use super::ref_generator::{has_interactive_descendants, is_empty_structure};
+use super::ref_generator::has_interactive_descendants;
 use super::types::SnapshotElement;
 
 /// Options for tree printing.
@@ -121,7 +121,7 @@ fn should_display(elements: &[SnapshotElement], index: usize, options: &PrintOpt
     }
 
     // Compact filter (remove empty structural elements)
-    if options.compact && is_empty_structure(element) && element.children_indices.is_empty() {
+    if options.compact && element.is_empty_structure() && element.children_indices.is_empty() {
         return false;
     }
 
@@ -183,7 +183,7 @@ fn truncate_string(s: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::types::Frame;
+    use agent_mobile_core::snapshot::Frame;
 
     fn make_element(
         ref_id: &str,

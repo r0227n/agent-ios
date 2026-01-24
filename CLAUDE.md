@@ -90,32 +90,6 @@ cargo test --test cli your_feature -- --test-threads=1
 agent-mobile <your-command>
 ```
 
-#### ヘルパー関数の活用
-
-`tests/idb/common/mod.rs` には、テストで使える便利な関数があります：
-
-```rust
-// CompanionClient の取得
-let client = common::get_client().await?;
-
-// テストアプリの起動
-common::launch_test_app(&client).await?;
-
-// スクリーンショットの取得
-let screenshot = common::take_screenshot(&client).await?;
-
-// ファイル操作
-common::push_file(&client, "/path/to/source", "/path/to/dest").await?;
-```
-
-#### ドキュメント更新
-
-新機能追加時は、以下のドキュメントも更新してください：
-
-- **CLAUDE.md**: AIエージェント向けの使用例
-- **README.md**: ユーザー向けクイックスタート
-- **docs/ARCHITECTURE.md**: アーキテクチャへの影響
-- **proto/idb.proto**: gRPC API の変更 (該当する場合)
 
 #### AIエージェント対応
 

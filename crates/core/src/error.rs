@@ -1,68 +1,45 @@
 //! Common error types for agent-mobile.
 //!
-//! This module defines a unified error type that can be used across
-//! all components of the codebase.
+//! Unified, structured error type with context for the codebase.
 
-use std::fmt;
+use thiserror::Error;
 
 /// Common result type alias using the Error enum
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Common error type for agent-mobile operations
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
     /// gRPC communication error
+    #[error("gRPC error: {0}")]
     Grpc(String),
     /// Connection error (failed to connect to companion)
+    #[error("Connection error: {0}")]
     Connection(String),
     /// Companion not found or not available
+    #[error("Companion not found: {0}")]
     CompanionNotFound(String),
     /// Target (device/simulator) not found
+    #[error("Target not found: {0}")]
     TargetNotFound(String),
     /// Multiple targets found when one was expected
+    #[error("Multiple targets found: {0}")]
     MultipleTargets(String),
     /// File operation error
+    #[error("File operation error: {0}")]
     FileOperation(String),
     /// Installation error
+    #[error("Installation error: {0}")]
     Installation(String),
     /// Invalid argument or parameter
+    #[error("Invalid argument: {0}")]
     InvalidArgument(String),
     /// IO error
-    Io(std::io::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
     /// Generic error with message
+    #[error("{0}")]
     Other(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::Grpc(msg) => write!(f, "gRPC error: {}", msg),
-            Error::Connection(msg) => write!(f, "Connection error: {}", msg),
-            Error::CompanionNotFound(msg) => write!(f, "Companion not found: {}", msg),
-            Error::TargetNotFound(msg) => write!(f, "Target not found: {}", msg),
-            Error::MultipleTargets(msg) => write!(f, "Multiple targets found: {}", msg),
-            Error::FileOperation(msg) => write!(f, "File operation error: {}", msg),
-            Error::Installation(msg) => write!(f, "Installation error: {}", msg),
-            Error::InvalidArgument(msg) => write!(f, "Invalid argument: {}", msg),
-            Error::Io(err) => write!(f, "IO error: {}", err),
-            Error::Other(msg) => write!(f, "{}", msg),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::Io(err) => Some(err),
-            _ => None,
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::Io(err)
-    }
 }
 
 impl From<String> for Error {

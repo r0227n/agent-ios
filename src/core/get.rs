@@ -9,9 +9,11 @@
 
 use clap::Args;
 
-use crate::helpers::{CommandResult, DeviceArgs, OutputFormat};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::format::OutputFormat;
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -37,7 +39,10 @@ pub struct GetArgs {
 
 /// Execute the get command
 pub async fn run(args: GetArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // Handle the case where property is actually the target (@eN)
     let (property, target_str) = if args.property.starts_with('@') {
@@ -56,9 +61,9 @@ pub async fn run(args: GetArgs) -> CommandResult {
 
     // Special handling for 'count' property (doesn't require element resolution)
     if property.to_lowercase() == "count" {
-        let target = Target::parse(&target_str);
+        let target = ElementTarget::parse(&target_str);
         let count = match target {
-            Target::Ref(_) => {
+            ElementTarget::Ref(_) => {
                 // Ref exists check
                 if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_ok() {
                     1
@@ -66,7 +71,7 @@ pub async fn run(args: GetArgs) -> CommandResult {
                     0
                 }
             }
-            Target::Text(text) => {
+            ElementTarget::Text(text) => {
                 // Count all elements containing text
                 let text_lower = text.to_lowercase();
                 snapshot
@@ -93,7 +98,7 @@ pub async fn run(args: GetArgs) -> CommandResult {
     }
 
     // Resolve element for other properties
-    let target = Target::parse(&target_str);
+    let target = ElementTarget::parse(&target_str);
     let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
 
     // Get the requested property
@@ -144,7 +149,11 @@ pub async fn run(args: GetArgs) -> CommandResult {
                 "y" => element.frame.y.to_string(),
                 "width" => element.frame.width.to_string(),
                 "height" => element.frame.height.to_string(),
-                _ => return Err(format!("Unknown attribute: {}", attr_name).into()),
+                "placeholder" => element.placeholder.clone().unwrap_or_default(),
+                "traits" => element.traits.join(", "),
+                "depth" => element.depth.to_string(),
+                "interactive" | "is_interactive" => element.is_interactive.to_string(),
+                _ => return Err(format!("Unknown attribute: {}. Valid attributes: enabled, label, text, value, type, x, y, width, height, placeholder, traits, depth, interactive", attr_name).into()),
             }
         }
         _ if property == "all" || property.starts_with('@') => {

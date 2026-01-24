@@ -2,12 +2,14 @@
 //!
 //! @e1, @e2 形式の ref 識別子を座標に変換するシステム。
 
-use crate::helpers::CommandResult;
-use crate::snapshot::types::{Frame, Snapshot, SnapshotElement};
+use agent_mobile_core::snapshot::Frame;
 
-/// Target type for Core Commands
+use crate::helpers::client::CommandResult;
+use crate::snapshot::types::{Snapshot, SnapshotElement};
+
+/// UI Element Target type for Core Commands
 #[derive(Debug, Clone)]
-pub enum Target {
+pub enum ElementTarget {
     /// Element reference from snapshot (e.g., "@e1", "@e42")
     Ref(String),
     /// Text to search for in snapshot
@@ -30,6 +32,9 @@ pub struct ResolvedElement {
     pub enabled: bool,
     pub value: Option<String>,
     pub traits: Vec<String>,
+    pub placeholder: Option<String>,
+    pub depth: u32,
+    pub is_interactive: bool,
 }
 
 impl ResolvedElement {
@@ -68,43 +73,46 @@ impl ResolvedElement {
             enabled: true,
             value: None,
             traits: vec![],
+            placeholder: None,
+            depth: 0,
+            is_interactive: false,
         }
     }
 }
 
-impl Target {
-    /// Parse a target string into a Target type
+impl ElementTarget {
+    /// Parse a target string into an ElementTarget type
     pub fn parse(s: &str) -> Self {
         let s = s.trim();
 
         // Check for @eN reference format
         if s.starts_with('@') {
-            return Target::Ref(s.to_string());
+            return ElementTarget::Ref(s.to_string());
         }
 
         // Check for coordinate format (x,y)
         if let Some((x, y)) = parse_coords(s) {
-            return Target::Coords(x, y);
+            return ElementTarget::Coords(x, y);
         }
 
         // Check for special positions (e.g., "center")
         if is_special_position(s) {
-            return Target::Position(s.to_lowercase());
+            return ElementTarget::Position(s.to_lowercase());
         }
 
         // Check for special keys
         if is_special_key(s) {
-            return Target::Key(s.to_lowercase());
+            return ElementTarget::Key(s.to_lowercase());
         }
 
         // Treat as text to search
-        Target::Text(s.to_string())
+        ElementTarget::Text(s.to_string())
     }
 
     /// Check if this target is a special key
     #[allow(dead_code)]
     pub fn is_key(&self) -> bool {
-        matches!(self, Target::Key(_))
+        matches!(self, ElementTarget::Key(_))
     }
 }
 
@@ -158,44 +166,35 @@ pub fn find_by_ref<'a>(snapshot: &'a Snapshot, ref_id: &str) -> Option<&'a Snaps
     snapshot.elements.iter().find(|e| e.ref_id == ref_id)
 }
 
-/// Find an element by text (label or value) in a snapshot
+/// Find an element by text (label or value) in a snapshot.
+///
+/// Search priority:
+/// 1. Exact label match (case-sensitive)
+/// 2. Exact value match (case-sensitive)
+/// 3. Exact label match (case-insensitive)
+/// 4. Partial label match (case-insensitive)
 pub fn find_by_text<'a>(snapshot: &'a Snapshot, text: &str) -> Option<&'a SnapshotElement> {
-    // First try exact match on label
-    if let Some(elem) = snapshot
+    // First try exact match on label (case-sensitive)
+    snapshot
         .elements
         .iter()
         .find(|e| e.label.as_ref().map(|l| l == text).unwrap_or(false))
-    {
-        return Some(elem);
-    }
-
-    // Then try exact match on value
-    if let Some(elem) = snapshot
-        .elements
-        .iter()
-        .find(|e| e.value.as_ref().map(|v| v == text).unwrap_or(false))
-    {
-        return Some(elem);
-    }
-
-    // Then try case-insensitive match on label
-    let text_lower = text.to_lowercase();
-    if let Some(elem) = snapshot.elements.iter().find(|e| {
-        e.label
-            .as_ref()
-            .map(|l| l.to_lowercase() == text_lower)
-            .unwrap_or(false)
-    }) {
-        return Some(elem);
-    }
-
-    // Finally try partial match on label (contains)
-    snapshot.elements.iter().find(|e| {
-        e.label
-            .as_ref()
-            .map(|l| l.to_lowercase().contains(&text_lower))
-            .unwrap_or(false)
-    })
+        // Then try exact match on value (case-sensitive)
+        .or_else(|| {
+            snapshot
+                .elements
+                .iter()
+                .find(|e| e.value.as_ref().map(|v| v == text).unwrap_or(false))
+        })
+        // Then try case-insensitive exact match on label
+        .or_else(|| {
+            snapshot
+                .elements
+                .iter()
+                .find(|e| e.matches_label(text, true))
+        })
+        // Finally try partial match on label (contains)
+        .or_else(|| snapshot.elements.iter().find(|e| e.contains_text(text)))
 }
 
 /// Convert a SnapshotElement to a ResolvedElement
@@ -208,17 +207,20 @@ pub fn to_resolved(elem: &SnapshotElement) -> ResolvedElement {
         enabled: elem.enabled,
         value: elem.value.clone(),
         traits: elem.traits.clone(),
+        placeholder: elem.placeholder.clone(),
+        depth: elem.depth,
+        is_interactive: elem.is_interactive,
     }
 }
 
 /// Resolve a target to an element from a snapshot
 pub fn resolve_from_snapshot(
     snapshot: &Snapshot,
-    target: &Target,
+    target: &ElementTarget,
 ) -> CommandResult<ResolvedElement> {
     match target {
-        Target::Coords(x, y) => Ok(ResolvedElement::from_coords(*x, *y)),
-        Target::Ref(ref_id) => {
+        ElementTarget::Coords(x, y) => Ok(ResolvedElement::from_coords(*x, *y)),
+        ElementTarget::Ref(ref_id) => {
             let elem = find_by_ref(snapshot, ref_id).ok_or_else(|| {
                 let available_refs: Vec<String> = snapshot
                     .elements
@@ -242,7 +244,7 @@ pub fn resolve_from_snapshot(
             })?;
             Ok(to_resolved(elem))
         }
-        Target::Text(text) => {
+        ElementTarget::Text(text) => {
             let elem = find_by_text(snapshot, text).ok_or_else(|| {
                 format!(
                     "Element with text '{}' not found in snapshot.\n\nHint: Run 'agent-mobile snapshot' to see available elements.",
@@ -251,11 +253,11 @@ pub fn resolve_from_snapshot(
             })?;
             Ok(to_resolved(elem))
         }
-        Target::Key(_) => {
+        ElementTarget::Key(_) => {
             // Keys don't need resolution - they're handled separately
             Err("Cannot resolve key target to element".into())
         }
-        Target::Position(_) => {
+        ElementTarget::Position(_) => {
             // Positions don't need snapshot resolution - they're handled separately
             Err("Cannot resolve position target to element".into())
         }
@@ -267,39 +269,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_target_parse_ref() {
-        let target = Target::parse("@e1");
-        assert!(matches!(target, Target::Ref(r) if r == "@e1"));
+    fn test_element_target_parse_ref() {
+        let target = ElementTarget::parse("@e1");
+        assert!(matches!(target, ElementTarget::Ref(r) if r == "@e1"));
 
-        let target = Target::parse("@e42");
-        assert!(matches!(target, Target::Ref(r) if r == "@e42"));
+        let target = ElementTarget::parse("@e42");
+        assert!(matches!(target, ElementTarget::Ref(r) if r == "@e42"));
     }
 
     #[test]
-    fn test_target_parse_coords() {
-        let target = Target::parse("100,200");
-        assert!(matches!(target, Target::Coords(100.0, 200.0)));
+    fn test_element_target_parse_coords() {
+        let target = ElementTarget::parse("100,200");
+        assert!(matches!(target, ElementTarget::Coords(100.0, 200.0)));
 
-        let target = Target::parse("100.5, 200.5");
-        assert!(matches!(target, Target::Coords(100.5, 200.5)));
+        let target = ElementTarget::parse("100.5, 200.5");
+        assert!(matches!(target, ElementTarget::Coords(100.5, 200.5)));
     }
 
     #[test]
-    fn test_target_parse_key() {
-        let target = Target::parse("home");
-        assert!(matches!(target, Target::Key(k) if k == "home"));
+    fn test_element_target_parse_key() {
+        let target = ElementTarget::parse("home");
+        assert!(matches!(target, ElementTarget::Key(k) if k == "home"));
 
-        let target = Target::parse("ENTER");
-        assert!(matches!(target, Target::Key(k) if k == "enter"));
+        let target = ElementTarget::parse("ENTER");
+        assert!(matches!(target, ElementTarget::Key(k) if k == "enter"));
     }
 
     #[test]
-    fn test_target_parse_text() {
-        let target = Target::parse("Login");
-        assert!(matches!(target, Target::Text(t) if t == "Login"));
+    fn test_element_target_parse_text() {
+        let target = ElementTarget::parse("Login");
+        assert!(matches!(target, ElementTarget::Text(t) if t == "Login"));
 
-        let target = Target::parse("Submit Button");
-        assert!(matches!(target, Target::Text(t) if t == "Submit Button"));
+        let target = ElementTarget::parse("Submit Button");
+        assert!(matches!(target, ElementTarget::Text(t) if t == "Submit Button"));
     }
 
     #[test]
@@ -317,6 +319,9 @@ mod tests {
             enabled: true,
             value: None,
             traits: vec![],
+            placeholder: None,
+            depth: 0,
+            is_interactive: true,
         };
         assert_eq!(elem.center(), (125.0, 215.0));
     }
@@ -331,6 +336,9 @@ mod tests {
             enabled: true,
             value: None,
             traits: vec![],
+            placeholder: None,
+            depth: 0,
+            is_interactive: true,
         };
         assert!(elem.is_text_input());
 
@@ -342,6 +350,9 @@ mod tests {
             enabled: true,
             value: None,
             traits: vec![],
+            placeholder: None,
+            depth: 0,
+            is_interactive: true,
         };
         assert!(!elem.is_text_input());
     }

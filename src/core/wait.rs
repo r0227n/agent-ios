@@ -12,16 +12,17 @@ use clap::Args;
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::{CommandResult, DeviceArgs};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
 /// wait コマンド引数
 #[derive(Args, Debug)]
 pub struct WaitArgs {
-    /// Condition to wait for: visible, gone, idle
+    /// Condition to wait for: visible, gone, idle, text
     pub condition: String,
 
     /// Element ref (@eN) or "text" (not required for "idle")
@@ -41,7 +42,10 @@ pub struct WaitArgs {
 
 /// Execute the wait command
 pub async fn run(args: WaitArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
     let timeout = parse_timeout(&args.timeout)?;
     let interval = Duration::from_millis(args.interval);
 
@@ -75,8 +79,22 @@ pub async fn run(args: WaitArgs) -> CommandResult {
             .await
         }
         "idle" => wait_idle(platform, args.device.udid.as_deref(), timeout, interval).await,
+        "text" => {
+            let text = args
+                .target
+                .as_ref()
+                .ok_or("Text required for 'text' condition")?;
+            wait_text(
+                platform,
+                args.device.udid.as_deref(),
+                text,
+                timeout,
+                interval,
+            )
+            .await
+        }
         _ => Err(format!(
-            "Unknown condition: {}. Valid conditions: visible, gone, idle",
+            "Unknown condition: {}. Valid conditions: visible, gone, idle, text",
             args.condition
         )
         .into()),
@@ -91,7 +109,7 @@ async fn wait_visible(
     timeout: Duration,
     interval: Duration,
 ) -> CommandResult {
-    let target = Target::parse(target_str);
+    let target = ElementTarget::parse(target_str);
     let deadline = Instant::now() + timeout;
 
     loop {
@@ -124,7 +142,7 @@ async fn wait_gone(
     timeout: Duration,
     interval: Duration,
 ) -> CommandResult {
-    let target = Target::parse(target_str);
+    let target = ElementTarget::parse(target_str);
     let deadline = Instant::now() + timeout;
 
     loop {
@@ -185,6 +203,50 @@ async fn wait_idle(
             return Err(format!(
                 "Timeout waiting for UI to become idle (waited {:?})",
                 timeout
+            )
+            .into());
+        }
+
+        tokio::time::sleep(interval).await;
+    }
+}
+
+/// Wait for text to appear on screen
+async fn wait_text(
+    platform: Platform,
+    udid: Option<&str>,
+    text: &str,
+    timeout: Duration,
+    interval: Duration,
+) -> CommandResult {
+    let deadline = Instant::now() + timeout;
+    let text_lower = text.to_lowercase();
+
+    loop {
+        // Take snapshot
+        let snapshot = take_snapshot(platform, udid).await?;
+
+        // Search for text in any element's label or value
+        let found = snapshot.elements.iter().any(|e| {
+            e.label
+                .as_ref()
+                .map(|l| l.to_lowercase().contains(&text_lower))
+                .unwrap_or(false)
+                || e.value
+                    .as_ref()
+                    .map(|v| v.to_lowercase().contains(&text_lower))
+                    .unwrap_or(false)
+        });
+
+        if found {
+            println!("Found text: {}", text);
+            return Ok(());
+        }
+
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "Timeout waiting for text '{}' to appear (waited {:?})",
+                text, timeout
             )
             .into());
         }

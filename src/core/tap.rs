@@ -1,10 +1,13 @@
-//! tap コマンド - 要素タップ
+//! tap コマンド - 要素タップ（即座）
 //!
 //! ```bash
 //! agent-mobile tap @e1              # ref でタップ
 //! agent-mobile tap "Login"          # テキストでタップ
 //! agent-mobile tap 100,200          # 座標でタップ
 //! agent-mobile tap home             # ハードウェアキー
+//!
+//! # 長押しは long-press コマンドを使用
+//! agent-mobile long-press @e1 --duration 2.0
 //! ```
 
 use clap::Args;
@@ -12,9 +15,10 @@ use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 
 /// tap コマンド引数
 #[derive(Args, Debug)]
@@ -22,21 +26,20 @@ pub struct TapArgs {
     /// Target: @eN ref, "text", x,y coordinates, or key (home, back, enter, etc.)
     pub target: String,
 
-    /// Duration of tap in seconds
-    #[arg(long)]
-    pub duration: Option<f64>,
-
     #[command(flatten)]
     pub device: DeviceArgs,
 }
 
 /// Execute the tap command
 pub async fn run(args: TapArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
-    let target = Target::parse(&args.target);
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
+    let target = ElementTarget::parse(&args.target);
 
     // Handle special keys
-    if let Target::Key(key) = &target {
+    if let ElementTarget::Key(key) = &target {
         return execute_key(platform, args.device.udid.as_deref(), key).await;
     }
 
@@ -44,28 +47,28 @@ pub async fn run(args: TapArgs) -> CommandResult {
     let (x, y) = resolve_coords(&target, platform, args.device.udid.as_deref()).await?;
 
     // Execute tap
-    execute_tap(platform, args.device.udid.as_deref(), x, y, args.duration).await
+    execute_tap(platform, args.device.udid.as_deref(), x, y).await
 }
 
 /// Resolve target to coordinates
 pub async fn resolve_coords(
-    target: &Target,
+    target: &ElementTarget,
     platform: Platform,
     udid: Option<&str>,
 ) -> CommandResult<(f64, f64)> {
     match target {
-        Target::Coords(x, y) => Ok((*x, *y)),
-        Target::Position(pos) => {
+        ElementTarget::Coords(x, y) => Ok((*x, *y)),
+        ElementTarget::Position(pos) => {
             // Handle special positions like "center"
             resolve_position(pos, platform, udid).await
         }
-        Target::Ref(_) | Target::Text(_) => {
+        ElementTarget::Ref(_) | ElementTarget::Text(_) => {
             // Take a fresh snapshot
             let snapshot = take_snapshot(platform, udid).await?;
             let element = ref_resolver::resolve_from_snapshot(&snapshot, target)?;
             Ok(element.center())
         }
-        Target::Key(_) => Err("Cannot resolve key to coordinates".into()),
+        ElementTarget::Key(_) => Err("Cannot resolve key to coordinates".into()),
     }
 }
 
@@ -101,7 +104,7 @@ pub async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandR
 
 /// Get iOS screen size from snapshot's root element
 async fn get_ios_screen_size_from_snapshot(udid: Option<&str>) -> CommandResult<(f64, f64)> {
-    use crate::helpers::with_client;
+    use crate::helpers::client::with_client;
 
     with_client(udid, |mut client| async move {
         let json_str = client.accessibility_info(None, false).await?;
@@ -167,19 +170,14 @@ pub async fn take_snapshot(
 }
 
 /// Execute tap gesture
-async fn execute_tap(
-    platform: Platform,
-    udid: Option<&str>,
-    x: f64,
-    y: f64,
-    duration: Option<f64>,
-) -> CommandResult {
+pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
-                let events = events::tap_to_events(x, y, duration);
+                // 即座のタップのため None を明示的に渡す
+                let events = events::tap_to_events(x, y, None);
                 client.hid(events).await?;
                 Ok(())
             })
@@ -197,7 +195,7 @@ async fn execute_tap(
 async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
             use agent_mobile_platform_ios::proto::idb::hid_event::HidButtonType;
 
             // Check if it's a button (home, lock, etc.) or a keyboard key

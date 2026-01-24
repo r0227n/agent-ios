@@ -16,7 +16,7 @@ pub type StopReceiver = watch::Receiver<bool>;
 /// # Example
 ///
 /// ```ignore
-/// use crate::helpers::setup_ctrl_c_handler;
+/// use crate::helpers::signal::setup_ctrl_c_handler;
 ///
 /// let stop_rx = setup_ctrl_c_handler();
 ///

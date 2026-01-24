@@ -12,9 +12,10 @@
 
 use clap::Args;
 
-use crate::helpers::{CommandResult, DeviceArgs};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -33,12 +34,15 @@ pub struct IsArgs {
 
 /// Execute the is command
 pub async fn run(args: IsArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // Get snapshot
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
-    let target = Target::parse(&args.target);
+    let target = ElementTarget::parse(&args.target);
 
     // Check the requested state
     let result = match args.state.to_lowercase().as_str() {

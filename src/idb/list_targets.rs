@@ -1,5 +1,5 @@
 use agent_mobile_core::{
-    human_format_target, json_format_target, merge_connected_targets, Address, TargetDescription,
+    human_format_target, json_format_target, merge_connected_targets, Address, DeviceInfo,
     TargetType,
 };
 use agent_mobile_platform_ios::companion::{CompanionLister, CompanionState};
@@ -37,7 +37,7 @@ pub async fn run(
     targets.sort_by(|a, b| a.name.cmp(&b.name));
 
     // Output results (default: JSON, --human: human-readable)
-    let formatter: fn(&TargetDescription) -> String = if human_output {
+    let formatter: fn(&DeviceInfo) -> String = if human_output {
         human_format_target
     } else {
         json_format_target
@@ -51,7 +51,7 @@ pub async fn run(
 }
 
 /// Get connected targets by querying companions from state file
-async fn get_connected_targets() -> Vec<TargetDescription> {
+async fn get_connected_targets() -> Vec<DeviceInfo> {
     let state = CompanionState::default();
     let companions = state.get_companions();
     let mut targets = Vec::new();

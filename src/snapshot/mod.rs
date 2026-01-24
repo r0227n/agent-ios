@@ -15,7 +15,9 @@ use agent_mobile_platform_ios::snapshot::extract_ios_elements;
 use chrono::Utc;
 use clap::Args;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs, OutputFormat};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::format::OutputFormat;
 use types::Snapshot;
 
 /// Snapshot command arguments.
@@ -32,6 +34,10 @@ pub struct SnapshotArgs {
     /// Limit tree depth (e.g., -d 3 shows only top 3 levels)
     #[arg(short = 'd', long)]
     pub depth: Option<u32>,
+
+    /// Scope to subtree rooted at element (@eN ref or "text")
+    #[arg(short = 's', long)]
+    pub scope: Option<String>,
 
     /// Output to file instead of stdout
     #[arg(short = 'o', long)]
@@ -67,7 +73,16 @@ pub enum Platform {
 /// Execute the snapshot command.
 pub async fn run(args: SnapshotArgs) -> CommandResult {
     // Detect or use specified platform
-    let platform = resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => {
+            let core_platform = crate::device::detect_platform_from_udid(udid).await?;
+            match core_platform {
+                agent_mobile_core::Platform::Ios => Platform::Ios,
+                agent_mobile_core::Platform::Android => Platform::Android,
+            }
+        }
+        None => resolve_platform().await?,
+    };
 
     match platform {
         Platform::Ios => run_ios(args).await,
@@ -75,17 +90,8 @@ pub async fn run(args: SnapshotArgs) -> CommandResult {
     }
 }
 
-/// Resolve platform from argument or auto-detect.
-async fn resolve_platform(platform_arg: Option<&str>) -> CommandResult<Platform> {
-    // If explicitly specified, use that
-    if let Some(p) = platform_arg {
-        return match p.to_lowercase().as_str() {
-            "ios" => Ok(Platform::Ios),
-            "android" => Ok(Platform::Android),
-            _ => Err(format!("Unknown platform: {}. Use 'ios' or 'android'.", p).into()),
-        };
-    }
-
+/// Auto-detect platform from connected devices.
+async fn resolve_platform() -> CommandResult<Platform> {
     // Auto-detect: check for iOS companion state first
     if has_ios_companion().await {
         return Ok(Platform::Ios);
@@ -148,6 +154,7 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
     let interactive = args.interactive;
     let compact = args.compact;
     let depth = args.depth;
+    let scope = args.scope.clone();
     let output_path = args.output.clone();
     let format = args.format;
     let no_scroll = args.no_scroll;
@@ -174,6 +181,13 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
 
         // Generate refs
         let elements = ref_generator::generate_refs(&raw_elements);
+
+        // Apply scope filtering if specified
+        let elements = if let Some(scope_target) = &scope {
+            extract_subtree(&elements, scope_target)?
+        } else {
+            elements
+        };
 
         // Create snapshot
         let snapshot = Snapshot {
@@ -202,6 +216,7 @@ async fn run_android(args: SnapshotArgs) -> CommandResult {
     let interactive = args.interactive;
     let compact = args.compact;
     let depth = args.depth;
+    let scope = args.scope.clone();
     let output_path = args.output.clone();
     let format = args.format;
     let no_scroll = args.no_scroll;
@@ -234,6 +249,13 @@ async fn run_android(args: SnapshotArgs) -> CommandResult {
 
     // Generate refs
     let elements = ref_generator::generate_refs(&raw_elements);
+
+    // Apply scope filtering if specified
+    let elements = if let Some(scope_target) = &scope {
+        extract_subtree(&elements, scope_target)?
+    } else {
+        elements
+    };
 
     // Create snapshot
     let snapshot = Snapshot {
@@ -285,6 +307,104 @@ fn output_snapshot(
     Ok(())
 }
 
+/// Extract a subtree rooted at the specified element.
+///
+/// Finds the root element by @eN ref or text, then collects all descendants.
+/// Adjusts depth values so the root element has depth 0.
+/// Remaps parent_index and children_indices to reflect new array positions.
+fn extract_subtree(
+    elements: &[types::SnapshotElement],
+    scope_target: &str,
+) -> CommandResult<Vec<types::SnapshotElement>> {
+    use std::collections::HashMap;
+
+    // Find the root element index
+    let root_index = if scope_target.starts_with('@') {
+        // @eN ref format
+        elements
+            .iter()
+            .position(|e| e.ref_id == scope_target)
+            .ok_or_else(|| format!("Element not found: {}", scope_target))?
+    } else {
+        // Text search using helper method
+        elements
+            .iter()
+            .position(|e| e.contains_text(scope_target))
+            .ok_or_else(|| format!("Element with text '{}' not found", scope_target))?
+    };
+
+    let root_depth = elements[root_index].depth;
+
+    // Collect indices of elements to include (root and descendants)
+    let included_indices: Vec<usize> = elements
+        .iter()
+        .enumerate()
+        .filter(|(idx, _)| is_descendant_or_self(elements, *idx, root_index))
+        .map(|(idx, _)| idx)
+        .collect();
+
+    if included_indices.is_empty() {
+        return Err(format!("No elements found in subtree for: {}", scope_target).into());
+    }
+
+    // Create index mapping: old_index -> new_index
+    let index_map: HashMap<usize, usize> = included_indices
+        .iter()
+        .enumerate()
+        .map(|(new_idx, &old_idx)| (old_idx, new_idx))
+        .collect();
+
+    // Build result with remapped indices
+    let result: Vec<types::SnapshotElement> = included_indices
+        .iter()
+        .map(|&old_idx| {
+            let elem = &elements[old_idx];
+            let mut elem_clone = elem.clone();
+
+            // Adjust depth relative to root
+            elem_clone.depth = elem.depth.saturating_sub(root_depth);
+
+            // Remap parent_index
+            elem_clone.parent_index = elem_clone
+                .parent_index
+                .and_then(|pi| index_map.get(&pi).copied());
+
+            // Remap children_indices
+            elem_clone.children_indices = elem_clone
+                .children_indices
+                .iter()
+                .filter_map(|&ci| index_map.get(&ci).copied())
+                .collect();
+
+            elem_clone
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Check if an element at `idx` is the root or a descendant of element at `root_idx`.
+fn is_descendant_or_self(elements: &[types::SnapshotElement], idx: usize, root_idx: usize) -> bool {
+    if idx == root_idx {
+        return true;
+    }
+
+    // Walk up the parent chain
+    let mut current = idx;
+    while let Some(parent_idx) = elements.get(current).and_then(|e| e.parent_index) {
+        if parent_idx == root_idx {
+            return true;
+        }
+        if parent_idx >= current {
+            // Prevent infinite loops from malformed data
+            break;
+        }
+        current = parent_idx;
+    }
+
+    false
+}
+
 /// Generate a unique snapshot ID.
 fn generate_snapshot_id() -> String {
     let id = nanoid::nanoid!(8);
@@ -304,25 +424,5 @@ mod tests {
         assert!(id2.starts_with("snap_"));
         assert_ne!(id1, id2);
         assert_eq!(id1.len(), 13); // "snap_" + 8 chars
-    }
-
-    #[tokio::test]
-    async fn test_resolve_platform_explicit_ios() {
-        let result = resolve_platform(Some("ios")).await;
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Platform::Ios);
-    }
-
-    #[tokio::test]
-    async fn test_resolve_platform_explicit_android() {
-        let result = resolve_platform(Some("android")).await;
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Platform::Android);
-    }
-
-    #[tokio::test]
-    async fn test_resolve_platform_explicit_unknown() {
-        let result = resolve_platform(Some("windows")).await;
-        assert!(result.is_err());
     }
 }

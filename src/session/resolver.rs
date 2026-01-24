@@ -4,10 +4,9 @@
 //! with fallback to explicit UDID or auto-detection.
 
 use super::state::SessionState;
-use crate::helpers::CommandResult;
+use crate::helpers::client::CommandResult;
 
 /// Session resolver for determining target device UDID
-#[allow(dead_code)]
 pub struct SessionResolver {
     state: SessionState,
 }
@@ -20,7 +19,6 @@ impl Default for SessionResolver {
 
 impl SessionResolver {
     /// Create a new SessionResolver
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             state: SessionState::new(),
@@ -42,7 +40,6 @@ impl SessionResolver {
     /// * `Ok(Some(udid))` - Resolved UDID
     /// * `Ok(None)` - No UDID specified, auto-detection will be used
     /// * `Err` - Session not found or other error
-    #[allow(dead_code)]
     pub fn resolve_udid(
         &self,
         session: Option<&str>,

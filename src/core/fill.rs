@@ -9,9 +9,10 @@ use clap::Args;
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, Target};
+use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -30,8 +31,11 @@ pub struct FillArgs {
 
 /// Execute the fill command
 pub async fn run(args: FillArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
-    let target = Target::parse(&args.target);
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
+    let target = ElementTarget::parse(&args.target);
 
     // Get snapshot and resolve element
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
@@ -65,7 +69,7 @@ async fn execute_fill_ios(
     text: &str,
     clear_len: usize,
 ) -> CommandResult {
-    use crate::idb::hid::events;
+    use agent_mobile_platform_ios::hid::events;
 
     let text = text.to_string();
 

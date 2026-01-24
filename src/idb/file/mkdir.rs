@@ -1,4 +1,5 @@
-use crate::helpers::{file_container_with_root, with_client, CommandResult, DefaultContainer};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::file_container::{file_container_with_root, DefaultContainer};
 
 pub async fn run(
     path: String,
@@ -17,7 +18,7 @@ pub async fn run(
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::{file_container_with_root, DefaultContainer};
+    use crate::helpers::file_container::{file_container_with_root, DefaultContainer};
     use agent_mobile_platform_ios::proto::idb::file_container::Kind as FileContainerKind;
 
     #[test]

@@ -2,7 +2,8 @@
 
 use agent_mobile_core::Compression;
 
-use crate::helpers::{with_client, CommandResult, OutputFormat};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::format::OutputFormat;
 use serde_json::json;
 
 /// Install dSYM symbols to the target

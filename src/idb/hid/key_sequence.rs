@@ -1,5 +1,5 @@
-use crate::helpers::{with_client, CommandResult};
-use crate::idb::hid::events;
+use crate::helpers::client::{with_client, CommandResult};
+use agent_mobile_platform_ios::hid::events;
 
 pub async fn run(key_sequence: Vec<u64>, udid: Option<String>) -> CommandResult {
     with_client(udid.as_deref(), |mut client| async move {

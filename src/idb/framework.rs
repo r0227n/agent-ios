@@ -1,6 +1,7 @@
 //! framework install command implementation
 
-use crate::helpers::{with_client, CommandResult, OutputFormat};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::format::OutputFormat;
 use serde_json::json;
 
 /// Install a framework to the target

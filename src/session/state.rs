@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::CommandResult;
+use crate::helpers::client::CommandResult;
 
 /// Get the default sessions directory path based on the platform.
 ///

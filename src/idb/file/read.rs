@@ -1,4 +1,5 @@
-use crate::helpers::{file_container, with_client, CommandResult};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::file_container::file_container;
 use std::io::Write;
 
 /// Read a file from the target device and output to stdout

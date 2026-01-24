@@ -16,6 +16,25 @@ use idb::{
     IdbCommands, ListCommands, LocationCommands, NotificationCommands, UrlCommands,
     XctraceCommands,
 };
+use session::resolver::SessionResolver;
+
+/// Apply session UDID to DeviceArgs if not explicitly set
+macro_rules! apply_session_udid {
+    ($args:expr, $resolved_udid:expr) => {
+        if $args.device.udid.is_none() {
+            $args.device.udid = $resolved_udid.clone();
+        }
+    };
+}
+
+/// Apply session UDID to an Option<String> udid parameter if not explicitly set
+macro_rules! apply_session_udid_option {
+    ($udid:expr, $resolved_udid:expr) => {
+        if $udid.is_none() {
+            $udid = $resolved_udid.clone();
+        }
+    };
+}
 
 #[tokio::main]
 async fn main() {
@@ -29,54 +48,88 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
     let session = cli.session.as_deref();
 
+    // Resolve UDID from session (if specified)
+    let resolved_udid = if let Some(session_name) = session {
+        let resolver = SessionResolver::new();
+        resolver.resolve_udid(Some(session_name), None)?
+    } else {
+        None
+    };
+
     match cli.command {
         // ==================== Core Commands ====================
-        Commands::Tap(args) => {
+        Commands::Tap(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::tap::run(args).await?;
         }
-        Commands::LongPress(args) => {
+        Commands::Check(mut args) => {
+            apply_session_udid!(args, resolved_udid);
+            core::check::run(args, true).await?;
+        }
+        Commands::Uncheck(mut args) => {
+            apply_session_udid!(args, resolved_udid);
+            core::check::run(args, false).await?;
+        }
+        Commands::Select(mut args) => {
+            apply_session_udid!(args, resolved_udid);
+            core::select::run(args).await?;
+        }
+        Commands::LongPress(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::long_press::run(args).await?;
         }
-        Commands::Fill(args) => {
+        Commands::Fill(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::fill::run(args).await?;
         }
-        Commands::Type(args) => {
+        Commands::Type(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::type_cmd::run(args).await?;
         }
-        Commands::Swipe(args) => {
+        Commands::Swipe(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::swipe::run(args).await?;
         }
-        Commands::Scroll(args) => {
+        Commands::Scroll(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::scroll::run(args).await?;
         }
-        Commands::Get(args) => {
+        Commands::Get(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::get::run(args).await?;
         }
-        Commands::Is(args) => {
+        Commands::Is(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::is_cmd::run(args).await?;
         }
-        Commands::Wait(args) => {
+        Commands::Wait(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::wait::run(args).await?;
         }
-        Commands::Screenshot(args) => {
+        Commands::Screenshot(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::screenshot::run(args).await?;
         }
-        Commands::Find(args) => {
+        Commands::Find(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             core::find::run(args).await?;
         }
-        Commands::Snapshot(args) => {
+        Commands::Snapshot(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             snapshot::run(args).await?;
         }
-        Commands::Record(args) => {
+        Commands::Record(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             record::run(args).await?;
         }
-        Commands::Console(args) => {
+        Commands::Console(mut args) => {
+            apply_session_udid!(args, resolved_udid);
             console::run(args).await?;
         }
 
         // ==================== Existing Commands ====================
         Commands::App(args) => {
-            app::run(args).await?;
+            app::run(args, resolved_udid.clone()).await?;
         }
         Commands::Device(args) => {
             device::run(args).await?;
@@ -93,12 +146,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Launch {
                 bundle_id,
                 app_arguments,
-                udid,
+                mut udid,
                 wait_for_debugger,
                 foreground_if_running,
                 wait_for,
                 pid_file,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::launch::run(
                     bundle_id,
                     app_arguments,
@@ -113,24 +167,27 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             IdbCommands::Kill => {
                 idb::kill::run().await?;
             }
-            IdbCommands::Focus { udid } => {
+            IdbCommands::Focus { mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::focus::run(udid).await?;
             }
             IdbCommands::Log {
-                udid,
+                mut udid,
                 source,
                 log_arguments,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::log::run(udid, source, log_arguments).await?;
             }
             IdbCommands::Install {
                 bundle_path,
-                udid,
+                mut udid,
                 make_debuggable,
                 override_mtime,
                 compression,
                 format,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::install::run(
                     bundle_path,
                     udid,
@@ -141,15 +198,20 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 )
                 .await?;
             }
-            IdbCommands::Uninstall { bundle_id, udid } => {
+            IdbCommands::Uninstall {
+                bundle_id,
+                mut udid,
+            } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::uninstall::run(bundle_id, udid).await?;
             }
             IdbCommands::Approve {
                 bundle_id,
                 permissions,
                 scheme,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::permissions::approve(bundle_id, permissions, scheme, udid).await?;
             }
             IdbCommands::Crash { command } => match command {
@@ -158,11 +220,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     before,
                     bundle_id,
                     name,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::crash::list(since, before, bundle_id, name, udid).await?;
                 }
-                CrashCommands::Show { name, udid } => {
+                CrashCommands::Show { name, mut udid } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::crash::show(name, udid).await?;
                 }
                 CrashCommands::Delete {
@@ -171,8 +235,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     bundle_id,
                     name,
                     all,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::crash::delete(since, before, bundle_id, name, all, udid).await?;
                 }
             },
@@ -180,16 +245,18 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 file::FileCommands::Ls {
                     paths,
                     bundle_id,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::ls::run(paths, udid, bundle_id).await?;
                 }
                 file::FileCommands::Mkdir {
                     path,
                     bundle_id,
                     root,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::mkdir::run(path, bundle_id, root, udid).await?;
                 }
                 file::FileCommands::Mv {
@@ -197,103 +264,96 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     dst_path,
                     bundle_id,
                     root,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::mv::run(src_paths, dst_path, bundle_id, root, udid).await?;
                 }
                 file::FileCommands::Rm {
                     paths,
-                    udid,
+                    mut udid,
                     bundle_id,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::rm::run(paths, udid, bundle_id).await?;
                 }
                 file::FileCommands::Pull {
                     src_path,
                     dst_path,
                     bundle_id,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::pull::run(src_path, dst_path, udid, bundle_id).await?;
                 }
                 file::FileCommands::Push {
                     src_path,
                     dst_path,
                     bundle_id,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::push::run(src_path, dst_path, udid, bundle_id).await?;
                 }
                 file::FileCommands::Tail {
                     path,
                     bundle_id,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::tail::run(path, udid, bundle_id).await?;
                 }
                 file::FileCommands::Read {
                     src_path,
                     bundle_id,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::read::run(src_path, udid, bundle_id).await?;
                 }
                 file::FileCommands::Write {
                     dst_path,
                     bundle_id,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::file::write::run(dst_path, udid, bundle_id).await?;
                 }
             },
-            IdbCommands::Tap {
-                x,
-                y,
-                duration,
-                udid,
-            } => {
-                idb::hid::tap::run(x, y, duration, udid).await?;
-            }
             IdbCommands::Button {
                 button,
                 duration,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::hid::button::run(button, duration, udid).await?;
             }
             IdbCommands::Key {
                 keycode,
                 duration,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::hid::key::run(keycode, duration, udid).await?;
             }
-            IdbCommands::KeySequence { key_sequence, udid } => {
+            IdbCommands::KeySequence {
+                key_sequence,
+                mut udid,
+            } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::hid::key_sequence::run(key_sequence, udid).await?;
             }
-            IdbCommands::Text { text, udid } => {
-                idb::hid::text::run(text, udid).await?;
-            }
-            IdbCommands::Swipe {
-                x_start,
-                y_start,
-                x_end,
-                y_end,
-                duration,
-                delta,
-                udid,
-            } => {
-                idb::hid::swipe::run(x_start, y_start, x_end, y_end, duration, delta, udid).await?;
-            }
-            IdbCommands::ListApps { udid } => {
+            IdbCommands::ListApps { mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::list_apps::run(udid).await?;
             }
             IdbCommands::Location { command } => match command {
                 LocationCommands::SetLocation {
                     latitude,
                     longitude,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::location::run(latitude, longitude, udid).await?;
                 }
             },
@@ -301,8 +361,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 NotificationCommands::SendNotification {
                     bundle_id,
                     json_payload,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::notification::run(bundle_id, json_payload, udid).await?;
                 }
             },
@@ -310,8 +371,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 bundle_id,
                 permissions,
                 scheme,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::permissions::revoke(bundle_id, permissions, scheme, udid).await?;
             }
             IdbCommands::Set {
@@ -319,28 +381,44 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 value,
                 value_type,
                 domain,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::settings::set(name, value, value_type, domain, udid).await?;
             }
-            IdbCommands::Get { name, domain, udid } => {
+            IdbCommands::Get {
+                name,
+                domain,
+                mut udid,
+            } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::settings::get(name, domain, udid).await?;
             }
             IdbCommands::List { command } => match command {
-                ListCommands::Locale { udid } => {
+                ListCommands::Locale { mut udid } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::settings::list_locale(udid).await?;
                 }
             },
-            IdbCommands::Terminate { bundle_id, udid } => {
+            IdbCommands::Terminate {
+                bundle_id,
+                mut udid,
+            } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::terminate::run(bundle_id, udid).await?;
             }
             IdbCommands::Url { command } => match command {
-                UrlCommands::Open { url, udid } => {
+                UrlCommands::Open { url, mut udid } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::url::run(url, udid).await?;
                 }
             },
             IdbCommands::Media { command } => match command {
-                idb::media::MediaCommands::AddMedia { file_paths, udid } => {
+                idb::media::MediaCommands::AddMedia {
+                    file_paths,
+                    mut udid,
+                } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::media::add_media(file_paths, udid).await?;
                 }
             },
@@ -349,8 +427,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     output_file,
                     format,
                     fps,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::video::record::run(output_file, format, fps, udid).await?;
                 }
                 idb::video::VideoCommands::VideoStream {
@@ -359,8 +438,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     format,
                     compression_quality,
                     scale_factor,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::video::stream::run(
                         output_file,
                         fps,
@@ -372,25 +452,37 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     .await?;
                 }
             },
-            IdbCommands::PhotosClear { udid } => {
+            IdbCommands::PhotosClear { mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::photos::clear(udid).await?;
             }
-            IdbCommands::AccessibilityDescribeAll { nested, udid } => {
+            IdbCommands::AccessibilityDescribeAll { nested, mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::accessibility::describe_all(nested, udid).await?;
             }
-            IdbCommands::AccessibilityDescribePoint { x, y, nested, udid } => {
+            IdbCommands::AccessibilityDescribePoint {
+                x,
+                y,
+                nested,
+                mut udid,
+            } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::accessibility::describe_point(x, y, nested, udid).await?;
             }
-            IdbCommands::ContactsUpdate { db_path, udid } => {
+            IdbCommands::ContactsUpdate { db_path, mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::contacts::update(db_path, udid).await?;
             }
-            IdbCommands::ContactsClear { udid } => {
+            IdbCommands::ContactsClear { mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::contacts::clear(udid).await?;
             }
-            IdbCommands::KeychainClear { udid } => {
+            IdbCommands::KeychainClear { mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::keychain::clear(udid).await?;
             }
-            IdbCommands::SimulateMemoryWarning { udid } => {
+            IdbCommands::SimulateMemoryWarning { mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::memory::simulate_warning(udid).await?;
             }
             IdbCommands::XctestInstall {
@@ -398,28 +490,34 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 skip_signing,
                 compression,
                 format,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::xctest_install::run(test_bundle_path, udid, skip_signing, compression, format)
                     .await?;
             }
-            IdbCommands::XctestList { udid } => {
+            IdbCommands::XctestList { mut udid } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::xctest_list::run(udid).await?;
             }
             IdbCommands::XctestListBundle {
                 bundle_id,
                 app_path,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::xctest_list_bundle::run(bundle_id, app_path, udid).await?;
             }
             IdbCommands::XctestRun {
                 test_bundle_id,
                 tests_to_run,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::xctest_run::run(test_bundle_id, tests_to_run, udid).await?;
             }
+            // Note: Target commands (boot, shutdown, erase, clone, disconnect) require explicit UDID
+            // as they are device lifecycle management commands. Session UDID is not applied.
             IdbCommands::Target { command } => match command {
                 target::TargetCommands::Boot { udid, headless } => {
                     idb::target::boot::run(udid, headless).await?;
@@ -440,31 +538,52 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 target::TargetCommands::Clone { udid } => {
                     idb::target::clone::run(udid).await?;
                 }
-                target::TargetCommands::Delete { udid, all } => {
+                target::TargetCommands::Delete { mut udid, all } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::target::delete::run(udid, all).await?;
                 }
-                target::TargetCommands::Connect { host, port, udid } => {
+                target::TargetCommands::Connect {
+                    host,
+                    port,
+                    mut udid,
+                } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::target::connect::run(host, port, udid).await?;
                 }
                 target::TargetCommands::Disconnect { udid } => {
                     idb::target::disconnect::run(udid).await?;
                 }
-                target::TargetCommands::Describe { udid, diagnostics } => {
+                target::TargetCommands::Describe {
+                    mut udid,
+                    diagnostics,
+                } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::target::describe::run(udid, diagnostics).await?;
                 }
             },
             IdbCommands::Debugserver { command } => match command {
-                debugserver::DebugServerCommands::Start { bundle_id, udid } => {
+                debugserver::DebugServerCommands::Start {
+                    bundle_id,
+                    mut udid,
+                } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::debugserver::start::run(bundle_id, udid).await?;
                 }
-                debugserver::DebugServerCommands::Stop { udid } => {
+                debugserver::DebugServerCommands::Stop { mut udid } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::debugserver::stop::run(udid).await?;
                 }
-                debugserver::DebugServerCommands::Status { udid } => {
+                debugserver::DebugServerCommands::Status { mut udid } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::debugserver::status::run(udid).await?;
                 }
             },
-            IdbCommands::Dap { bundle, port, udid } => {
+            IdbCommands::Dap {
+                bundle,
+                port,
+                mut udid,
+            } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::dap::run(bundle, port, udid).await?;
             }
             IdbCommands::Dsym { command } => match command {
@@ -473,8 +592,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     bundle_id,
                     compression,
                     format,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::dsym::install(dsym_path, bundle_id, compression, format, udid).await?;
                 }
             },
@@ -482,8 +602,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 DylibCommands::Install {
                     dylib_path,
                     format,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::dylib::install(dylib_path, format, udid).await?;
                 }
             },
@@ -491,8 +612,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 FrameworkCommands::Install {
                     framework_path,
                     format,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::framework::install(framework_path, format, udid).await?;
                 }
             },
@@ -507,8 +629,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 terminate_timeout,
                 launch_retry_timeout,
                 launch_error_timeout,
-                udid,
+                mut udid,
             } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::instruments::run(
                     template,
                     app_bundle_id,
@@ -539,8 +662,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     env,
                     stop_timeout,
                     post_args,
-                    udid,
+                    mut udid,
                 } => {
+                    apply_session_udid_option!(udid, resolved_udid);
                     idb::xctrace::record(
                         template,
                         all_processes,
@@ -560,7 +684,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     .await?;
                 }
             },
-            IdbCommands::Shell { no_prompt, udid } => {
+            IdbCommands::Shell {
+                no_prompt,
+                mut udid,
+            } => {
+                apply_session_udid_option!(udid, resolved_udid);
                 idb::shell::run(no_prompt, udid).await?;
             }
         },

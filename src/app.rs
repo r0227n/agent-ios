@@ -7,8 +7,11 @@ use clap::{Args, Subcommand};
 use serde::Serialize;
 
 use agent_mobile_core::Platform;
+use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::{CommandResult, DeviceArgs, DeviceFormatArgs, OutputFormat};
+use crate::helpers::client::CommandResult;
+use crate::helpers::common_args::{DeviceArgs, DeviceFormatArgs};
+use crate::helpers::format::OutputFormat;
 
 /// App command arguments.
 #[derive(Args, Debug)]
@@ -152,45 +155,21 @@ const ANDROID_PERMISSIONS: &[(&str, &str)] = &[
     ("sms", "android.permission.READ_SMS"),
 ];
 
-/// Detect platform based on available devices.
-async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
-    let ios_state_path = std::path::Path::new("/tmp/idb/state");
-    if ios_state_path.exists() {
-        return Ok(Platform::Ios);
-    }
-
-    if agent_mobile_platform_android::adb::is_adb_available() {
-        let devices = agent_mobile_platform_android::adb::list_devices();
-        if let Ok(devs) = devices {
-            if !devs.is_empty() {
-                return Ok(Platform::Android);
-            }
-        }
-    }
-
-    Ok(Platform::Ios)
-}
-
-/// Resolve platform from optional string.
-async fn resolve_platform(
-    platform_str: Option<&str>,
-) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
-    match platform_str {
-        Some(p) => p
-            .parse::<Platform>()
-            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() }),
-        None => detect_platform().await,
-    }
-}
-
 /// Execute the app command.
-pub async fn run(args: AppArgs) -> CommandResult {
+pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult {
     match args.command {
         AppCommands::Launch {
             bundle_id,
-            device_output,
+            mut device_output,
         } => {
-            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            // Apply session UDID if not explicitly set
+            if device_output.udid.is_none() {
+                device_output.udid = resolved_udid;
+            }
+            let platform = match device_output.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_launch(
                 platform,
                 device_output.udid.as_deref(),
@@ -199,15 +178,30 @@ pub async fn run(args: AppArgs) -> CommandResult {
             )
             .await
         }
-        AppCommands::Terminate { bundle_id, device } => {
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+        AppCommands::Terminate {
+            bundle_id,
+            mut device,
+        } => {
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_terminate(platform, device.udid.as_deref(), &bundle_id).await
         }
         AppCommands::Install {
             path,
-            device_output,
+            mut device_output,
         } => {
-            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            if device_output.udid.is_none() {
+                device_output.udid = resolved_udid;
+            }
+            let platform = match device_output.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_install(
                 platform,
                 device_output.udid.as_deref(),
@@ -216,12 +210,27 @@ pub async fn run(args: AppArgs) -> CommandResult {
             )
             .await
         }
-        AppCommands::Uninstall { bundle_id, device } => {
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+        AppCommands::Uninstall {
+            bundle_id,
+            mut device,
+        } => {
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_uninstall(platform, device.udid.as_deref(), &bundle_id).await
         }
-        AppCommands::List { device_output } => {
-            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+        AppCommands::List { mut device_output } => {
+            if device_output.udid.is_none() {
+                device_output.udid = resolved_udid;
+            }
+            let platform = match device_output.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_list(
                 platform,
                 device_output.udid.as_deref(),
@@ -232,9 +241,15 @@ pub async fn run(args: AppArgs) -> CommandResult {
         AppCommands::Grant {
             permission,
             bundle,
-            device,
+            mut device,
         } => {
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,
@@ -244,9 +259,15 @@ pub async fn run(args: AppArgs) -> CommandResult {
         AppCommands::Revoke {
             permission,
             bundle,
-            device,
+            mut device,
         } => {
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,
@@ -256,9 +277,15 @@ pub async fn run(args: AppArgs) -> CommandResult {
         AppCommands::Reset {
             permission,
             bundle,
-            device,
+            mut device,
         } => {
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+            if device.udid.is_none() {
+                device.udid = resolved_udid;
+            }
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,
@@ -277,7 +304,7 @@ async fn execute_launch(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
             use agent_mobile_platform_ios::grpc::LaunchConfig;
             use std::collections::HashMap;
             use tokio::sync::watch;
@@ -320,7 +347,7 @@ async fn execute_terminate(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let bundle_id = bundle_id.to_string();
 
@@ -349,7 +376,7 @@ async fn execute_install(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let path = path.to_string();
             let output = *output;
@@ -396,7 +423,7 @@ async fn execute_uninstall(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let bundle_id = bundle_id.to_string();
 
@@ -424,7 +451,7 @@ async fn execute_list(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let output = *output;
 
@@ -541,7 +568,7 @@ async fn execute_grant(
             }
 
             // Try idb gRPC first, fall back to simctl
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let result = with_client(Some(udid), |mut client| async move {
                 let perm_id = ios_permission_to_id(permission);
@@ -593,7 +620,7 @@ async fn execute_revoke(
     match platform {
         Platform::Ios => {
             // Try idb gRPC first, fall back to simctl
-            use crate::helpers::with_client;
+            use crate::helpers::client::with_client;
 
             let result = with_client(Some(udid), |mut client| async move {
                 let perm_id = ios_permission_to_id(permission);

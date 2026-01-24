@@ -6,7 +6,7 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use crate::helpers::CommandResult;
+use crate::helpers::client::CommandResult;
 use agent_mobile_core::snapshot::RawElement;
 use agent_mobile_platform_android::snapshot::extract_android_elements;
 use agent_mobile_platform_ios::snapshot::extract_ios_elements;
@@ -268,7 +268,7 @@ impl SnapshotCollector {
         &self,
         client: &mut agent_mobile_platform_ios::grpc::IdbClient,
     ) -> CommandResult<()> {
-        use crate::idb::hid::events::swipe_to_events;
+        use agent_mobile_platform_ios::hid::events::swipe_to_events;
 
         // Scroll from middle-bottom to middle-top (vertical scroll down)
         let center_x = self.config.screen_width / 2.0;
@@ -286,7 +286,7 @@ impl SnapshotCollector {
         &self,
         client: &mut agent_mobile_platform_ios::grpc::IdbClient,
     ) -> CommandResult<()> {
-        use crate::idb::hid::events::swipe_to_events;
+        use agent_mobile_platform_ios::hid::events::swipe_to_events;
 
         // Scroll from top to bottom (swipe downward to scroll content up)
         let center_x = self.config.screen_width / 2.0;
@@ -527,7 +527,7 @@ pub async fn get_android_screen_size(serial: Option<&str>) -> CommandResult<(f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::types::Frame;
+    use agent_mobile_core::snapshot::Frame;
 
     fn make_raw(
         element_type: &str,

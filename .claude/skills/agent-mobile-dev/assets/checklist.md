@@ -2,6 +2,29 @@
 
 新しいCLIコマンドを実装する際の完全チェックリスト。
 
+## フェーズ0: 環境セットアップ（初回のみ）
+
+### 開発環境確認
+
+**iOS開発の場合:**
+- [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh` 実行成功
+- [ ] Xcode Command Line Tools インストール確認
+- [ ] idb_companion インストール確認
+- [ ] シミュレータ起動確認
+- [ ] `agent-mobile device list` でデバイス検出確認
+
+**Android開発の場合:**
+- [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-android.sh` 実行成功
+- [ ] Android SDK (adb, emulator) インストール確認
+- [ ] adb server 起動確認
+- [ ] エミュレータ起動確認
+- [ ] `agent-mobile device list` でデバイス検出確認
+
+**トラブルシューティング:**
+- [ ] エラーが出た場合 → `references/environment-setup.md` 参照
+
+---
+
 ## フェーズ1: 設計
 
 ### プラットフォーム判断

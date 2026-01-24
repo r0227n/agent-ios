@@ -14,7 +14,11 @@
 //! - `wait` - 要素待機
 //! - `screenshot` - スクリーンショット
 //! - `find` - semantic locators による要素検索
+//! - `check` - チェックボックス/スイッチをONにする
+//! - `uncheck` - チェックボックス/スイッチをOFFにする
+//! - `select` - Picker/Spinnerから値を選択
 
+pub mod check;
 pub mod fill;
 pub mod find;
 pub mod get;
@@ -23,20 +27,8 @@ pub mod long_press;
 pub mod ref_resolver;
 pub mod screenshot;
 pub mod scroll;
+pub mod select;
 pub mod swipe;
 pub mod tap;
 pub mod type_cmd;
 pub mod wait;
-
-// Re-export Args for CLI integration
-pub use fill::FillArgs;
-pub use find::FindArgs;
-pub use get::GetArgs;
-pub use is_cmd::IsArgs;
-pub use long_press::LongPressArgs;
-pub use screenshot::ScreenshotArgs;
-pub use scroll::ScrollArgs;
-pub use swipe::SwipeArgs;
-pub use tap::TapArgs;
-pub use type_cmd::TypeArgs;
-pub use wait::WaitArgs;

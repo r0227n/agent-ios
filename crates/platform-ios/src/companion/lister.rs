@@ -2,7 +2,7 @@
 //!
 //! This module uses idb_companion --list to enumerate local targets.
 
-use agent_mobile_core::types::{TargetDescription, TargetType};
+use agent_mobile_core::types::{DeviceInfo, TargetType};
 use serde::Deserialize;
 use std::process::Command;
 use thiserror::Error;
@@ -31,12 +31,12 @@ struct CompanionListItem {
     architecture: Option<String>,
 }
 
-impl From<CompanionListItem> for TargetDescription {
+impl From<CompanionListItem> for DeviceInfo {
     fn from(item: CompanionListItem) -> Self {
         // Normalize empty state to None
         let state = item.state.filter(|s| !s.is_empty());
 
-        TargetDescription {
+        DeviceInfo {
             name: item.name,
             udid: item.udid,
             state,
@@ -95,10 +95,7 @@ impl CompanionLister {
     }
 
     /// List all local targets using idb_companion --list 1
-    pub fn list_targets(
-        &self,
-        only: Option<TargetType>,
-    ) -> Result<Vec<TargetDescription>, ListError> {
+    pub fn list_targets(&self, only: Option<TargetType>) -> Result<Vec<DeviceInfo>, ListError> {
         let mut cmd = Command::new(&self.companion_path);
         cmd.arg("--list").arg("1");
 
@@ -164,7 +161,7 @@ mod tests {
     fn test_companion_list_item_to_target_description() {
         let json = r#"{"name": "iPhone 14 Pro", "udid": "ABC-123", "state": "Booted", "type": "simulator", "os_version": "iOS 17.0", "architecture": "arm64"}"#;
         let item: CompanionListItem = serde_json::from_str(json).unwrap();
-        let target: TargetDescription = item.into();
+        let target: DeviceInfo = item.into();
 
         assert_eq!(target.name, "iPhone 14 Pro");
         assert_eq!(target.udid, "ABC-123");
@@ -177,7 +174,7 @@ mod tests {
     fn test_empty_state_normalized_to_none() {
         let json = r#"{"name": "iPhone", "udid": "ABC", "state": "", "type": "simulator"}"#;
         let item: CompanionListItem = serde_json::from_str(json).unwrap();
-        let target: TargetDescription = item.into();
+        let target: DeviceInfo = item.into();
 
         assert!(target.state.is_none());
     }

@@ -22,39 +22,48 @@ pub struct Cli {
 pub enum Commands {
     // ==================== Core Commands (AI Agent 向け) ====================
     /// Tap an element by ref, text, coordinates, or key
-    Tap(crate::core::TapArgs),
+    Tap(crate::core::tap::TapArgs),
+
+    /// Check a checkbox/switch (idempotent: only taps if not already checked)
+    Check(crate::core::check::CheckArgs),
+
+    /// Uncheck a checkbox/switch (idempotent: only taps if not already unchecked)
+    Uncheck(crate::core::check::CheckArgs),
+
+    /// Select a value from a picker/spinner
+    Select(crate::core::select::SelectArgs),
 
     /// Long press on an element by ref, text, coordinates, or position
     #[command(name = "long-press")]
-    LongPress(crate::core::LongPressArgs),
+    LongPress(crate::core::long_press::LongPressArgs),
 
     /// Fill a text field (clear + type)
-    Fill(crate::core::FillArgs),
+    Fill(crate::core::fill::FillArgs),
 
     /// Type text into focused field (append)
     #[command(name = "type")]
-    Type(crate::core::TypeArgs),
+    Type(crate::core::type_cmd::TypeArgs),
 
     /// Swipe gesture
-    Swipe(crate::core::SwipeArgs),
+    Swipe(crate::core::swipe::SwipeArgs),
 
     /// Scroll within element or screen
-    Scroll(crate::core::ScrollArgs),
+    Scroll(crate::core::scroll::ScrollArgs),
 
     /// Get element property
-    Get(crate::core::GetArgs),
+    Get(crate::core::get::GetArgs),
 
     /// Check element state (returns exit code)
-    Is(crate::core::IsArgs),
+    Is(crate::core::is_cmd::IsArgs),
 
     /// Wait for element to appear/disappear
-    Wait(crate::core::WaitArgs),
+    Wait(crate::core::wait::WaitArgs),
 
     /// Take screenshot
-    Screenshot(crate::core::ScreenshotArgs),
+    Screenshot(crate::core::screenshot::ScreenshotArgs),
 
     /// Find elements by semantic locators and optionally perform actions
-    Find(crate::core::FindArgs),
+    Find(crate::core::find::FindArgs),
 
     /// Capture UI snapshot with element references for AI agents
     Snapshot(crate::snapshot::SnapshotArgs),

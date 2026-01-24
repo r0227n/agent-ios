@@ -27,11 +27,16 @@ use serde::Serialize;
 use agent_mobile_core::snapshot::Frame;
 use agent_mobile_core::Platform;
 
-use crate::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 use crate::snapshot::types::{Snapshot, SnapshotElement};
 
-use super::tap::take_snapshot;
+use super::long_press::{execute_long_press, DEFAULT_LONG_PRESS_DURATION};
+use super::tap::{execute_tap, take_snapshot};
 use agent_mobile_gateway::DeviceResolver;
+
+/// Estimated max text length for clearing text fields when value is None.
+const DEFAULT_MAX_TEXT_LENGTH: usize = 50;
 
 /// find コマンド引数
 #[derive(Args, Debug)]
@@ -220,7 +225,10 @@ impl From<&SnapshotElement> for ElementOutput {
 
 /// Execute the find command
 pub async fn run(args: FindArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // Extract action from locator
     let (action_str, action_value) = extract_action(&args.locator);
@@ -359,59 +367,16 @@ fn matches_locator(elem: &SnapshotElement, locator: &FindLocator) -> bool {
             elem.element_type.to_lowercase() == element_type.to_lowercase()
         }
         FindLocator::Text { text, exact, .. } => {
-            let text_lower = text.to_lowercase();
             if *exact {
-                elem.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase() == text_lower)
-                    .unwrap_or(false)
-                    || elem
-                        .value
-                        .as_ref()
-                        .map(|v| v.to_lowercase() == text_lower)
-                        .unwrap_or(false)
+                elem.matches_text_exact(text)
             } else {
-                elem.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase().contains(&text_lower))
-                    .unwrap_or(false)
-                    || elem
-                        .value
-                        .as_ref()
-                        .map(|v| v.to_lowercase().contains(&text_lower))
-                        .unwrap_or(false)
+                elem.contains_text(text)
             }
         }
-        FindLocator::Label { label, exact, .. } => {
-            let label_lower = label.to_lowercase();
-            if *exact {
-                elem.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase() == label_lower)
-                    .unwrap_or(false)
-            } else {
-                elem.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase().contains(&label_lower))
-                    .unwrap_or(false)
-            }
-        }
+        FindLocator::Label { label, exact, .. } => elem.matches_label(label, *exact),
         FindLocator::Placeholder {
             placeholder, exact, ..
-        } => {
-            let placeholder_lower = placeholder.to_lowercase();
-            if *exact {
-                elem.placeholder
-                    .as_ref()
-                    .map(|p| p.to_lowercase() == placeholder_lower)
-                    .unwrap_or(false)
-            } else {
-                elem.placeholder
-                    .as_ref()
-                    .map(|p| p.to_lowercase().contains(&placeholder_lower))
-                    .unwrap_or(false)
-            }
-        }
+        } => elem.matches_placeholder(placeholder, *exact),
         FindLocator::Enabled { .. } => elem.enabled,
         FindLocator::Disabled { .. } => !elem.enabled,
     }
@@ -492,13 +457,15 @@ async fn execute_action(
 
     match action {
         FindAction::Tap => execute_tap(platform, udid, x, y).await,
-        FindAction::LongPress => execute_long_press(platform, udid, x, y, 1.0).await,
+        FindAction::LongPress => {
+            execute_long_press(platform, udid, x, y, DEFAULT_LONG_PRESS_DURATION).await
+        }
         FindAction::Fill(text) => {
             let clear_len = element
                 .value
                 .as_ref()
                 .map(|v| v.chars().count())
-                .unwrap_or(50);
+                .unwrap_or(DEFAULT_MAX_TEXT_LENGTH);
             execute_fill(platform, udid, x, y, text, clear_len).await
         }
         FindAction::Clear => {
@@ -506,57 +473,8 @@ async fn execute_action(
                 .value
                 .as_ref()
                 .map(|v| v.chars().count())
-                .unwrap_or(50);
+                .unwrap_or(DEFAULT_MAX_TEXT_LENGTH);
             execute_clear(platform, udid, x, y, clear_len).await
-        }
-    }
-}
-
-/// Execute tap gesture
-async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
-    match platform {
-        Platform::Ios => {
-            use crate::idb::hid::events;
-
-            with_client(udid, |mut client| async move {
-                let events = events::tap_to_events(x, y, None);
-                client.hid(events).await?;
-                Ok(())
-            })
-            .await
-        }
-        Platform::Android => {
-            use agent_mobile_platform_android::adb::input;
-            input::tap(udid, x, y).await?;
-            Ok(())
-        }
-    }
-}
-
-/// Execute long press gesture
-async fn execute_long_press(
-    platform: Platform,
-    udid: Option<&str>,
-    x: f64,
-    y: f64,
-    duration: f64,
-) -> CommandResult {
-    match platform {
-        Platform::Ios => {
-            use crate::idb::hid::events;
-
-            with_client(udid, |mut client| async move {
-                let events = events::tap_to_events(x, y, Some(duration));
-                client.hid(events).await?;
-                Ok(())
-            })
-            .await
-        }
-        Platform::Android => {
-            use agent_mobile_platform_android::adb::input;
-            let duration_ms = (duration * 1000.0) as u64;
-            input::long_press(udid, x, y, duration_ms).await?;
-            Ok(())
         }
     }
 }
@@ -572,7 +490,7 @@ async fn execute_fill(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
             let text = text.to_string();
 
             with_client(udid, |mut client| async move {
@@ -630,7 +548,7 @@ async fn execute_clear(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::idb::hid::events;
+            use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
                 // 1. Tap to focus
@@ -673,7 +591,7 @@ async fn execute_clear(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::types::Frame;
+    use agent_mobile_core::snapshot::Frame;
     use chrono::Utc;
 
     fn create_test_snapshot() -> Snapshot {

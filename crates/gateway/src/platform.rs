@@ -8,20 +8,14 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 pub struct DeviceResolver;
 
 impl DeviceResolver {
-    /// Resolve platform from optional string
-    pub async fn resolve_platform(platform_str: Option<&str>) -> Result<Platform> {
-        match platform_str {
-            Some(p) => Self::parse_platform(p),
-            None => Self::detect_platform().await,
-        }
-    }
-
-    fn parse_platform(s: &str) -> Result<Platform> {
+    /// Parse platform from string
+    pub fn parse_platform(s: &str) -> Result<Platform> {
         s.parse::<Platform>()
             .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() })
     }
 
-    async fn detect_platform() -> Result<Platform> {
+    /// Detect platform based on available devices
+    pub async fn detect_platform() -> Result<Platform> {
         if Self::has_ios_devices().await {
             return Ok(Platform::Ios);
         }

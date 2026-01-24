@@ -18,7 +18,9 @@ use clap::{Args, Subcommand};
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::{CommandResult, OutputFormat};
+use crate::helpers::client::CommandResult;
+use crate::helpers::format::OutputFormat;
+use state::{SessionData, SessionState};
 
 /// Session management arguments
 #[derive(Args, Debug)]
@@ -52,10 +54,6 @@ pub enum SessionCommands {
         /// Device UDID to associate with this session
         #[arg(long)]
         udid: String,
-
-        /// Platform (ios or android). Default: ios.
-        #[arg(short = 'p', long, value_enum, default_value = "ios")]
-        platform: Platform,
     },
 
     /// Destroy an existing session
@@ -70,11 +68,7 @@ pub async fn run(args: SessionArgs, current_session: Option<&str>) -> CommandRes
     match args.command {
         SessionCommands::List { format } => list_sessions(format).await,
         SessionCommands::Show { format } => show_session(current_session, format).await,
-        SessionCommands::Create {
-            name,
-            udid,
-            platform,
-        } => create_session(name, udid, platform).await,
+        SessionCommands::Create { name, udid } => create_session(name, udid).await,
         SessionCommands::Destroy { name } => destroy_session(name).await,
     }
 }
@@ -165,14 +159,44 @@ async fn show_session(current_session: Option<&str>, format: OutputFormat) -> Co
     Ok(())
 }
 
+/// Detect platform from UDID by searching device lists.
+async fn detect_platform_from_udid(
+    udid: &str,
+) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
+    use agent_mobile_platform_ios::companion::CompanionLister;
+
+    // Check iOS devices first
+    if let Ok(lister) = CompanionLister::new() {
+        if let Ok(targets) = lister.list_targets(None) {
+            if targets.iter().any(|t| t.udid == udid) {
+                return Ok(Platform::Ios);
+            }
+        }
+    }
+
+    // Check Android devices
+    if agent_mobile_platform_android::adb::is_adb_available() {
+        if let Ok(devices) = agent_mobile_platform_android::adb::list_devices() {
+            if devices.iter().any(|(serial, _)| serial == udid) {
+                return Ok(Platform::Android);
+            }
+        }
+    }
+
+    Err(format!("Device not found: {}", udid).into())
+}
+
 /// Create a new session
-async fn create_session(name: String, udid: String, platform: Platform) -> CommandResult {
+async fn create_session(name: String, udid: String) -> CommandResult {
     let state = SessionState::new();
 
     // Check if session already exists
     if state.session_exists(&name) {
         return Err(format!("Session '{}' already exists", name).into());
     }
+
+    // Auto-detect platform from UDID
+    let platform = detect_platform_from_udid(&udid).await?;
 
     let now = Utc::now();
     let data = SessionData {
@@ -187,7 +211,10 @@ async fn create_session(name: String, udid: String, platform: Platform) -> Comma
 
     state.create_session(data)?;
 
-    println!("Session '{}' created (UDID: {})", name, udid);
+    println!(
+        "Session '{}' created (UDID: {}, platform: {})",
+        name, udid, platform
+    );
     Ok(())
 }
 
@@ -204,7 +231,3 @@ async fn destroy_session(name: String) -> CommandResult {
     println!("Session '{}' destroyed", name);
     Ok(())
 }
-
-// Re-export for convenience
-pub use state::SessionData;
-pub use state::SessionState;

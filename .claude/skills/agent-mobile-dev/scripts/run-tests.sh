@@ -9,6 +9,7 @@
 set -e
 
 TEST_NAME="${1:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=========================================="
 echo " agent-mobile Test Execution Guide"
@@ -19,6 +20,22 @@ if [ -n "$TEST_NAME" ]; then
     echo "Testing: $TEST_NAME"
     echo ""
 fi
+
+echo "Step 0: Environment Check"
+echo "-------------------------"
+echo "Description: Verify development environment is ready"
+echo ""
+echo "If devices are not detected, run:"
+echo "  iOS:     ${SCRIPT_DIR}/setup-ios.sh"
+echo "  Android: ${SCRIPT_DIR}/setup-android.sh"
+echo ""
+echo "Checking device availability..."
+if ! command -v agent-mobile &>/dev/null; then
+    echo "⚠️  agent-mobile not found. Build first: cargo build"
+else
+    agent-mobile device list 2>/dev/null || echo "⚠️  No devices detected. Run setup scripts."
+fi
+echo ""
 
 echo "Step 1: Unit Tests"
 echo "-------------------"

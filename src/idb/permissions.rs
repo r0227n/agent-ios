@@ -17,7 +17,7 @@
 use agent_mobile_platform_ios::proto::idb::approve_request::Permission as ApprovePermission;
 use agent_mobile_platform_ios::proto::idb::revoke_request::Permission as RevokePermission;
 
-use crate::helpers::{with_client, CommandResult};
+use crate::helpers::client::{with_client, CommandResult};
 
 fn parse_approve_permission(s: &str) -> Result<ApprovePermission, String> {
     match s.to_lowercase().as_str() {
