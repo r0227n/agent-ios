@@ -1,4 +1,4 @@
-//! fill コマンド - テキストフィールド入力 (クリア + 入力)
+//! fill command - Text field input (clear + type)
 //!
 //! ```bash
 //! agent-mobile fill @e2 "test@example.com"
@@ -16,7 +16,7 @@ use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
-/// fill コマンド引数
+/// Arguments for the fill command
 #[derive(Args, Debug)]
 pub struct FillArgs {
     /// Target text field: @eN ref or "placeholder text"

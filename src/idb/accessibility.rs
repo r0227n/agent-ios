@@ -1,3 +1,7 @@
+//! accessibility command - Get accessibility information from the device.
+//!
+//! Retrieves the accessibility tree for UI automation and testing.
+
 use crate::helpers::client::{with_client, CommandResult};
 
 pub async fn describe_all(nested: bool, udid: Option<String>) -> CommandResult {

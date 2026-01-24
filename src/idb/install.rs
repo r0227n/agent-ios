@@ -1,3 +1,7 @@
+//! install command - Install an application on the device.
+//!
+//! Installs an .app or .ipa bundle with optional compression and debug support.
+
 use agent_mobile_core::{Compression, InstalledArtifact};
 
 use crate::helpers::client::{with_client, CommandResult};

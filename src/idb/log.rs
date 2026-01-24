@@ -1,9 +1,14 @@
+//! log command - Stream device logs.
+//!
+//! Obtains and streams logs from the target device or companion.
+
 use agent_mobile_platform_ios::proto::idb::log_request::Source as LogSource;
 
 use crate::helpers::client::{with_client, CommandResult};
 use crate::helpers::signal::setup_ctrl_c_handler;
 use std::io::Write;
 
+/// Execute the log command.
 pub async fn run(
     udid: Option<String>,
     source: String,

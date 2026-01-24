@@ -1,5 +1,10 @@
+//! location command - Simulate device location.
+//!
+//! Sets the device location to specific GPS coordinates.
+
 use crate::helpers::client::{with_client, CommandResult};
 
+/// Execute the location command.
 pub async fn run(latitude: f64, longitude: f64, udid: Option<String>) -> CommandResult {
     // Validate coordinate ranges
     if !(-90.0..=90.0).contains(&latitude) {

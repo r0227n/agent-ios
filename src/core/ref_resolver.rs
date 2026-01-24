@@ -1,6 +1,6 @@
 //! Ref Resolution System
 //!
-//! @e1, @e2 形式の ref 識別子を座標に変換するシステム。
+//! System for converting ref identifiers in @e1, @e2 format to coordinates.
 
 use agent_mobile_core::snapshot::Frame;
 

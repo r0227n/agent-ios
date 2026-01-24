@@ -1,4 +1,4 @@
-//! wait コマンド - 要素待機
+//! wait command - Wait for element
 //!
 //! ```bash
 //! agent-mobile wait visible @e1 --timeout 10s
@@ -19,7 +19,7 @@ use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
-/// wait コマンド引数
+/// Arguments for the wait command
 #[derive(Args, Debug)]
 pub struct WaitArgs {
     /// Condition to wait for: visible, gone, idle, text

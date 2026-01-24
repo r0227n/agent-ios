@@ -1,9 +1,9 @@
-//! check/uncheck コマンド - チェックボックス/スイッチの冪等操作
+//! check/uncheck command - Idempotent checkbox/switch operation
 //!
 //! ```bash
-//! agent-mobile check @e1              # チェックをONにする
-//! agent-mobile uncheck @e1            # チェックをOFFにする
-//! agent-mobile check "Remember me"   # テキストで指定
+//! agent-mobile check @e1              # Turn checkbox ON
+//! agent-mobile uncheck @e1            # Turn checkbox OFF
+//! agent-mobile check "Remember me"   # Specify by text
 //! ```
 
 use clap::Args;
@@ -18,7 +18,7 @@ use crate::helpers::format::OutputFormat;
 use super::ref_resolver::{self, ElementTarget};
 use super::tap::{execute_tap, take_snapshot};
 
-/// check/uncheck コマンド引数
+/// Arguments for the check/uncheck command
 #[derive(Args, Debug)]
 pub struct CheckArgs {
     /// Target: @eN ref or "text"
@@ -43,8 +43,8 @@ struct CheckOutput {
 
 /// Execute the check/uncheck command
 ///
-/// - `should_check = true`: チェックをONにする（check コマンド）
-/// - `should_check = false`: チェックをOFFにする（uncheck コマンド）
+/// - `should_check = true`: Turn checkbox ON (check command)
+/// - `should_check = false`: Turn checkbox OFF (uncheck command)
 pub async fn run(args: CheckArgs, should_check: bool) -> CommandResult {
     let platform = match args.device.udid.as_deref() {
         Some(udid) => crate::device::detect_platform_from_udid(udid).await?,

@@ -1,8 +1,8 @@
-//! select コマンド - Picker/Spinner から値を選択
+//! select command - Select value from Picker/Spinner
 //!
 //! ```bash
-//! agent-mobile select @e1 "Option 2"       # Picker/@eN で値を選択
-//! agent-mobile select "Country" "Japan"    # Picker/テキストで値を選択
+//! agent-mobile select @e1 "Option 2"       # Select value by Picker/@eN
+//! agent-mobile select "Country" "Japan"    # Select value by Picker/text
 //! agent-mobile select @e1 "Option 2" --max-swipes 15
 //! ```
 
@@ -21,7 +21,7 @@ use crate::helpers::format::OutputFormat;
 use super::ref_resolver::{self, ElementTarget};
 use super::tap::{execute_tap, take_snapshot};
 
-/// select コマンド引数
+/// Arguments for the select command
 #[derive(Args, Debug)]
 pub struct SelectArgs {
     /// Target picker/spinner: @eN ref or "text"

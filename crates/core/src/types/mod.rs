@@ -21,6 +21,18 @@ use std::fmt;
 // ============================================================================
 
 /// Supported mobile platforms.
+///
+/// # Example
+///
+/// ```
+/// use agent_mobile_core::Platform;
+///
+/// let ios: Platform = "ios".parse().unwrap();
+/// assert_eq!(ios.as_str(), "ios");
+///
+/// let android: Platform = "android".parse().unwrap();
+/// assert_eq!(android.as_str(), "android");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 #[serde(rename_all = "lowercase")]
@@ -64,6 +76,15 @@ impl std::str::FromStr for Platform {
 // ============================================================================
 
 /// Direction for scroll/swipe gestures.
+///
+/// # Example
+///
+/// ```
+/// use agent_mobile_core::ScrollDirection;
+///
+/// let dir: ScrollDirection = "up".parse().unwrap();
+/// assert_eq!(dir.as_str(), "up");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 #[serde(rename_all = "lowercase")]

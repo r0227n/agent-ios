@@ -1,12 +1,12 @@
-//! tap コマンド - 要素タップ（即座）
+//! tap command - Tap an element (instant)
 //!
 //! ```bash
-//! agent-mobile tap @e1              # ref でタップ
-//! agent-mobile tap "Login"          # テキストでタップ
-//! agent-mobile tap 100,200          # 座標でタップ
-//! agent-mobile tap home             # ハードウェアキー
+//! agent-mobile tap @e1              # Tap by ref
+//! agent-mobile tap "Login"          # Tap by text
+//! agent-mobile tap 100,200          # Tap by coordinates
+//! agent-mobile tap home             # Hardware key
 //!
-//! # 長押しは long-press コマンドを使用
+//! # For long press, use the long-press command
 //! agent-mobile long-press @e1 --duration 2.0
 //! ```
 
@@ -20,7 +20,7 @@ use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
 
-/// tap コマンド引数
+/// Arguments for the tap command
 #[derive(Args, Debug)]
 pub struct TapArgs {
     /// Target: @eN ref, "text", x,y coordinates, or key (home, back, enter, etc.)
@@ -176,7 +176,7 @@ pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64)
             use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
-                // 即座のタップのため None を明示的に渡す
+                // Pass None explicitly for an instant tap
                 let events = events::tap_to_events(x, y, None);
                 client.hid(events).await?;
                 Ok(())

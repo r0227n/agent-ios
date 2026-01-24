@@ -1,9 +1,13 @@
+//! settings command - Get and set device settings.
+//!
+//! Manages device configuration settings.
+
 use agent_mobile_platform_ios::proto::idb::setting_request::{self, Setting as SettingOneof};
 use agent_mobile_platform_ios::proto::idb::Setting;
 
 use crate::helpers::client::{with_client, CommandResult};
 
-/// Set a device setting
+/// Set a device setting.
 pub async fn set(
     name: String,
     value: String,

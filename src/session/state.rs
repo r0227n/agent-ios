@@ -24,7 +24,8 @@ use crate::helpers::client::CommandResult;
 /// 3. Windows: `%TEMP%\agent-mobile\sessions`
 ///
 /// # Examples
-/// ```
+///
+/// ```ignore
 /// // Set custom directory via environment variable
 /// std::env::set_var("AGENT_MOBILE_SESSIONS_DIR", "/custom/path");
 /// let dir = get_default_sessions_dir();
@@ -124,7 +125,8 @@ impl SessionState {
 /// - Exceeds 255 characters
 ///
 /// # Examples
-/// ```
+///
+/// ```ignore
 /// validate_session_name("my-session")  // Ok
 /// validate_session_name("test_123")    // Ok
 /// validate_session_name("../evil")     // Err

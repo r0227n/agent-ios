@@ -50,11 +50,11 @@ pub struct IdbClient {
 }
 
 impl IdbClient {
-    /// 接続タイムアウト（秒）
+    /// Connection timeout (seconds)
     const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-    /// リクエストタイムアウト（秒）
+    /// Request timeout (seconds)
     const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
-    /// 最大リトライ回数
+    /// Maximum retry count
     const MAX_RETRIES: u32 = 3;
 
     /// Connect to idb_companion via Unix Domain Socket (with retry)
@@ -65,7 +65,7 @@ impl IdbClient {
 
         for attempt in 0..Self::MAX_RETRIES {
             if attempt > 0 {
-                // 指数バックオフ: 1秒, 2秒, 4秒...
+                // Exponential backoff: 1s, 2s, 4s...
                 let delay = Duration::from_secs(1 << (attempt - 1));
                 sleep(delay).await;
             }
@@ -81,7 +81,7 @@ impl IdbClient {
         Err(last_error.unwrap_or_else(|| "Connection failed".into()))
     }
 
-    /// UDS接続の実際の試行
+    /// Actual UDS connection attempt
     async fn try_connect_uds(
         socket_path: &str,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
@@ -120,7 +120,7 @@ impl IdbClient {
 
         for attempt in 0..Self::MAX_RETRIES {
             if attempt > 0 {
-                // 指数バックオフ: 1秒, 2秒, 4秒...
+                // Exponential backoff: 1s, 2s, 4s...
                 let delay = Duration::from_secs(1 << (attempt - 1));
                 sleep(delay).await;
             }
@@ -136,7 +136,7 @@ impl IdbClient {
         Err(last_error.unwrap_or_else(|| "Connection failed".into()))
     }
 
-    /// TCP接続の実際の試行
+    /// Actual TCP connection attempt
     async fn try_connect_tcp(
         host: &str,
         port: u16,
@@ -184,13 +184,13 @@ impl IdbClient {
         Err(last_error.unwrap_or_else(|| "Connection failed".into()))
     }
 
-    /// UDS接続の実際の試行（ストリーミング用、タイムアウトなし）
+    /// Actual UDS connection attempt (for streaming, no timeout)
     async fn try_connect_uds_streaming(
         socket_path: &str,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let socket_path_owned = socket_path.to_string();
 
-        // ストリーミング用: リクエストタイムアウトを設定しない
+        // For streaming: no request timeout
         let endpoint =
             Endpoint::try_from("http://[::]:50051")?.connect_timeout(Self::DEFAULT_CONNECT_TIMEOUT);
 
@@ -241,13 +241,13 @@ impl IdbClient {
         Err(last_error.unwrap_or_else(|| "Connection failed".into()))
     }
 
-    /// TCP接続の実際の試行（ストリーミング用、タイムアウトなし）
+    /// Actual TCP connection attempt (for streaming, no timeout)
     async fn try_connect_tcp_streaming(
         host: &str,
         port: u16,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let addr = format!("http://{}:{}", host, port);
-        // ストリーミング用: リクエストタイムアウトを設定しない
+        // For streaming: no request timeout
         let channel = Channel::from_shared(addr)?
             .connect_timeout(Self::DEFAULT_CONNECT_TIMEOUT)
             .connect()

@@ -1,4 +1,4 @@
-//! type コマンド - テキスト入力 (追記モード)
+//! type command - Text input (append mode)
 //!
 //! ```bash
 //! agent-mobile type "Hello World"
@@ -13,7 +13,7 @@ use crate::helpers::common_args::DeviceArgs;
 
 use agent_mobile_gateway::DeviceResolver;
 
-/// type コマンド引数
+/// Arguments for the type command
 #[derive(Args, Debug)]
 pub struct TypeArgs {
     /// Text to type

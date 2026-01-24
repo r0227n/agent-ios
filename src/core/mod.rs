@@ -1,22 +1,22 @@
-//! Core Commands - AI Agent 向け高レベル CLI
+//! Core Commands - High-level CLI for AI Agents
 //!
-//! ref 識別子 (@e1, @e2) を使った要素操作を提供します。
+//! Provides element operations using ref identifiers (@e1, @e2).
 //!
-//! ## コマンド一覧
-//! - `tap` - 要素タップ
-//! - `long-press` - 長押しジェスチャー
-//! - `fill` - テキストフィールド入力 (クリア + 入力)
-//! - `type` - テキスト追記入力
-//! - `swipe` - スワイプジェスチャー
-//! - `scroll` - スクロール
-//! - `get` - 要素情報取得
-//! - `is` - 状態確認
-//! - `wait` - 要素待機
-//! - `screenshot` - スクリーンショット
-//! - `find` - semantic locators による要素検索
-//! - `check` - チェックボックス/スイッチをONにする
-//! - `uncheck` - チェックボックス/スイッチをOFFにする
-//! - `select` - Picker/Spinnerから値を選択
+//! ## Command List
+//! - `tap` - Tap an element
+//! - `long-press` - Long press gesture
+//! - `fill` - Input into text field (clear + type)
+//! - `type` - Append text input
+//! - `swipe` - Swipe gesture
+//! - `scroll` - Scroll
+//! - `get` - Get element information
+//! - `is` - Check element state
+//! - `wait` - Wait for element
+//! - `screenshot` - Take screenshot
+//! - `find` - Find elements using semantic locators
+//! - `check` - Turn checkbox/switch ON
+//! - `uncheck` - Turn checkbox/switch OFF
+//! - `select` - Select value from Picker/Spinner
 
 pub mod check;
 pub mod fill;

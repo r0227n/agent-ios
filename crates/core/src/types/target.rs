@@ -75,28 +75,39 @@ impl fmt::Display for Address {
     }
 }
 
-/// Information about a connected companion daemon
+/// Information about a connected companion daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompanionInfo {
+    /// Target device UDID.
     pub udid: String,
+    /// Whether the companion is running locally.
     pub is_local: bool,
+    /// Process ID of the companion daemon.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pid: Option<u32>,
+    /// Connection address (TCP or Unix socket).
     pub address: Address,
 }
 
-/// Device information (iOS target - device or simulator)
+/// Device information (iOS target - device or simulator).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceInfo {
+    /// Device display name.
     pub name: String,
+    /// Unique device identifier.
     pub udid: String,
+    /// Current device state (e.g., "Booted", "Shutdown").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
+    /// Type of target (simulator, device, or mac).
     pub target_type: TargetType,
+    /// Operating system version.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub os_version: Option<String>,
+    /// CPU architecture (e.g., "arm64", "x86_64").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub architecture: Option<String>,
+    /// Connected companion daemon info.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub companion_info: Option<CompanionInfo>,
 }
