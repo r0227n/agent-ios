@@ -80,26 +80,6 @@ pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
     Ok(())
 }
 
-/// Take a screenshot in JPEG format (Android 4.0+).
-///
-/// Note: Some Android versions may not support JPEG format.
-/// Falls back to PNG if JPEG is not supported.
-///
-/// # Arguments
-/// - `serial`: Device serial number (optional)
-/// - `output_path`: Path where the screenshot will be saved
-/// - `quality`: JPEG quality (1-100, only used if JPEG is supported)
-///
-/// # Returns
-/// - `Ok(())` on success
-/// - `Err(AdbError)` if capture fails
-pub async fn screenshot_jpeg(serial: Option<&str>, output_path: &str, _quality: u8) -> Result<()> {
-    // Android screencap doesn't support quality parameter directly
-    // We'll capture as PNG first, then convert if needed
-    // For now, just use PNG format (most compatible)
-    screenshot(serial, output_path).await
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

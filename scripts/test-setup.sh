@@ -28,7 +28,7 @@ case $PLATFORM in
     fi
 
     # Check for booted simulators
-    if xcrun simctl list devices booted | grep -q "Booted"; then
+    if xcrun simctl list devices booted | grep -q "(Booted)"; then
       echo -e "${GREEN}✅ iOS simulator detected${NC}"
       idb list-targets --json | head -5
       exit 0
@@ -69,7 +69,7 @@ case $PLATFORM in
     echo ""
 
     # Try iOS first
-    if command -v idb &> /dev/null && xcrun simctl list devices booted | grep -q "Booted"; then
+    if command -v idb &> /dev/null && xcrun simctl list devices booted | grep -q "(Booted)"; then
       echo -e "${GREEN}✅ iOS simulator detected${NC}"
       idb list-targets --json | head -5
       echo ""

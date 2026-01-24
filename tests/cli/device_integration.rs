@@ -192,7 +192,7 @@ fn test_device_list_includes_android() {
     use crate::common::get_available_serial;
 
     // Skip if no Android device available
-    if std::panic::catch_unwind(|| get_available_serial()).is_err() {
+    if std::panic::catch_unwind(get_available_serial).is_err() {
         eprintln!("Skipping test: No Android device available");
         return;
     }
@@ -218,7 +218,7 @@ fn test_device_list_android_emulator() {
     use crate::common::get_available_serial;
 
     // Skip if no Android device available
-    if std::panic::catch_unwind(|| get_available_serial()).is_err() {
+    if std::panic::catch_unwind(get_available_serial).is_err() {
         eprintln!("Skipping test: No Android device available");
         return;
     }

@@ -548,7 +548,7 @@ fn test_find_android_element_types() {
     use crate::common::get_available_serial;
 
     // Skip if no Android device available
-    let serial = match std::panic::catch_unwind(|| get_available_serial()) {
+    let serial = match std::panic::catch_unwind(get_available_serial) {
         Ok(s) => s,
         Err(_) => {
             eprintln!("Skipping test: No Android device available");
@@ -571,7 +571,7 @@ fn test_find_android_element_types() {
 fn test_find_text_android() {
     use crate::common::get_available_serial;
 
-    let serial = match std::panic::catch_unwind(|| get_available_serial()) {
+    let serial = match std::panic::catch_unwind(get_available_serial) {
         Ok(s) => s,
         Err(_) => {
             eprintln!("Skipping test: No Android device available");

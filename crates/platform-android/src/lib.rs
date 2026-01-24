@@ -24,4 +24,4 @@ pub use snapshot::extract_android_elements;
 pub use adb::permission::{
     grant_permission, list_permissions, reset_permissions, revoke_permission,
 };
-pub use adb::screenshot::{screenshot, screenshot_jpeg};
+pub use adb::screenshot::screenshot;

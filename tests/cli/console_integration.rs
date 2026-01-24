@@ -29,16 +29,14 @@ fn run_console_with_timeout(args: &[&str], timeout_secs: u64) -> std::process::O
     std::thread::sleep(std::time::Duration::from_secs(timeout_secs));
 
     // Kill the process
-    let output = child.wait_with_output().unwrap_or_else(|_| {
+    child.wait_with_output().unwrap_or_else(|_| {
         // If wait_with_output fails, we still got some output
         std::process::Output {
             status: std::process::ExitStatus::default(),
             stdout: Vec::new(),
             stderr: Vec::new(),
         }
-    });
-
-    output
+    })
 }
 
 // ============================================================================

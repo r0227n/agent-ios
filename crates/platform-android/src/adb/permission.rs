@@ -197,10 +197,12 @@ pub async fn list_permissions(serial: Option<&str>, package: &str) -> Result<Vec
         }
 
         // Exit section when we hit another top-level key
-        if in_runtime_permissions && !trimmed.starts_with("android.permission.") {
-            if !trimmed.is_empty() && !trimmed.starts_with(" ") {
-                break;
-            }
+        if in_runtime_permissions
+            && !trimmed.starts_with("android.permission.")
+            && !trimmed.is_empty()
+            && !trimmed.starts_with(" ")
+        {
+            break;
         }
 
         // Parse permission lines like "android.permission.CAMERA: granted=true"

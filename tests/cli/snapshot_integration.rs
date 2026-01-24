@@ -458,7 +458,7 @@ fn test_snapshot_android_element_types() {
     use crate::common::{get_available_serial, run_cli_command_with_udid};
 
     // Skip if no Android device available
-    let serial = match std::panic::catch_unwind(|| get_available_serial()) {
+    let serial = match std::panic::catch_unwind(get_available_serial) {
         Ok(s) => s,
         Err(_) => {
             eprintln!("Skipping test: No Android device available");

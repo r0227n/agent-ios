@@ -14,10 +14,7 @@ mod platform;
 pub use crate::idb_common::{ensure_companion_running, get_available_udid, get_test_bundle_id};
 
 // Re-export Android utilities
-pub use android::{
-    ensure_device_ready as ensure_android_ready, get_api_level, get_available_serial,
-    get_test_package_name, is_emulator, is_package_installed, wait_for_ui_ready,
-};
+pub use android::get_available_serial;
 
 // Re-export platform abstraction
 pub use platform::{DeviceIdentifier, TestPlatform};
@@ -166,7 +163,7 @@ pub fn get_temp_file_path(extension: &str) -> String {
 /// Assert that a file exists and is a valid PNG file (checks magic bytes).
 pub fn assert_valid_png_file(path: &str) {
     use std::fs;
-    let data = fs::read(path).expect(&format!("Failed to read file: {}", path));
+    let data = fs::read(path).unwrap_or_else(|_| panic!("Failed to read file: {}", path));
     assert!(data.len() >= 8, "PNG file too small: {}", path);
     // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
     assert_eq!(
@@ -180,7 +177,7 @@ pub fn assert_valid_png_file(path: &str) {
 /// Assert that a file exists and is a valid JPEG file (checks magic bytes).
 pub fn assert_valid_jpeg_file(path: &str) {
     use std::fs;
-    let data = fs::read(path).expect(&format!("Failed to read file: {}", path));
+    let data = fs::read(path).unwrap_or_else(|_| panic!("Failed to read file: {}", path));
     assert!(data.len() >= 2, "JPEG file too small: {}", path);
     // JPEG magic bytes: FF D8
     assert_eq!(
@@ -194,7 +191,7 @@ pub fn assert_valid_jpeg_file(path: &str) {
 /// Assert that a file exists and is a valid MP4 file (checks for ftyp box).
 pub fn assert_valid_mp4_file(path: &str) {
     use std::fs;
-    let data = fs::read(path).expect(&format!("Failed to read file: {}", path));
+    let data = fs::read(path).unwrap_or_else(|_| panic!("Failed to read file: {}", path));
     assert!(data.len() >= 12, "MP4 file too small: {}", path);
     // MP4 files have "ftyp" at bytes 4-7
     let ftyp = String::from_utf8_lossy(&data[4..8]);

@@ -41,7 +41,7 @@ impl DeviceIdentifier {
     /// ```
     pub fn get_any_available() -> Result<Self, String> {
         // Try iOS first
-        match std::panic::catch_unwind(|| idb_common::get_available_udid()) {
+        match std::panic::catch_unwind(idb_common::get_available_udid) {
             Ok(udid) => {
                 return Ok(Self {
                     id: udid,
@@ -54,7 +54,7 @@ impl DeviceIdentifier {
         }
 
         // Try Android next
-        match std::panic::catch_unwind(|| android::get_available_serial()) {
+        match std::panic::catch_unwind(android::get_available_serial) {
             Ok(serial) => Ok(Self {
                 id: serial,
                 platform: TestPlatform::Android,
@@ -107,22 +107,45 @@ impl DeviceIdentifier {
     }
 }
 
+/// Check if a string is a valid iOS UDID (8-4-4-4-12 format).
+///
+/// # Format
+/// XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX (36 chars total)
+/// where X is a hexadecimal digit [0-9A-Fa-f]
+fn is_ios_udid(device_id: &str) -> bool {
+    if device_id.len() != 36 {
+        return false;
+    }
+
+    for (i, ch) in device_id.chars().enumerate() {
+        match i {
+            8 | 13 | 18 | 23 => {
+                if ch != '-' {
+                    return false;
+                }
+            }
+            _ => {
+                if !ch.is_ascii_hexdigit() {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
 /// Detect platform from device ID string
 ///
 /// # Format Detection
-/// - iOS UDIDs: 36-40 chars, alphanumeric with hyphens (e.g., "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX")
+/// - iOS UDIDs: 36 chars, 8-4-4-4-12 format (e.g., "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX")
 /// - Android serials: Various formats (e.g., "emulator-5554", "192.168.1.5:5555")
 ///
 /// # Returns
 /// Ok(TestPlatform) if platform can be detected, Err(String) otherwise
 pub fn detect_platform(device_id: &str) -> Result<TestPlatform, String> {
-    // iOS UDID pattern: typically 36-40 chars, alphanumeric with hyphens
+    // iOS UDID pattern: exactly 36 chars in 8-4-4-4-12 format
     // Example: "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
-    if device_id.len() >= 36
-        && device_id.len() <= 40
-        && device_id.chars().all(|c| c.is_alphanumeric() || c == '-')
-        && device_id.matches('-').count() >= 3
-    {
+    if is_ios_udid(device_id) {
         return Ok(TestPlatform::Ios);
     }
 
@@ -149,7 +172,8 @@ mod tests {
 
     #[test]
     fn test_detect_platform_ios() {
-        let udid = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX";
+        // Example iOS UDID in 8-4-4-4-12 format with hex digits
+        let udid = "00008030-001C-59E8-3C83-802E00000000";
         assert_eq!(detect_platform(udid).unwrap(), TestPlatform::Ios);
     }
 
