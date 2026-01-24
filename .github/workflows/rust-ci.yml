@@ -122,13 +122,6 @@ jobs:
         run: cargo test --test cli -- --test-threads=1
 
       # Android specific steps
-      - name: Enable KVM
-        if: matrix.platform == 'android'
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
       - name: Run Android tests with Emulator
         if: matrix.platform == 'android'
         uses: reactivecircus/android-emulator-runner@v2
