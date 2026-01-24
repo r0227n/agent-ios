@@ -3,6 +3,8 @@
 //! This crate provides Android-specific functionality including:
 //! - ADB integration for device communication
 //! - UI Automator for accessibility and interaction
+//! - Screenshot capture
+//! - Permission management
 
 pub mod adb;
 pub mod snapshot;
@@ -17,3 +19,9 @@ pub use adb::{
     is_emulator, list_avds, list_devices, AdbError, Result,
 };
 pub use snapshot::extract_android_elements;
+
+// Re-export screenshot and permission functions
+pub use adb::permission::{
+    grant_permission, list_permissions, reset_permissions, revoke_permission,
+};
+pub use adb::screenshot::{screenshot, screenshot_jpeg};

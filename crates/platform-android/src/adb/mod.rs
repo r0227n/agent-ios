@@ -6,6 +6,8 @@
 pub mod app;
 mod commands;
 pub mod input;
+pub mod permission;
+pub mod screenshot;
 pub mod uiautomator;
 
 pub use commands::*;
