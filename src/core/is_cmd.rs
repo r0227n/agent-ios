@@ -1,4 +1,4 @@
-//! is コマンド - 状態確認
+//! is command - Check element state
 //!
 //! ```bash
 //! agent-mobile is visible @e1
@@ -7,8 +7,8 @@
 //! agent-mobile is interactive @e2
 //! ```
 //!
-//! 結果は stdout に "true" または "false" を出力し、
-//! exit code でも結果を返します (0 = true, 1 = false)。
+//! Outputs "true" or "false" to stdout, and also returns the result
+//! via exit code (0 = true, 1 = false).
 
 use clap::Args;
 
@@ -19,7 +19,7 @@ use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
-/// is コマンド引数
+/// Arguments for the is command
 #[derive(Args, Debug)]
 pub struct IsArgs {
     /// State to check: visible, exists, enabled, disabled, interactive, checked

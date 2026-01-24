@@ -1,5 +1,10 @@
+//! list-apps command - List installed applications.
+//!
+//! Shows all installed apps with their bundle IDs, names, and states.
+
 use crate::helpers::client::{with_client, CommandResult};
 
+/// Execute the list-apps command.
 pub async fn run(udid: Option<String>) -> CommandResult {
     with_client(udid.as_deref(), |mut client| async move {
         let apps = client.list_apps().await?;

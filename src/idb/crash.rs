@@ -1,6 +1,10 @@
+//! crash command - Crash log operations.
+//!
+//! List, show, and delete crash logs from the device.
+
 use crate::helpers::client::{with_client, CommandResult};
 
-/// List crash logs
+/// List crash logs.
 pub async fn list(
     since: Option<u64>,
     before: Option<u64>,

@@ -1,4 +1,4 @@
-//! screenshot コマンド - スクリーンショット
+//! screenshot command - Capture screenshot
 //!
 //! ```bash
 //! agent-mobile screenshot --output output.png
@@ -61,7 +61,7 @@ impl std::str::FromStr for ImageFormat {
     }
 }
 
-/// screenshot コマンド引数
+/// Arguments for the screenshot command
 #[derive(Args, Debug)]
 pub struct ScreenshotArgs {
     /// Output file or directory path
@@ -296,7 +296,7 @@ mod tests {
     use super::*;
     use std::str::FromStr;
 
-    // validate_output_path() のテスト
+    // Tests for validate_output_path()
 
     #[test]
     fn test_validate_output_path_valid_file() {
@@ -319,14 +319,14 @@ mod tests {
 
     #[test]
     fn test_validate_output_path_format_like() {
-        // 既知のフォーマット名はエラー
+        // Known format names should error
         assert!(validate_output_path("json").is_err());
         assert!(validate_output_path("base64").is_err());
         assert!(validate_output_path("png").is_err());
         assert!(validate_output_path("jpeg").is_err());
         assert!(validate_output_path("jpg").is_err());
         assert!(validate_output_path("yaml").is_err());
-        // 未知の名前はディレクトリとして許可
+        // Unknown names are allowed as directories
         assert!(validate_output_path("mydir").is_ok());
     }
 
@@ -337,7 +337,7 @@ mod tests {
         assert!(validate_output_path("test>file.png").is_err());
     }
 
-    // ImageFormat のテスト
+    // Tests for ImageFormat
 
     #[test]
     fn test_image_format_from_str() {
@@ -360,7 +360,7 @@ mod tests {
         assert!(!ImageFormat::Jpeg.is_android_supported());
     }
 
-    // resolve_output_path() のテスト
+    // Tests for resolve_output_path()
 
     #[test]
     fn test_resolve_output_path_none() {
@@ -399,7 +399,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // generate_filename() のテスト
+    // Tests for generate_filename()
 
     #[test]
     fn test_generate_filename_format() {

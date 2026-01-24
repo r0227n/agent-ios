@@ -1,3 +1,16 @@
+//! File operations commands.
+//!
+//! Provides file system operations on the target device including:
+//! - `ls` - List files
+//! - `mkdir` - Create directories
+//! - `mv` - Move files
+//! - `rm` - Remove files
+//! - `pull` - Download files from device
+//! - `push` - Upload files to device
+//! - `read` - Read file contents
+//! - `write` - Write file contents
+//! - `tail` - Stream file contents
+
 pub mod ls;
 pub mod mkdir;
 pub mod mv;

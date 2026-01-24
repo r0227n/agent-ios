@@ -1,23 +1,23 @@
-//! find コマンド - semantic locators を使った UI 要素検索とアクション実行
+//! find command - UI element search and action execution using semantic locators
 //!
 //! ```bash
-//! # 要素検索のみ (ref を返す)
+//! # Search only (returns ref)
 //! agent-mobile find type Button
 //! agent-mobile find text "Login"
 //! agent-mobile find label "Email" --first
 //!
-//! # 検索 + アクション実行
+//! # Search + action execution
 //! agent-mobile find type Button tap
 //! agent-mobile find text "Login" tap
 //! agent-mobile find label "Email" fill "test@example.com"
 //! agent-mobile find placeholder "Search..." fill "query"
 //! agent-mobile find text "Submit" long-press
 //!
-//! # 位置指定 + アクション
+//! # Position + action
 //! agent-mobile find type Button --nth 2 tap
 //! agent-mobile find text "Option" --last tap
 //!
-//! # JSON 出力 (アクションなし時)
+//! # JSON output (when no action)
 //! agent-mobile find type Button -f json --all
 //! ```
 
@@ -38,7 +38,7 @@ use agent_mobile_gateway::DeviceResolver;
 /// Estimated max text length for clearing text fields when value is None.
 const DEFAULT_MAX_TEXT_LENGTH: usize = 50;
 
-/// find コマンド引数
+/// Arguments for the find command
 #[derive(Args, Debug)]
 pub struct FindArgs {
     #[command(subcommand)]

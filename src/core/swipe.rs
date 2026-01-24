@@ -1,4 +1,4 @@
-//! swipe コマンド - スワイプジェスチャー
+//! swipe command - Swipe gesture
 //!
 //! ```bash
 //! agent-mobile swipe up
@@ -24,7 +24,7 @@ const DEFAULT_SWIPE_DISTANCE: f64 = 300.0;
 const DEFAULT_SCREEN_WIDTH: f64 = 390.0;
 const DEFAULT_SCREEN_HEIGHT: f64 = 844.0;
 
-/// swipe コマンド引数
+/// Arguments for the swipe command
 #[derive(Args, Debug)]
 pub struct SwipeArgs {
     /// Direction (up/down/left/right) or coordinates (x1,y1,x2,y2)

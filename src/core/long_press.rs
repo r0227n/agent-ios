@@ -1,10 +1,10 @@
-//! long-press コマンド - 長押しジェスチャー
+//! long-press command - Long press gesture
 //!
 //! ```bash
-//! agent-mobile long-press @e1              # ref で長押し
-//! agent-mobile long-press "Login"          # テキストで長押し
-//! agent-mobile long-press 100,200          # 座標で長押し
-//! agent-mobile long-press center           # 画面中央を長押し
+//! agent-mobile long-press @e1              # Long press by ref
+//! agent-mobile long-press "Login"          # Long press by text
+//! agent-mobile long-press 100,200          # Long press by coordinates
+//! agent-mobile long-press center           # Long press screen center
 //! agent-mobile long-press @e1 --duration 2.0
 //! ```
 
@@ -22,7 +22,7 @@ use agent_mobile_gateway::DeviceResolver;
 /// Default long press duration in seconds
 pub(crate) const DEFAULT_LONG_PRESS_DURATION: f64 = 1.0;
 
-/// long-press コマンド引数
+/// Arguments for the long-press command
 #[derive(Args, Debug)]
 pub struct LongPressArgs {
     /// Target: @eN ref, "text", x,y coordinates, or position (center)

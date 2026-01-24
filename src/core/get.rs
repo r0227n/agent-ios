@@ -1,10 +1,10 @@
-//! get コマンド - 要素情報取得
+//! get command - Get element information
 //!
 //! ```bash
 //! agent-mobile get text @e1
 //! agent-mobile get value @e2
 //! agent-mobile get attr @e1 enabled
-//! agent-mobile get @e1 -f json      # 全プロパティ (JSON)
+//! agent-mobile get @e1 -f json      # All properties (JSON)
 //! ```
 
 use clap::Args;
@@ -17,7 +17,7 @@ use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
 use agent_mobile_gateway::DeviceResolver;
 
-/// get コマンド引数
+/// Arguments for the get command
 #[derive(Args, Debug)]
 pub struct GetArgs {
     /// Property to get: text, value, attr, box, count, or omit for all

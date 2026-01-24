@@ -1,3 +1,7 @@
+//! media command - Add media files to the device.
+//!
+//! Add photos and videos to the device's media library.
+
 use crate::helpers::client::{with_client, CommandResult};
 use clap::Subcommand;
 

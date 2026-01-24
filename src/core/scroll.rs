@@ -1,4 +1,4 @@
-//! scroll コマンド - スクロール
+//! scroll command - Scroll
 //!
 //! ```bash
 //! agent-mobile scroll down
@@ -23,7 +23,7 @@ const DEFAULT_SCROLL_DISTANCE: f64 = 150.0;
 const DEFAULT_SCREEN_WIDTH: f64 = 390.0;
 const DEFAULT_SCREEN_HEIGHT: f64 = 844.0;
 
-/// scroll コマンド引数
+/// Arguments for the scroll command
 #[derive(Args, Debug)]
 pub struct ScrollArgs {
     /// Direction (up/down/left/right)

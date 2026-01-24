@@ -1,3 +1,8 @@
+//! launch command - Launch an application on the device.
+//!
+//! Launches an app by bundle ID with optional arguments, environment variables,
+//! and debugger support.
+
 use crate::helpers::client::{with_client, CommandResult};
 use crate::helpers::signal::setup_ctrl_c_handler;
 use agent_mobile_platform_ios::grpc::LaunchConfig;

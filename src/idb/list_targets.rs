@@ -1,3 +1,7 @@
+//! list-targets command - List connected devices and simulators.
+//!
+//! Shows all available targets including physical devices, simulators, and Macs.
+
 use agent_mobile_core::{
     human_format_target, json_format_target, merge_connected_targets, Address, DeviceInfo,
     TargetType,
@@ -5,6 +9,7 @@ use agent_mobile_core::{
 use agent_mobile_platform_ios::companion::{CompanionLister, CompanionState};
 use agent_mobile_platform_ios::grpc::IdbClient;
 
+/// Execute the list-targets command.
 pub async fn run(
     only: Option<String>,
     human_output: bool,

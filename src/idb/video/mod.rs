@@ -1,3 +1,9 @@
+//! Video recording and streaming commands.
+//!
+//! Provides screen capture operations:
+//! - `record-video` - Record screen to MP4 file
+//! - `video-stream` - Stream raw video data
+
 pub mod record;
 pub mod stream;
 

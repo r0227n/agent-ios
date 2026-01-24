@@ -1,3 +1,20 @@
+//! IDB Commands - Low-level iOS device operations via idb_companion.
+//!
+//! This module provides CLI commands that wrap the idb (iOS Development Bridge)
+//! gRPC API for device automation, app management, and debugging operations.
+//!
+//! ## Command Categories
+//!
+//! - **App Management**: `launch`, `terminate`, `install`, `uninstall`, `list-apps`
+//! - **Device Control**: `focus`, `location`, `settings`
+//! - **File Operations**: `file` (ls, push, pull, rm, mkdir, etc.)
+//! - **Target Management**: `target` (boot, shutdown, create, delete, etc.)
+//! - **Debugging**: `debugserver`, `dap`, `xctest-*`, `instruments`, `xctrace`
+//! - **Input**: `button`, `key`, `key-sequence`
+//! - **Media**: `media`, `video`, `photos-clear`
+//! - **Accessibility**: `accessibility-describe-all`, `accessibility-describe-point`
+//! - **Other**: `log`, `crash`, `notification`, `contacts`, `keychain`
+
 pub mod accessibility;
 pub mod contacts;
 pub mod crash;
