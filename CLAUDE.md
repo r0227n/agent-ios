@@ -90,32 +90,6 @@ cargo test --test cli your_feature -- --test-threads=1
 agent-mobile <your-command>
 ```
 
-#### ヘルパー関数の活用
-
-`tests/idb/common/mod.rs` には、テストで使える便利な関数があります：
-
-```rust
-// CompanionClient の取得
-let client = common::get_client().await?;
-
-// テストアプリの起動
-common::launch_test_app(&client).await?;
-
-// スクリーンショットの取得
-let screenshot = common::take_screenshot(&client).await?;
-
-// ファイル操作
-common::push_file(&client, "/path/to/source", "/path/to/dest").await?;
-```
-
-#### ドキュメント更新
-
-新機能追加時は、以下のドキュメントも更新してください：
-
-- **CLAUDE.md**: AIエージェント向けの使用例
-- **README.md**: ユーザー向けクイックスタート
-- **docs/ARCHITECTURE.md**: アーキテクチャへの影響
-- **proto/idb.proto**: gRPC API の変更 (該当する場合)
 
 #### AIエージェント対応
 
@@ -125,35 +99,3 @@ Claude Code などの AIエージェントが効率的に使えるように、�
 - **明確なエラーメッセージ**: エラー時に何が問題か、どう解決するかを明示
 - **ヘルプの充実**: `--help` で十分な情報を提供
 - **冪等性**: 同じコマンドを複数回実行しても安全
-
-#### コード検索
-
-**重要**: コードベース内の検索には必ず `ck` CLI を使用してください。`grep`、`pgrep`、`rg` などの従来の検索ツールは使用しないでください。
-
-##### ck CLI を使う理由
-
-- **セマンティック検索**: 意味的に関連するコードを発見
-- **コンテキスト理解**: 関数名や変数名だけでなく、実装の意図を理解
-- **効率性**: 大規模コードベースでも高速
-- **AI最適化**: Claude Code などの AIエージェント向けに設計
-
-##### 使用方法
-
-```bash
-# セマンティック検索（推奨）
-/ck "error handling"
-/ck "grpc client implementation"
-
-# 具体的な関数や型を探す場合
-/ck "pub struct IdbClient"
-/ck "async fn launch_app"
-
-# ファイル名で検索
-/ck "mod.rs"
-```
-
-##### grep/pgrep を使わない理由
-
-- **文字列マッチのみ**: 意味的な関連性を理解できない
-- **ノイズが多い**: 無関係な結果が大量に表示される
-- **コンテキスト不足**: コードの意図や目的を把握できない
