@@ -6,7 +6,7 @@
 //! agent-mobile tap 100,200          # 座標でタップ
 //! agent-mobile tap home             # ハードウェアキー
 //!
-//! # 長押しが必要な場合は long-press コマンドを使用
+//! # 長押しは long-press コマンドを使用
 //! agent-mobile long-press @e1 --duration 2.0
 //! ```
 
@@ -16,7 +16,6 @@ use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::{with_client, CommandResult};
-use crate::core::long_press::DEFAULT_LONG_PRESS_DURATION;
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};

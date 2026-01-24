@@ -516,55 +516,6 @@ async fn execute_action(
     }
 }
 
-/// Execute tap gesture
-async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
-    match platform {
-        Platform::Ios => {
-            use agent_mobile_platform_ios::hid::events;
-
-            with_client(udid, |mut client| async move {
-                let events = events::tap_to_events(x, y, None);
-                client.hid(events).await?;
-                Ok(())
-            })
-            .await
-        }
-        Platform::Android => {
-            use agent_mobile_platform_android::adb::input;
-            input::tap(udid, x, y).await?;
-            Ok(())
-        }
-    }
-}
-
-/// Execute long press gesture
-async fn execute_long_press(
-    platform: Platform,
-    udid: Option<&str>,
-    x: f64,
-    y: f64,
-    duration: f64,
-) -> CommandResult {
-    match platform {
-        Platform::Ios => {
-            use agent_mobile_platform_ios::hid::events;
-
-            with_client(udid, |mut client| async move {
-                let events = events::tap_to_events(x, y, Some(duration));
-                client.hid(events).await?;
-                Ok(())
-            })
-            .await
-        }
-        Platform::Android => {
-            use agent_mobile_platform_android::adb::input;
-            let duration_ms = (duration * 1000.0) as u64;
-            input::long_press(udid, x, y, duration_ms).await?;
-            Ok(())
-        }
-    }
-}
-
 /// Execute fill (tap + clear + type)
 async fn execute_fill(
     platform: Platform,
