@@ -1,7 +1,7 @@
 //! Target description operations for IdbClient.
 
 use crate::proto::idb::TargetDescriptionRequest;
-use agent_mobile_core::types::{CompanionInfo, TargetDescription, TargetType};
+use agent_mobile_core::types::{CompanionInfo, DeviceInfo, TargetType};
 
 use super::client::IdbClient;
 
@@ -10,7 +10,7 @@ impl IdbClient {
     pub async fn describe(
         &mut self,
         fetch_diagnostics: bool,
-    ) -> Result<TargetDescription, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<DeviceInfo, Box<dyn std::error::Error + Send + Sync>> {
         let request = tonic::Request::new(TargetDescriptionRequest { fetch_diagnostics });
 
         let response = self.client.describe(request).await?;
@@ -22,7 +22,7 @@ impl IdbClient {
     pub(crate) fn target_from_response(
         &self,
         response: crate::proto::idb::TargetDescriptionResponse,
-    ) -> Result<TargetDescription, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<DeviceInfo, Box<dyn std::error::Error + Send + Sync>> {
         let target = response
             .target_description
             .ok_or("Missing target_description in response")?;
@@ -36,7 +36,7 @@ impl IdbClient {
             address: self.address.clone(),
         });
 
-        Ok(TargetDescription {
+        Ok(DeviceInfo {
             name: target.name,
             udid: target.udid,
             state: if target.state.is_empty() {

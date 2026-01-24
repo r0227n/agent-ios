@@ -1,11 +1,11 @@
 //! Output formatting utilities.
 
-use super::target::{Address, TargetDescription};
+use super::target::{Address, DeviceInfo};
 use serde_json::{json, Value};
 
 /// Human-readable format matching Python idb output:
 /// "{name} | {udid} | {state} | {target_type} | {os_version} | {architecture} | {companion_address}"
-pub fn human_format_target(target: &TargetDescription) -> String {
+pub fn human_format_target(target: &DeviceInfo) -> String {
     let companion_str = match &target.companion_info {
         Some(info) => info.address.to_string(),
         None => "No Companion Connected".to_string(),
@@ -24,7 +24,7 @@ pub fn human_format_target(target: &TargetDescription) -> String {
 }
 
 /// JSON format matching Python idb output
-pub fn json_format_target(target: &TargetDescription) -> String {
+pub fn json_format_target(target: &DeviceInfo) -> String {
     let mut data: Value = json!({
         "name": target.name,
         "udid": target.udid,
@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_human_format_with_companion() {
-        let target = TargetDescription {
+        let target = DeviceInfo {
             name: "iPhone 14 Pro".to_string(),
             udid: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE".to_string(),
             state: Some("Booted".to_string()),
@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_human_format_without_companion() {
-        let target = TargetDescription {
+        let target = DeviceInfo {
             name: "iPhone 14 Pro".to_string(),
             udid: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE".to_string(),
             state: Some("Booted".to_string()),
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_json_format_with_domain_socket() {
-        let target = TargetDescription {
+        let target = DeviceInfo {
             name: "iPhone 14 Pro".to_string(),
             udid: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE".to_string(),
             state: Some("Booted".to_string()),

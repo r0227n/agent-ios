@@ -1,6 +1,6 @@
 //! Target merging utilities.
 
-use super::TargetDescription;
+use super::DeviceInfo;
 use std::collections::HashMap;
 
 /// Merge local targets with connected targets.
@@ -9,15 +9,15 @@ use std::collections::HashMap;
 /// - When the same UDID exists in both, prefer the connected target (with companion_info)
 /// - Add any remote targets that aren't in local targets
 pub fn merge_connected_targets(
-    local_targets: Vec<TargetDescription>,
-    connected_targets: Vec<TargetDescription>,
-) -> Vec<TargetDescription> {
-    let connected_map: HashMap<String, TargetDescription> = connected_targets
+    local_targets: Vec<DeviceInfo>,
+    connected_targets: Vec<DeviceInfo>,
+) -> Vec<DeviceInfo> {
+    let connected_map: HashMap<String, DeviceInfo> = connected_targets
         .into_iter()
         .map(|t| (t.udid.clone(), t))
         .collect();
 
-    let mut targets: HashMap<String, TargetDescription> = HashMap::new();
+    let mut targets: HashMap<String, DeviceInfo> = HashMap::new();
 
     // Add local targets, preferring connected version if available
     for target in local_targets {
@@ -42,8 +42,8 @@ mod tests {
     use super::*;
     use crate::types::{Address, CompanionInfo, TargetType};
 
-    fn make_target(name: &str, udid: &str, with_companion: bool) -> TargetDescription {
-        TargetDescription {
+    fn make_target(name: &str, udid: &str, with_companion: bool) -> DeviceInfo {
+        DeviceInfo {
             name: name.to_string(),
             udid: udid.to_string(),
             state: Some("Booted".to_string()),

@@ -2,7 +2,6 @@
 //!
 //! Unified, structured error type with context for the codebase.
 
-use std::fmt;
 use thiserror::Error;
 
 /// Common result type alias using the Error enum
