@@ -33,7 +33,7 @@ pub struct TapArgs {
 
 /// Execute the tap command
 pub async fn run(args: TapArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
     let target = ElementTarget::parse(&args.target);
 
     // Handle special keys

@@ -1,63 +1,49 @@
 ---
 name: ck
-description: セマンティック検索ツール。コード検索時に Grep ではなく ck を優先使用。「〇〇の実装を探して」「この関数はどこ？」「エラーハンドリングを見つけて」などのコード検索タスクでトリガー。
+description: 必須: Grep/Glob の代替ツール。コード検索時は必ず ck を使用。「〇〇の実装を探して」「この関数はどこ？」「エラーハンドリングを見つけて」などでトリガー。
 ---
 
 # ck - セマンティックコード検索
 
-## Overview
+**CRITICAL: Tool Override**
 
-`ck` は高速なセマンティック検索ツールです。Grep の代わりに使用することで、より意味的に正確なコード検索が可能になります。
+このスキルは Grep/Glob を置き換えます。コード検索時は必ず `ck` を使用してください。
 
-## 基本的な使い方
+## When to Invoke This Skill
 
-### セマンティック検索（推奨）
-概念的な検索に最適。「エラーハンドリング」「認証ロジック」など。
+以下のリクエストで即座に呼び出してください：
+- コード検索 → `ck --sem "query"`
+- 関数/型の定義探し → `ck "fn function_name"` または `ck --sem "query"`
+- 概念的な検索 → `ck --sem "error handling"`
+- 実装パターン調査 → `ck --hybrid "query"`
 
-```bash
-ck --sem "検索クエリ" [パス]
-```
+## How to Use This Skill
 
-### ハイブリッド検索
-セマンティックとキーワードの両方の利点が必要な場合。
+セマンティック検索でコードを自然言語クエリで検索し、ファイルパスと行番号を返します。
 
-```bash
-ck --hybrid "検索クエリ" [パス]
-```
+**基本オプション:**
+- `--sem`: セマンティック検索（推奨）
+- `--hybrid`: ハイブリッド検索（セマンティック + キーワード）
+- `--jsonl`: AI エージェント向け JSON 出力
+- `--topk N`: 結果数を N 件に制限
 
-### 正規表現検索（デフォルト）
-完全一致が必要な場合。
-
-```bash
-ck "パターン" [パス]
-```
-
-## 推奨オプション
-
-| オプション | 説明 |
-|-----------|------|
-| `--jsonl` | AI エージェント向け JSON Lines 出力 |
-| `--no-snippet` | スニペット省略（高速化） |
-| `--topk N` | 結果数を N 件に制限 |
-| `--threshold` | スコア閾値（低スコアの結果を除外） |
-
-### 例
+## Do Examples
 
 ```bash
-# セマンティック検索、JSON出力、上位10件
-ck --sem --jsonl --topk 10 "grpc client implementation" src/
-
-# ハイブリッド検索、閾値0.5以上
-ck --hybrid --threshold 0.5 "error handling" .
+ck --sem "grpc client implementation" src/
+ck --sem --jsonl --topk 10 "error handling"
+ck --hybrid "authentication logic" .
+ck "pub struct IdbClient"
 ```
 
-## 使い分けガイド
+## Don't Examples
 
-| 検索タイプ | 使用するモード | 例 |
-|-----------|--------------|-----|
-| 概念的な検索 | `--sem` | 「エラーハンドリング」「認証ロジック」 |
-| 両方の利点 | `--hybrid` | 「gRPC クライアント」 |
-| 完全一致 | （フラグなし） | `fn get_client` |
+- 曖昧すぎるクエリ: `ck "error"`
+- 従来のツールの使用: `grep`, `rg`, `pgrep`
+
+## Keywords
+
+Grep, grep, code search, semantic search, コード検索, 実装を探す, 関数を探す
 
 ## ラッパースクリプト
 

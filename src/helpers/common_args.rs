@@ -7,16 +7,13 @@ use clap::Args;
 
 use super::format::OutputFormat;
 
-/// Basic device selection arguments (platform + udid).
+/// Basic device selection arguments (udid only).
 ///
 /// Used by commands that only need to identify the target device
 /// without any output format options.
+/// Platform is auto-detected from the UDID.
 #[derive(Args, Debug, Clone)]
 pub struct DeviceArgs {
-    /// Platform (ios or android). Auto-detected if not specified.
-    #[arg(short = 'p', long)]
-    pub platform: Option<String>,
-
     /// Device UDID/serial. Auto-detected if not specified.
     #[arg(short, long)]
     pub udid: Option<String>,
@@ -45,13 +42,9 @@ pub struct FormatOutputArgs {
 /// Device selection + output format.
 ///
 /// Used by commands that need both device selection and output formatting.
-/// Replaces the deprecated `DeviceOutputArgs`.
+/// Platform is auto-detected from the UDID.
 #[derive(Args, Debug, Clone)]
 pub struct DeviceFormatArgs {
-    /// Platform (ios or android). Auto-detected if not specified.
-    #[arg(short = 'p', long)]
-    pub platform: Option<String>,
-
     /// Device UDID/serial. Auto-detected if not specified.
     #[arg(short, long)]
     pub udid: Option<String>,

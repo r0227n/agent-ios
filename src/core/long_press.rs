@@ -42,7 +42,7 @@ pub async fn run(args: LongPressArgs) -> CommandResult {
         return Err("duration must be greater than 0 seconds".into());
     }
 
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
     let target = ElementTarget::parse(&args.target);
 
     // Get coordinates from target

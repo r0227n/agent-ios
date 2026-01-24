@@ -31,7 +31,7 @@ pub struct FillArgs {
 
 /// Execute the fill command
 pub async fn run(args: FillArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
     let target = ElementTarget::parse(&args.target);
 
     // Get snapshot and resolve element

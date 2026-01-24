@@ -38,7 +38,7 @@ pub struct SelectArgs {
 
 /// Execute the select command
 pub async fn run(args: SelectArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
 
     match platform {
         Platform::Ios => run_ios(args).await,

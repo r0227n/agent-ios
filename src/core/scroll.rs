@@ -47,7 +47,7 @@ pub struct ScrollArgs {
 
 /// Execute the scroll command
 pub async fn run(args: ScrollArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
 
     // Parse scroll parameters
     let ((x1, y1), (x2, y2)) = parse_scroll_args(

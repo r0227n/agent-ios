@@ -42,7 +42,7 @@ pub struct WaitArgs {
 
 /// Execute the wait command
 pub async fn run(args: WaitArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
     let timeout = parse_timeout(&args.timeout)?;
     let interval = Duration::from_millis(args.interval);
 

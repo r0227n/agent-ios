@@ -1,6 +1,6 @@
+use crate::helpers::client::{with_client, CommandResult};
 use crate::helpers::file_container::file_container;
 use crate::helpers::signal::setup_ctrl_c_handler;
-use crate::helpers::client::{with_client, CommandResult};
 
 pub async fn run(path: String, udid: Option<String>, bundle_id: Option<String>) -> CommandResult {
     let container = file_container(bundle_id);

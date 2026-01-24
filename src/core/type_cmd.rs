@@ -25,7 +25,7 @@ pub struct TypeArgs {
 
 /// Execute the type command
 pub async fn run(args: TypeArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
 
     match platform {
         Platform::Ios => execute_type_ios(args.device.udid.as_deref(), &args.text).await,

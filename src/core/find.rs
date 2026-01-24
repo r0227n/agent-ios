@@ -221,7 +221,7 @@ impl From<&SnapshotElement> for ElementOutput {
 
 /// Execute the find command
 pub async fn run(args: FindArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
 
     // Extract action from locator
     let (action_str, action_value) = extract_action(&args.locator);

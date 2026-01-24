@@ -39,7 +39,7 @@ pub struct GetArgs {
 
 /// Execute the get command
 pub async fn run(args: GetArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
 
     // Handle the case where property is actually the target (@eN)
     let (property, target_str) = if args.property.starts_with('@') {

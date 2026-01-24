@@ -1,5 +1,5 @@
-use crate::helpers::file_container::file_container;
 use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::file_container::file_container;
 use std::io::Read;
 
 /// Read from stdin and write to a file on the target device

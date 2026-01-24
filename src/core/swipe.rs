@@ -48,7 +48,7 @@ pub struct SwipeArgs {
 
 /// Execute the swipe command
 pub async fn run(args: SwipeArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
 
     // Parse swipe coordinates
     let ((x1, y1), (x2, y2)) = parse_swipe_args(

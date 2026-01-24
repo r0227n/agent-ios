@@ -7,6 +7,7 @@ use clap::{Args, Subcommand};
 use serde::Serialize;
 
 use agent_mobile_core::Platform;
+use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::{DeviceArgs, DeviceFormatArgs};
@@ -154,37 +155,6 @@ const ANDROID_PERMISSIONS: &[(&str, &str)] = &[
     ("sms", "android.permission.READ_SMS"),
 ];
 
-/// Detect platform based on available devices.
-async fn detect_platform() -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
-    let ios_state_path = std::path::Path::new("/tmp/idb/state");
-    if ios_state_path.exists() {
-        return Ok(Platform::Ios);
-    }
-
-    if agent_mobile_platform_android::adb::is_adb_available() {
-        let devices = agent_mobile_platform_android::adb::list_devices();
-        if let Ok(devs) = devices {
-            if !devs.is_empty() {
-                return Ok(Platform::Android);
-            }
-        }
-    }
-
-    Ok(Platform::Ios)
-}
-
-/// Resolve platform from optional string.
-async fn resolve_platform(
-    platform_str: Option<&str>,
-) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
-    match platform_str {
-        Some(p) => p
-            .parse::<Platform>()
-            .map_err(|e: String| -> Box<dyn std::error::Error + Send + Sync> { e.into() }),
-        None => detect_platform().await,
-    }
-}
-
 /// Execute the app command.
 pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult {
     match args.command {
@@ -196,7 +166,7 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device_output.udid.is_none() {
                 device_output.udid = resolved_udid;
             }
-            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            let platform = DeviceResolver::detect_platform().await?;
             execute_launch(
                 platform,
                 device_output.udid.as_deref(),
@@ -212,7 +182,7 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let platform = DeviceResolver::detect_platform().await?;
             execute_terminate(platform, device.udid.as_deref(), &bundle_id).await
         }
         AppCommands::Install {
@@ -222,7 +192,7 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device_output.udid.is_none() {
                 device_output.udid = resolved_udid;
             }
-            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            let platform = DeviceResolver::detect_platform().await?;
             execute_install(
                 platform,
                 device_output.udid.as_deref(),
@@ -238,14 +208,14 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let platform = DeviceResolver::detect_platform().await?;
             execute_uninstall(platform, device.udid.as_deref(), &bundle_id).await
         }
         AppCommands::List { mut device_output } => {
             if device_output.udid.is_none() {
                 device_output.udid = resolved_udid;
             }
-            let platform = resolve_platform(device_output.platform.as_deref()).await?;
+            let platform = DeviceResolver::detect_platform().await?;
             execute_list(
                 platform,
                 device_output.udid.as_deref(),
@@ -261,7 +231,7 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let platform = DeviceResolver::detect_platform().await?;
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,
@@ -276,7 +246,7 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let platform = DeviceResolver::detect_platform().await?;
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,
@@ -291,7 +261,7 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = resolve_platform(device.platform.as_deref()).await?;
+            let platform = DeviceResolver::detect_platform().await?;
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,

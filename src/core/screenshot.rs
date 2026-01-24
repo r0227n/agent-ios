@@ -184,7 +184,7 @@ fn resolve_output_path(
 
 /// Execute the screenshot command
 pub async fn run(args: ScreenshotArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
     let resolved_path = resolve_output_path(args.output.as_deref(), args.format)?;
 
     match platform {

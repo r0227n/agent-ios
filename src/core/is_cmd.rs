@@ -34,7 +34,7 @@ pub struct IsArgs {
 
 /// Execute the is command
 pub async fn run(args: IsArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
 
     // Get snapshot
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;

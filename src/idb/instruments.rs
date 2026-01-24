@@ -2,8 +2,8 @@
 //!
 //! Run Instruments profiling on the device
 
-use crate::helpers::signal::setup_ctrl_c_handler;
 use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::signal::setup_ctrl_c_handler;
 use std::collections::HashMap;
 
 /// Run instruments profiling on the device

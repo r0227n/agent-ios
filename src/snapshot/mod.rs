@@ -73,7 +73,7 @@ pub enum Platform {
 /// Execute the snapshot command.
 pub async fn run(args: SnapshotArgs) -> CommandResult {
     // Detect or use specified platform
-    let platform = resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = resolve_platform(None).await?;
 
     match platform {
         Platform::Ios => run_ios(args).await,

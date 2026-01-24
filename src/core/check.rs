@@ -31,7 +31,7 @@ pub struct CheckArgs {
 /// - `should_check = true`: チェックをONにする（check コマンド）
 /// - `should_check = false`: チェックをOFFにする（uncheck コマンド）
 pub async fn run(args: CheckArgs, should_check: bool) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = DeviceResolver::detect_platform().await?;
     let target = ElementTarget::parse(&args.target);
 
     // Get snapshot and resolve element
