@@ -35,6 +35,9 @@ use super::long_press::{execute_long_press, DEFAULT_LONG_PRESS_DURATION};
 use super::tap::{execute_tap, take_snapshot};
 use agent_mobile_gateway::DeviceResolver;
 
+/// Estimated max text length for clearing text fields when value is None.
+const DEFAULT_MAX_TEXT_LENGTH: usize = 50;
+
 /// find コマンド引数
 #[derive(Args, Debug)]
 pub struct FindArgs {
@@ -364,59 +367,16 @@ fn matches_locator(elem: &SnapshotElement, locator: &FindLocator) -> bool {
             elem.element_type.to_lowercase() == element_type.to_lowercase()
         }
         FindLocator::Text { text, exact, .. } => {
-            let text_lower = text.to_lowercase();
             if *exact {
-                elem.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase() == text_lower)
-                    .unwrap_or(false)
-                    || elem
-                        .value
-                        .as_ref()
-                        .map(|v| v.to_lowercase() == text_lower)
-                        .unwrap_or(false)
+                elem.matches_text_exact(text)
             } else {
-                elem.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase().contains(&text_lower))
-                    .unwrap_or(false)
-                    || elem
-                        .value
-                        .as_ref()
-                        .map(|v| v.to_lowercase().contains(&text_lower))
-                        .unwrap_or(false)
+                elem.contains_text(text)
             }
         }
-        FindLocator::Label { label, exact, .. } => {
-            let label_lower = label.to_lowercase();
-            if *exact {
-                elem.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase() == label_lower)
-                    .unwrap_or(false)
-            } else {
-                elem.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase().contains(&label_lower))
-                    .unwrap_or(false)
-            }
-        }
+        FindLocator::Label { label, exact, .. } => elem.matches_label(label, *exact),
         FindLocator::Placeholder {
             placeholder, exact, ..
-        } => {
-            let placeholder_lower = placeholder.to_lowercase();
-            if *exact {
-                elem.placeholder
-                    .as_ref()
-                    .map(|p| p.to_lowercase() == placeholder_lower)
-                    .unwrap_or(false)
-            } else {
-                elem.placeholder
-                    .as_ref()
-                    .map(|p| p.to_lowercase().contains(&placeholder_lower))
-                    .unwrap_or(false)
-            }
-        }
+        } => elem.matches_placeholder(placeholder, *exact),
         FindLocator::Enabled { .. } => elem.enabled,
         FindLocator::Disabled { .. } => !elem.enabled,
     }
@@ -505,7 +465,7 @@ async fn execute_action(
                 .value
                 .as_ref()
                 .map(|v| v.chars().count())
-                .unwrap_or(50);
+                .unwrap_or(DEFAULT_MAX_TEXT_LENGTH);
             execute_fill(platform, udid, x, y, text, clear_len).await
         }
         FindAction::Clear => {
@@ -513,7 +473,7 @@ async fn execute_action(
                 .value
                 .as_ref()
                 .map(|v| v.chars().count())
-                .unwrap_or(50);
+                .unwrap_or(DEFAULT_MAX_TEXT_LENGTH);
             execute_clear(platform, udid, x, y, clear_len).await
         }
     }

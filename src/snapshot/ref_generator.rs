@@ -117,8 +117,12 @@ pub fn has_interactive_descendants(elements: &[SnapshotElement], index: usize) -
 }
 
 /// Check if an element is "empty" (has no label and no value).
+#[deprecated(
+    since = "0.2.0",
+    note = "Use SnapshotElement::is_empty_structure() instead"
+)]
 pub fn is_empty_structure(element: &SnapshotElement) -> bool {
-    element.label.is_none() && element.value.is_none() && !element.is_interactive
+    element.is_empty_structure()
 }
 
 #[cfg(test)]

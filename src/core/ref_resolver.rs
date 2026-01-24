@@ -166,44 +166,35 @@ pub fn find_by_ref<'a>(snapshot: &'a Snapshot, ref_id: &str) -> Option<&'a Snaps
     snapshot.elements.iter().find(|e| e.ref_id == ref_id)
 }
 
-/// Find an element by text (label or value) in a snapshot
+/// Find an element by text (label or value) in a snapshot.
+///
+/// Search priority:
+/// 1. Exact label match (case-sensitive)
+/// 2. Exact value match (case-sensitive)
+/// 3. Exact label match (case-insensitive)
+/// 4. Partial label match (case-insensitive)
 pub fn find_by_text<'a>(snapshot: &'a Snapshot, text: &str) -> Option<&'a SnapshotElement> {
-    // First try exact match on label
-    if let Some(elem) = snapshot
+    // First try exact match on label (case-sensitive)
+    snapshot
         .elements
         .iter()
         .find(|e| e.label.as_ref().map(|l| l == text).unwrap_or(false))
-    {
-        return Some(elem);
-    }
-
-    // Then try exact match on value
-    if let Some(elem) = snapshot
-        .elements
-        .iter()
-        .find(|e| e.value.as_ref().map(|v| v == text).unwrap_or(false))
-    {
-        return Some(elem);
-    }
-
-    // Then try case-insensitive match on label
-    let text_lower = text.to_lowercase();
-    if let Some(elem) = snapshot.elements.iter().find(|e| {
-        e.label
-            .as_ref()
-            .map(|l| l.to_lowercase() == text_lower)
-            .unwrap_or(false)
-    }) {
-        return Some(elem);
-    }
-
-    // Finally try partial match on label (contains)
-    snapshot.elements.iter().find(|e| {
-        e.label
-            .as_ref()
-            .map(|l| l.to_lowercase().contains(&text_lower))
-            .unwrap_or(false)
-    })
+        // Then try exact match on value (case-sensitive)
+        .or_else(|| {
+            snapshot
+                .elements
+                .iter()
+                .find(|e| e.value.as_ref().map(|v| v == text).unwrap_or(false))
+        })
+        // Then try case-insensitive exact match on label
+        .or_else(|| {
+            snapshot
+                .elements
+                .iter()
+                .find(|e| e.matches_label(text, true))
+        })
+        // Finally try partial match on label (contains)
+        .or_else(|| snapshot.elements.iter().find(|e| e.contains_text(text)))
 }
 
 /// Convert a SnapshotElement to a ResolvedElement

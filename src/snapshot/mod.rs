@@ -73,7 +73,7 @@ pub enum Platform {
 /// Execute the snapshot command.
 pub async fn run(args: SnapshotArgs) -> CommandResult {
     // Detect or use specified platform
-    let platform = resolve_platform(None).await?;
+    let platform = resolve_platform().await?;
 
     match platform {
         Platform::Ios => run_ios(args).await,
@@ -81,17 +81,8 @@ pub async fn run(args: SnapshotArgs) -> CommandResult {
     }
 }
 
-/// Resolve platform from argument or auto-detect.
-async fn resolve_platform(platform_arg: Option<&str>) -> CommandResult<Platform> {
-    // If explicitly specified, use that
-    if let Some(p) = platform_arg {
-        return match p.to_lowercase().as_str() {
-            "ios" => Ok(Platform::Ios),
-            "android" => Ok(Platform::Android),
-            _ => Err(format!("Unknown platform: {}. Use 'ios' or 'android'.", p).into()),
-        };
-    }
-
+/// Auto-detect platform from connected devices.
+async fn resolve_platform() -> CommandResult<Platform> {
     // Auto-detect: check for iOS companion state first
     if has_ios_companion().await {
         return Ok(Platform::Ios);
@@ -326,20 +317,10 @@ fn extract_subtree(
             .position(|e| e.ref_id == scope_target)
             .ok_or_else(|| format!("Element not found: {}", scope_target))?
     } else {
-        // Text search
-        let text_lower = scope_target.to_lowercase();
+        // Text search using helper method
         elements
             .iter()
-            .position(|e| {
-                e.label
-                    .as_ref()
-                    .map(|l| l.to_lowercase().contains(&text_lower))
-                    .unwrap_or(false)
-                    || e.value
-                        .as_ref()
-                        .map(|v| v.to_lowercase().contains(&text_lower))
-                        .unwrap_or(false)
-            })
+            .position(|e| e.contains_text(scope_target))
             .ok_or_else(|| format!("Element with text '{}' not found", scope_target))?
     };
 
@@ -434,25 +415,5 @@ mod tests {
         assert!(id2.starts_with("snap_"));
         assert_ne!(id1, id2);
         assert_eq!(id1.len(), 13); // "snap_" + 8 chars
-    }
-
-    #[tokio::test]
-    async fn test_resolve_platform_explicit_ios() {
-        let result = resolve_platform(Some("ios")).await;
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Platform::Ios);
-    }
-
-    #[tokio::test]
-    async fn test_resolve_platform_explicit_android() {
-        let result = resolve_platform(Some("android")).await;
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Platform::Android);
-    }
-
-    #[tokio::test]
-    async fn test_resolve_platform_explicit_unknown() {
-        let result = resolve_platform(Some("windows")).await;
-        assert!(result.is_err());
     }
 }
