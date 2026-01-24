@@ -57,7 +57,7 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
     let picker_element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
     let (picker_x, picker_y) = picker_element.center();
 
-    execute_tap(Platform::Ios, udid, picker_x, picker_y, None).await?;
+    execute_tap(Platform::Ios, udid, picker_x, picker_y).await?;
 
     // Wait for picker to open
     tokio::time::sleep(Duration::from_millis(500)).await;
@@ -80,7 +80,7 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
         }) {
             // Found it - tap to select
             let (x, y) = element.frame.center();
-            execute_tap(Platform::Ios, udid, x, y, None).await?;
+            execute_tap(Platform::Ios, udid, x, y).await?;
 
             // Wait a moment then try to dismiss (tap "Done" or outside)
             tokio::time::sleep(Duration::from_millis(300)).await;
@@ -94,7 +94,7 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
                     .unwrap_or(false)
             }) {
                 let (dx, dy) = done_btn.frame.center();
-                execute_tap(Platform::Ios, udid, dx, dy, None).await?;
+                execute_tap(Platform::Ios, udid, dx, dy).await?;
             }
 
             println!("Selected: {}", args.value);
@@ -135,7 +135,7 @@ async fn run_android(args: SelectArgs) -> CommandResult {
     let spinner_element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
     let (spinner_x, spinner_y) = spinner_element.center();
 
-    execute_tap(Platform::Android, udid, spinner_x, spinner_y, None).await?;
+    execute_tap(Platform::Android, udid, spinner_x, spinner_y).await?;
 
     // Wait for dropdown to open
     tokio::time::sleep(Duration::from_millis(500)).await;
@@ -157,7 +157,7 @@ async fn run_android(args: SelectArgs) -> CommandResult {
         }) {
             // Found it - tap to select
             let (x, y) = element.frame.center();
-            execute_tap(Platform::Android, udid, x, y, None).await?;
+            execute_tap(Platform::Android, udid, x, y).await?;
 
             println!("Selected: {}", args.value);
             return Ok(());

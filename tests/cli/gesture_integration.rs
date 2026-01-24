@@ -61,13 +61,13 @@ fn test_gesture_scroll_down() {
     assert_success(&output, "scroll down");
 }
 
-/// Test tap with duration (long-press).
+/// Test long-press command.
 #[test]
 fn test_gesture_long_press() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
-    let output = run_cli_command_with_udid("tap", &["100,200", "--duration", "1.0"], &udid);
+    let output = run_cli_command_with_udid("long-press", &["100,200", "--duration", "1.0"], &udid);
 
-    assert_success(&output, "tap 100,200 --duration 1.0");
+    assert_success(&output, "long-press 100,200 --duration 1.0");
 }

@@ -31,7 +31,8 @@ use crate::helpers::client::{with_client, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 use crate::snapshot::types::{Snapshot, SnapshotElement};
 
-use super::tap::take_snapshot;
+use super::long_press::{execute_long_press, DEFAULT_LONG_PRESS_DURATION};
+use super::tap::{execute_tap, take_snapshot};
 use agent_mobile_gateway::DeviceResolver;
 
 /// find コマンド引数
@@ -493,7 +494,9 @@ async fn execute_action(
 
     match action {
         FindAction::Tap => execute_tap(platform, udid, x, y).await,
-        FindAction::LongPress => execute_long_press(platform, udid, x, y, 1.0).await,
+        FindAction::LongPress => {
+            execute_long_press(platform, udid, x, y, DEFAULT_LONG_PRESS_DURATION).await
+        }
         FindAction::Fill(text) => {
             let clear_len = element
                 .value

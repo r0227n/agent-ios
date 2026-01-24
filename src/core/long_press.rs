@@ -20,7 +20,7 @@ use super::tap::resolve_coords;
 use agent_mobile_gateway::DeviceResolver;
 
 /// Default long press duration in seconds
-const DEFAULT_LONG_PRESS_DURATION: f64 = 1.0;
+pub(crate) const DEFAULT_LONG_PRESS_DURATION: f64 = 1.0;
 
 /// long-press コマンド引数
 #[derive(Args, Debug)]
@@ -53,7 +53,7 @@ pub async fn run(args: LongPressArgs) -> CommandResult {
 }
 
 /// Execute long press gesture
-async fn execute_long_press(
+pub(crate) async fn execute_long_press(
     platform: Platform,
     udid: Option<&str>,
     x: f64,

@@ -1,10 +1,13 @@
-//! tap コマンド - 要素タップ
+//! tap コマンド - 要素タップ（即座）
 //!
 //! ```bash
 //! agent-mobile tap @e1              # ref でタップ
 //! agent-mobile tap "Login"          # テキストでタップ
 //! agent-mobile tap 100,200          # 座標でタップ
 //! agent-mobile tap home             # ハードウェアキー
+//!
+//! # 長押しが必要な場合は long-press コマンドを使用
+//! agent-mobile long-press @e1 --duration 2.0
 //! ```
 
 use clap::Args;
@@ -13,6 +16,7 @@ use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::{with_client, CommandResult};
+use crate::core::long_press::DEFAULT_LONG_PRESS_DURATION;
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
@@ -22,10 +26,6 @@ use super::ref_resolver::{self, ElementTarget};
 pub struct TapArgs {
     /// Target: @eN ref, "text", x,y coordinates, or key (home, back, enter, etc.)
     pub target: String,
-
-    /// Duration of tap in seconds
-    #[arg(long)]
-    pub duration: Option<f64>,
 
     #[command(flatten)]
     pub device: DeviceArgs,
@@ -45,7 +45,7 @@ pub async fn run(args: TapArgs) -> CommandResult {
     let (x, y) = resolve_coords(&target, platform, args.device.udid.as_deref()).await?;
 
     // Execute tap
-    execute_tap(platform, args.device.udid.as_deref(), x, y, args.duration).await
+    execute_tap(platform, args.device.udid.as_deref(), x, y).await
 }
 
 /// Resolve target to coordinates
@@ -168,19 +168,14 @@ pub async fn take_snapshot(
 }
 
 /// Execute tap gesture
-pub async fn execute_tap(
-    platform: Platform,
-    udid: Option<&str>,
-    x: f64,
-    y: f64,
-    duration: Option<f64>,
-) -> CommandResult {
+pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
             use agent_mobile_platform_ios::hid::events;
 
             with_client(udid, |mut client| async move {
-                let events = events::tap_to_events(x, y, duration);
+                // 即座のタップのため None を明示的に渡す
+                let events = events::tap_to_events(x, y, None);
                 client.hid(events).await?;
                 Ok(())
             })

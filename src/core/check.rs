@@ -55,7 +55,7 @@ pub async fn run(args: CheckArgs, should_check: bool) -> CommandResult {
     // Only tap if state needs to change
     if is_currently_checked != should_check {
         let (x, y) = element.center();
-        execute_tap(platform, args.device.udid.as_deref(), x, y, None).await?;
+        execute_tap(platform, args.device.udid.as_deref(), x, y).await?;
 
         let action = if should_check { "Checked" } else { "Unchecked" };
         println!("{}: {}", action, args.target);
