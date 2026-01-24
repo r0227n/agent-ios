@@ -3,8 +3,20 @@ name: Rust CI
 on:
   push:
     branches: [ main, develop]
+    paths:
+      - 'src/**'
+      - 'tests/cli/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rust-ci.yml'
   pull_request:
     branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'tests/cli/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rust-ci.yml'
 
 env:
   CARGO_TERM_COLOR: always
