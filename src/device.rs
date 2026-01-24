@@ -96,24 +96,35 @@ pub async fn detect_platform_from_udid(
 ) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
     // Check iOS devices first
     use agent_mobile_platform_ios::companion::CompanionLister;
+    let mut last_err: Option<String> = None;
 
-    if let Ok(lister) = CompanionLister::new() {
-        if let Ok(targets) = lister.list_targets(None) {
-            if targets.iter().any(|t| t.udid == udid) {
-                return Ok(Platform::Ios);
+    match CompanionLister::new() {
+        Ok(lister) => match lister.list_targets(None) {
+            Ok(targets) => {
+                if targets.iter().any(|t| t.udid == udid) {
+                    return Ok(Platform::Ios);
+                }
             }
-        }
+            Err(e) => last_err = Some(format!("Failed to list iOS devices: {e}")),
+        },
+        Err(e) => last_err = Some(format!("Failed to init iOS lister: {e}")),
     }
 
     // Check Android devices
     if agent_mobile_platform_android::adb::is_adb_available() {
-        if let Ok(devices) = agent_mobile_platform_android::adb::list_devices() {
-            if devices.iter().any(|(serial, _)| serial == udid) {
-                return Ok(Platform::Android);
+        match agent_mobile_platform_android::adb::list_devices() {
+            Ok(devices) => {
+                if devices.iter().any(|(serial, _)| serial == udid) {
+                    return Ok(Platform::Android);
+                }
             }
+            Err(e) => last_err = Some(format!("Failed to list Android devices: {e}")),
         }
     }
 
+    if let Some(err) = last_err {
+        return Err(format!("Platform detection failed for '{}': {}", udid, err).into());
+    }
     Err(format!("Device not found: {}", udid).into())
 }
 

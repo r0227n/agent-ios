@@ -116,15 +116,6 @@ pub fn has_interactive_descendants(elements: &[SnapshotElement], index: usize) -
     false
 }
 
-/// Check if an element is "empty" (has no label and no value).
-#[deprecated(
-    since = "0.2.0",
-    note = "Use SnapshotElement::is_empty_structure() instead"
-)]
-pub fn is_empty_structure(element: &SnapshotElement) -> bool {
-    element.is_empty_structure()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,12 +269,12 @@ mod tests {
             parent_index: None,
         };
 
-        assert!(is_empty_structure(&element));
+        assert!(element.is_empty_structure());
 
         let labeled_element = SnapshotElement {
             label: Some("Title".to_string()),
             ..element.clone()
         };
-        assert!(!is_empty_structure(&labeled_element));
+        assert!(!labeled_element.is_empty_structure());
     }
 }

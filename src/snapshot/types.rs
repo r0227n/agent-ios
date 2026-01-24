@@ -22,6 +22,7 @@ impl SnapshotElement {
     }
 
     /// Get display text with priority: label > value > placeholder.
+    #[allow(dead_code)]
     pub fn display_text(&self) -> &str {
         self.label
             .as_deref()
