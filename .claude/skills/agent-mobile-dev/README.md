@@ -16,8 +16,10 @@ agent-mobile CLI（Rust製モバイルE2Eテストツール）の新機能開発
 
 ```
 .claude/skills/agent-mobile-dev/
-├── SKILL.md                          # メインスキル定義（602行）
+├── SKILL.md                          # メインスキル定義（630行）
 ├── scripts/                          # 開発支援スクリプト
+│   ├── setup-ios.sh                  # iOS環境自動セットアップ
+│   ├── setup-android.sh              # Android環境自動セットアップ
 │   ├── new-command.sh                # CLIコマンドテンプレート生成
 │   ├── platform-check.sh             # iOS実装判断支援（proto確認）
 │   └── run-tests.sh                  # 3層テスト実行ガイド
@@ -26,6 +28,7 @@ agent-mobile CLI（Rust製モバイルE2Eテストツール）の新機能開発
 │   ├── test-template.rs              # 統合テスト構造
 │   └── checklist.md                  # 対話的実装チェックリスト
 ├── references/                       # 詳細リファレンス
+│   ├── environment-setup.md          # 環境セットアップ詳細ガイド
 │   ├── platform-decisions.md         # iOS実装判断基準詳細（572行）
 │   ├── implementation-patterns.md    # コーディングパターン集（685行）
 │   ├── testing-guide.md              # テスト戦略詳細（784行）
@@ -56,9 +59,39 @@ less .claude/skills/agent-mobile-dev/SKILL.md
 - Scripts & Templates: スクリプト使用方法
 - References: 詳細リファレンスへのリンク
 
-### 2. スクリプト使用
+### 2. 環境セットアップ（初回）
 
-#### 2.1. platform-check.sh - iOS実装判断支援
+機能開発を開始する前に、開発環境を準備してください。
+
+#### 2.1. iOS環境セットアップ
+
+```bash
+./scripts/setup-ios.sh
+```
+
+**実行内容:**
+1. Xcode & xcrun simctl確認
+2. idb_companionインストール確認
+3. シミュレータ起動（未起動の場合）
+4. agent-mobile接続確認
+
+#### 2.2. Android環境セットアップ
+
+```bash
+./scripts/setup-android.sh
+```
+
+**実行内容:**
+1. Android SDK (adb, emulator)確認
+2. adb server起動
+3. エミュレータ起動（未起動の場合）
+4. agent-mobile接続確認
+
+**詳細**: `references/environment-setup.md` 参照
+
+### 3. スクリプト使用
+
+#### 3.1. platform-check.sh - iOS実装判断支援
 
 新機能のiOS実装方法を判断します（proto/idb.proto を検索）。
 
@@ -95,7 +128,7 @@ less .claude/skills/agent-mobile-dev/SKILL.md
 # ...
 ```
 
-#### 2.2. new-command.sh - CLIコマンドテンプレート生成
+#### 3.2. new-command.sh - CLIコマンドテンプレート生成
 
 新しいCLIコマンドの骨格を自動生成します。
 
@@ -126,7 +159,7 @@ less .claude/skills/agent-mobile-dev/SKILL.md
 - `tests/cli/<command-name>_integration.rs`: 統合テスト骨格（`assets/test-template.rs` ベース）
 - `src/mod.rs`: 自動的にmod宣言を追加（Commands enum、match分岐は手動）
 
-#### 2.3. run-tests.sh - 3層テスト実行ガイド
+#### 3.3. run-tests.sh - 3層テスト実行ガイド
 
 テスト実行を順次ガイドします。
 
@@ -176,11 +209,22 @@ iOS Verification:
   ...
 ```
 
-### 3. リファレンス参照
+### 4. リファレンス参照
 
 詳細な情報が必要な場合、`references/` ディレクトリ内のファイルを参照してください。
 
-#### 3.1. platform-decisions.md
+#### 4.1. environment-setup.md
+
+環境セットアップの詳細ガイド（Phase 0）。
+
+**内容:**
+- iOS/Android環境要件
+- ツールインストール手順（Xcode、idb_companion、Android SDK）
+- シミュレータ/エミュレータ管理
+- トラブルシューティング（デバイス検出、起動エラーなど）
+- セットアップスクリプトの詳細
+
+#### 4.2. platform-decisions.md
 
 iOS実装判断基準の詳細版（`.claude/rules/cli-feature.md` を統合・拡充）。
 
@@ -192,7 +236,7 @@ iOS実装判断基準の詳細版（`.claude/rules/cli-feature.md` を統合・�
 - 機能別実装状況表
 - 判断履歴（既存機能がなぜgRPC/simctlを選んだか）
 
-#### 3.2. implementation-patterns.md
+#### 4.3. implementation-patterns.md
 
 コーディングパターン集。
 
@@ -203,7 +247,7 @@ iOS実装判断基準の詳細版（`.claude/rules/cli-feature.md` を統合・�
 - JSON出力パターン（構造化出力、エラー時の処理）
 - 非同期処理パターン（tokio::select!、ストリーミング応答）
 
-#### 3.3. testing-guide.md
+#### 4.4. testing-guide.md
 
 テスト戦略詳細。
 
@@ -217,7 +261,7 @@ iOS実装判断基準の詳細版（`.claude/rules/cli-feature.md` を統合・�
   - 確認チェックリスト
 - TDDサイクル実践例
 
-#### 3.4. architecture.md
+#### 4.5. architecture.md
 
 アーキテクチャ詳細（`docs/ARCHITECTURE.md` の補足）。
 
@@ -228,7 +272,7 @@ iOS実装判断基準の詳細版（`.claude/rules/cli-feature.md` を統合・�
 - Cargoワークスペース依存関係グラフ
 - 設計原則（関心の分離、依存性逆転、単一責任など）
 
-### 4. チェックリスト活用
+### 5. チェックリスト活用
 
 実装時に `assets/checklist.md` を参照し、必要なステップを確認してください。
 
@@ -241,6 +285,7 @@ cat .claude/skills/agent-mobile-dev/assets/checklist.md
 ```
 
 **チェックリストの構成:**
+- フェーズ0: 環境セットアップ（iOS/Android環境確認、デバイス検出）
 - フェーズ1: 設計（プラットフォーム判断、引数設計、アーキテクチャ配置）
 - フェーズ2: 実装（ファイル作成、iOS/Android実装、エラーハンドリング）
 - フェーズ3: テスト（ユニット、統合テスト作成・実行）
@@ -253,6 +298,9 @@ cat .claude/skills/agent-mobile-dev/assets/checklist.md
 新機能追加の最速フロー:
 
 ```bash
+# 0. 環境確認（初回のみ）
+./scripts/setup-ios.sh  # または ./scripts/setup-android.sh
+
 # 1. 実装判断
 ./scripts/platform-check.sh <feature>
 
@@ -352,6 +400,7 @@ ls -la target/debug/agent-mobile
 
 **このスキル内:**
 - `SKILL.md`: メインスキル定義
+- `references/environment-setup.md`: 環境セットアップ詳細
 - `references/platform-decisions.md`: iOS実装判断基準詳細
 - `references/implementation-patterns.md`: コーディングパターン集
 - `references/testing-guide.md`: テスト戦略詳細
@@ -367,4 +416,4 @@ agent-mobileプロジェクトと同じライセンスに従います。
 
 ---
 
-**まとめ**: 新機能追加時は `SKILL.md` → スクリプト → 実機確認（必須!） → コミット
+**まとめ**: 新機能追加時は 環境確認（Phase 0） → `SKILL.md` → スクリプト → 実機確認（必須!） → コミット

@@ -20,6 +20,22 @@ if [ -n "$TEST_NAME" ]; then
     echo ""
 fi
 
+echo "Step 0: Environment Check"
+echo "-------------------------"
+echo "Description: Verify development environment is ready"
+echo ""
+echo "If devices are not detected, run:"
+echo "  iOS:     ./scripts/setup-ios.sh"
+echo "  Android: ./scripts/setup-android.sh"
+echo ""
+echo "Checking device availability..."
+if ! command -v agent-mobile &>/dev/null; then
+    echo "⚠️  agent-mobile not found. Build first: cargo build"
+else
+    agent-mobile device list 2>/dev/null || echo "⚠️  No devices detected. Run setup scripts."
+fi
+echo ""
+
 echo "Step 1: Unit Tests"
 echo "-------------------"
 echo "Description: Tests internal logic without external dependencies"

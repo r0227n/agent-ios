@@ -12,6 +12,44 @@ agent-mobile CLI開発における3層テスト（ユニットテスト、統合
 - [TDDサイクル](#tddサイクル)
 - [トラブルシューティング](#トラブルシューティング)
 
+## 前提条件: 環境セットアップ
+
+テストを実行する前に、開発環境が正しくセットアップされている必要があります。
+
+### 初回セットアップ
+
+**iOS:**
+```bash
+./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh
+```
+
+**実行内容:**
+1. Xcode Command Line Tools確認
+2. idb_companionインストール確認
+3. シミュレータ起動（未起動の場合）
+4. agent-mobile接続確認
+
+**Android:**
+```bash
+./.claude/skills/agent-mobile-dev/scripts/setup-android.sh
+```
+
+**実行内容:**
+1. Android SDK (adb, emulator)確認
+2. adb server起動
+3. エミュレータ起動（未起動の場合）
+4. agent-mobile接続確認
+
+### セットアップが必要なタイミング
+
+- **初回セットアップ**: agent-mobile開発を初めて行う場合
+- **システムアップデート後**: Xcode、Android Studioなどを更新した場合
+- **デバイス検出エラー**: テスト実行時にデバイスが検出されない場合
+
+**詳細は `environment-setup.md` を参照してください。**
+
+---
+
 ## テスト戦略概要
 
 ### 3層テストピラミッド

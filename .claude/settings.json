@@ -13,6 +13,7 @@
       "Bash(cargo clean:*)",
       "Bash(cargo test:*)",
       "Bash(./target/debug/agent-mobile:*)",
+      "Skill(ck)",
       "Bash(ck:*)"
     ],
     "deny": [
