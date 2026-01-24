@@ -222,7 +222,10 @@ impl From<&SnapshotElement> for ElementOutput {
 
 /// Execute the find command
 pub async fn run(args: FindArgs) -> CommandResult {
-    let platform = DeviceResolver::detect_platform().await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // Extract action from locator
     let (action_str, action_value) = extract_action(&args.locator);

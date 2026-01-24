@@ -91,7 +91,7 @@ pub struct DeviceInfo {
 }
 
 /// Detect platform from UDID by searching device lists.
-async fn detect_platform_from_udid(
+pub async fn detect_platform_from_udid(
     udid: &str,
 ) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
     // Check iOS devices first

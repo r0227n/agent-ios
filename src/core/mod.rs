@@ -14,6 +14,9 @@
 //! - `wait` - 要素待機
 //! - `screenshot` - スクリーンショット
 //! - `find` - semantic locators による要素検索
+//! - `check` - チェックボックス/スイッチをONにする
+//! - `uncheck` - チェックボックス/スイッチをOFFにする
+//! - `select` - Picker/Spinnerから値を選択
 
 pub mod check;
 pub mod fill;

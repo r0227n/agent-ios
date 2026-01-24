@@ -166,7 +166,10 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device_output.udid.is_none() {
                 device_output.udid = resolved_udid;
             }
-            let platform = DeviceResolver::detect_platform().await?;
+            let platform = match device_output.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_launch(
                 platform,
                 device_output.udid.as_deref(),
@@ -182,7 +185,10 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = DeviceResolver::detect_platform().await?;
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_terminate(platform, device.udid.as_deref(), &bundle_id).await
         }
         AppCommands::Install {
@@ -192,7 +198,10 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device_output.udid.is_none() {
                 device_output.udid = resolved_udid;
             }
-            let platform = DeviceResolver::detect_platform().await?;
+            let platform = match device_output.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_install(
                 platform,
                 device_output.udid.as_deref(),
@@ -208,14 +217,20 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = DeviceResolver::detect_platform().await?;
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_uninstall(platform, device.udid.as_deref(), &bundle_id).await
         }
         AppCommands::List { mut device_output } => {
             if device_output.udid.is_none() {
                 device_output.udid = resolved_udid;
             }
-            let platform = DeviceResolver::detect_platform().await?;
+            let platform = match device_output.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             execute_list(
                 platform,
                 device_output.udid.as_deref(),
@@ -231,7 +246,10 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = DeviceResolver::detect_platform().await?;
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,
@@ -246,7 +264,10 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = DeviceResolver::detect_platform().await?;
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,
@@ -261,7 +282,10 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             if device.udid.is_none() {
                 device.udid = resolved_udid;
             }
-            let platform = DeviceResolver::detect_platform().await?;
+            let platform = match device.udid.as_deref() {
+                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+                None => DeviceResolver::detect_platform().await?,
+            };
             let udid = match &device.udid {
                 Some(u) => u.clone(),
                 None => get_default_udid(platform).await?,

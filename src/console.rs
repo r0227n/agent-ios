@@ -21,8 +21,11 @@ pub struct ConsoleArgs {
 
 /// Run the console command
 pub async fn run(args: ConsoleArgs) -> CommandResult {
-    // Use gateway for platform detection
-    let platform = DeviceResolver::detect_platform().await?;
+    // Use gateway for platform detection, respecting explicit UDID
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // Create output writer
     let writer = match args.output.as_deref() {

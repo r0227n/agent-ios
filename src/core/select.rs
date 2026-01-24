@@ -9,12 +9,14 @@
 use std::time::Duration;
 
 use clap::Args;
+use serde::Serialize;
 
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::{with_client, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::format::OutputFormat;
 
 use super::ref_resolver::{self, ElementTarget};
 use super::tap::{execute_tap, take_snapshot};
@@ -32,13 +34,28 @@ pub struct SelectArgs {
     #[arg(long, default_value = "10")]
     pub max_swipes: u32,
 
+    /// Output format (text or json)
+    #[arg(short = 'f', long, value_enum, default_value = "text")]
+    pub format: OutputFormat,
+
     #[command(flatten)]
     pub device: DeviceArgs,
 }
 
+/// JSON output for select command
+#[derive(Debug, Serialize)]
+struct SelectOutput {
+    target: String,
+    value: String,
+    status: String,
+}
+
 /// Execute the select command
 pub async fn run(args: SelectArgs) -> CommandResult {
-    let platform = DeviceResolver::detect_platform().await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     match platform {
         Platform::Ios => run_ios(args).await,
@@ -51,6 +68,7 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
     let target = ElementTarget::parse(&args.target);
     let value_lower = args.value.to_lowercase();
     let udid = args.device.udid.as_deref();
+    let format = args.format;
 
     // 1. Find and tap the picker to activate it
     let snapshot = take_snapshot(Platform::Ios, udid).await?;
@@ -97,7 +115,16 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
                 execute_tap(Platform::Ios, udid, dx, dy).await?;
             }
 
-            println!("Selected: {}", args.value);
+            if format.is_json() {
+                let output = SelectOutput {
+                    target: args.target.clone(),
+                    value: args.value.clone(),
+                    status: "success".to_string(),
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("Selected: {}", args.value);
+            }
             return Ok(());
         }
 
@@ -129,6 +156,7 @@ async fn run_android(args: SelectArgs) -> CommandResult {
     let target = ElementTarget::parse(&args.target);
     let value_lower = args.value.to_lowercase();
     let udid = args.device.udid.as_deref();
+    let format = args.format;
 
     // 1. Find and tap the spinner to open dropdown
     let snapshot = take_snapshot(Platform::Android, udid).await?;
@@ -159,7 +187,16 @@ async fn run_android(args: SelectArgs) -> CommandResult {
             let (x, y) = element.frame.center();
             execute_tap(Platform::Android, udid, x, y).await?;
 
-            println!("Selected: {}", args.value);
+            if format.is_json() {
+                let output = SelectOutput {
+                    target: args.target.clone(),
+                    value: args.value.clone(),
+                    status: "success".to_string(),
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("Selected: {}", args.value);
+            }
             return Ok(());
         }
 

@@ -7,11 +7,13 @@
 //! ```
 
 use clap::Args;
+use serde::Serialize;
 
 use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::format::OutputFormat;
 
 use super::ref_resolver::{self, ElementTarget};
 use super::tap::{execute_tap, take_snapshot};
@@ -22,8 +24,21 @@ pub struct CheckArgs {
     /// Target: @eN ref or "text"
     pub target: String,
 
+    /// Output format (text or json)
+    #[arg(short = 'f', long, value_enum, default_value = "text")]
+    pub format: OutputFormat,
+
     #[command(flatten)]
     pub device: DeviceArgs,
+}
+
+/// JSON output for check/uncheck command
+#[derive(Debug, Serialize)]
+struct CheckOutput {
+    target: String,
+    action: String,
+    previous_state: bool,
+    current_state: bool,
 }
 
 /// Execute the check/uncheck command
@@ -31,7 +46,10 @@ pub struct CheckArgs {
 /// - `should_check = true`: チェックをONにする（check コマンド）
 /// - `should_check = false`: チェックをOFFにする（uncheck コマンド）
 pub async fn run(args: CheckArgs, should_check: bool) -> CommandResult {
-    let platform = DeviceResolver::detect_platform().await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
     let target = ElementTarget::parse(&args.target);
 
     // Get snapshot and resolve element
@@ -47,18 +65,42 @@ pub async fn run(args: CheckArgs, should_check: bool) -> CommandResult {
         _ => {
             // For elements without value, check traits
             element.traits.iter().any(|t| {
-                t.to_lowercase().contains("selected") || t.to_lowercase().contains("checked")
+                let lower = t.to_lowercase();
+                (lower.contains("selected")
+                    && !lower.contains("unselected")
+                    && !lower.contains("notselected"))
+                    || (lower.contains("checked") && !lower.contains("unchecked"))
             })
         }
     };
 
     // Only tap if state needs to change
-    if is_currently_checked != should_check {
+    let action_taken = if is_currently_checked != should_check {
         let (x, y) = element.center();
         execute_tap(platform, args.device.udid.as_deref(), x, y).await?;
+        true
+    } else {
+        false
+    };
 
-        let action = if should_check { "Checked" } else { "Unchecked" };
-        println!("{}: {}", action, args.target);
+    let current_state = if action_taken {
+        should_check
+    } else {
+        is_currently_checked
+    };
+    let action = if should_check { "checked" } else { "unchecked" };
+
+    if args.format.is_json() {
+        let output = CheckOutput {
+            target: args.target.clone(),
+            action: action.to_string(),
+            previous_state: is_currently_checked,
+            current_state,
+        };
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else if action_taken {
+        let action_display = if should_check { "Checked" } else { "Unchecked" };
+        println!("{}: {}", action_display, args.target);
     } else {
         let state = if should_check {
             "already checked"

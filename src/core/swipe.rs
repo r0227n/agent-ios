@@ -48,7 +48,10 @@ pub struct SwipeArgs {
 
 /// Execute the swipe command
 pub async fn run(args: SwipeArgs) -> CommandResult {
-    let platform = DeviceResolver::detect_platform().await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // Parse swipe coordinates
     let ((x1, y1), (x2, y2)) = parse_swipe_args(

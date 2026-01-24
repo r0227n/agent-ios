@@ -311,10 +311,13 @@ fn output_snapshot(
 ///
 /// Finds the root element by @eN ref or text, then collects all descendants.
 /// Adjusts depth values so the root element has depth 0.
+/// Remaps parent_index and children_indices to reflect new array positions.
 fn extract_subtree(
     elements: &[types::SnapshotElement],
     scope_target: &str,
 ) -> CommandResult<Vec<types::SnapshotElement>> {
+    use std::collections::HashMap;
+
     // Find the root element index
     let root_index = if scope_target.starts_with('@') {
         // @eN ref format
@@ -342,22 +345,50 @@ fn extract_subtree(
 
     let root_depth = elements[root_index].depth;
 
-    // Collect all descendants (elements with the root as ancestor)
-    // We use the parent_index chain to determine ancestry
-    let mut result = Vec::new();
-    for (idx, elem) in elements.iter().enumerate() {
-        // Check if this element is the root or a descendant of root
-        if is_descendant_or_self(elements, idx, root_index) {
-            let mut elem_clone = elem.clone();
-            // Adjust depth relative to root
-            elem_clone.depth = elem.depth.saturating_sub(root_depth);
-            result.push(elem_clone);
-        }
-    }
+    // Collect indices of elements to include (root and descendants)
+    let included_indices: Vec<usize> = elements
+        .iter()
+        .enumerate()
+        .filter(|(idx, _)| is_descendant_or_self(elements, *idx, root_index))
+        .map(|(idx, _)| idx)
+        .collect();
 
-    if result.is_empty() {
+    if included_indices.is_empty() {
         return Err(format!("No elements found in subtree for: {}", scope_target).into());
     }
+
+    // Create index mapping: old_index -> new_index
+    let index_map: HashMap<usize, usize> = included_indices
+        .iter()
+        .enumerate()
+        .map(|(new_idx, &old_idx)| (old_idx, new_idx))
+        .collect();
+
+    // Build result with remapped indices
+    let result: Vec<types::SnapshotElement> = included_indices
+        .iter()
+        .map(|&old_idx| {
+            let elem = &elements[old_idx];
+            let mut elem_clone = elem.clone();
+
+            // Adjust depth relative to root
+            elem_clone.depth = elem.depth.saturating_sub(root_depth);
+
+            // Remap parent_index
+            elem_clone.parent_index = elem_clone
+                .parent_index
+                .and_then(|pi| index_map.get(&pi).copied());
+
+            // Remap children_indices
+            elem_clone.children_indices = elem_clone
+                .children_indices
+                .iter()
+                .filter_map(|&ci| index_map.get(&ci).copied())
+                .collect();
+
+            elem_clone
+        })
+        .collect();
 
     Ok(result)
 }

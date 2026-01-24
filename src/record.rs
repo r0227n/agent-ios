@@ -80,7 +80,10 @@ fn resolve_output_path(output: Option<&str>) -> Result<String, std::io::Error> {
 
 /// Execute the record command
 pub async fn run(args: RecordArgs) -> CommandResult {
-    let platform = DeviceResolver::detect_platform().await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
     let resolved_path = resolve_output_path(args.output.as_deref())?;
 
     match platform {
