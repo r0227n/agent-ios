@@ -187,48 +187,6 @@ impl IosDevice {
         self.client.accessibility_info(None, nested).await
     }
 
-    /// Open a URL on the device.
-    ///
-    /// # Arguments
-    ///
-    /// * `url` - URL to open
-    pub async fn open_url(&mut self, url: &str) -> Result<()> {
-        self.client.open_url(url).await
-    }
-
-    /// Set the device location.
-    ///
-    /// # Arguments
-    ///
-    /// * `latitude` - Latitude coordinate
-    /// * `longitude` - Longitude coordinate
-    pub async fn set_location(&mut self, latitude: f64, longitude: f64) -> Result<()> {
-        self.client.set_location(latitude, longitude).await
-    }
-
-    /// Focus the device window (bring to front).
-    pub async fn focus(&mut self) -> Result<()> {
-        self.client.focus().await
-    }
-
-    /// Stream logs from the device
-    ///
-    /// # Arguments
-    ///
-    /// * `source` - Log source (Target, Companion, etc.)
-    /// * `arguments` - Additional log arguments
-    ///
-    /// # Returns
-    ///
-    /// A stream of log responses
-    pub async fn stream_logs(
-        &mut self,
-        source: agent_mobile_platform_ios::proto::idb::log_request::Source,
-        arguments: Vec<String>,
-    ) -> Result<tonic::Streaming<agent_mobile_platform_ios::proto::idb::LogResponse>> {
-        self.client.log(source, arguments).await
-    }
-
     /// Get the underlying gRPC client for advanced operations.
     ///
     /// This provides access to the full set of gRPC methods

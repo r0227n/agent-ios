@@ -15,7 +15,7 @@ pub mod snapshot;
 
 // Re-export main types
 pub use companion::{CompanionLister, CompanionResolver, CompanionState};
-pub use grpc::{IdbClient, LaunchConfig, XctraceTarget};
+pub use grpc::{IdbClient, LaunchConfig};
 pub use hid::events::{
     button_to_events, key_sequence_to_events, key_to_events, swipe_to_events, tap_to_events,
     text_to_events,

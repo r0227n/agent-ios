@@ -567,28 +567,11 @@ async fn execute_grant(
                 .into());
             }
 
-            // Try idb gRPC first, fall back to simctl
-            use crate::helpers::client::with_client;
-
-            let result = with_client(Some(udid), |mut client| async move {
-                let perm_id = ios_permission_to_id(permission);
-                client.approve(bundle_id, vec![perm_id], None).await
-            })
-            .await;
-
-            match result {
-                Ok(_) => {
-                    println!("Granted {} to {}", permission, bundle_id);
-                    Ok(())
-                }
-                Err(_) => {
-                    // Fall back to simctl
-                    use agent_mobile_platform_ios::simctl::management;
-                    management::privacy_grant(udid, permission, bundle_id)?;
-                    println!("Granted {} to {} (via simctl)", permission, bundle_id);
-                    Ok(())
-                }
-            }
+            // Use simctl for permission management
+            use agent_mobile_platform_ios::simctl::management;
+            management::privacy_grant(udid, permission, bundle_id)?;
+            println!("Granted {} to {}", permission, bundle_id);
+            Ok(())
         }
         Platform::Android => {
             use tokio::process::Command;
@@ -619,28 +602,11 @@ async fn execute_revoke(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            // Try idb gRPC first, fall back to simctl
-            use crate::helpers::client::with_client;
-
-            let result = with_client(Some(udid), |mut client| async move {
-                let perm_id = ios_permission_to_id(permission);
-                client.revoke(bundle_id, vec![perm_id], None).await
-            })
-            .await;
-
-            match result {
-                Ok(_) => {
-                    println!("Revoked {} from {}", permission, bundle_id);
-                    Ok(())
-                }
-                Err(_) => {
-                    // Fall back to simctl
-                    use agent_mobile_platform_ios::simctl::management;
-                    management::privacy_revoke(udid, permission, bundle_id)?;
-                    println!("Revoked {} from {} (via simctl)", permission, bundle_id);
-                    Ok(())
-                }
-            }
+            // Use simctl for permission management
+            use agent_mobile_platform_ios::simctl::management;
+            management::privacy_revoke(udid, permission, bundle_id)?;
+            println!("Revoked {} from {}", permission, bundle_id);
+            Ok(())
         }
         Platform::Android => {
             use tokio::process::Command;
@@ -680,21 +646,6 @@ async fn execute_reset(
             // Android doesn't have a reset concept, just revoke
             execute_revoke(platform, udid, bundle_id, permission).await
         }
-    }
-}
-
-/// Convert iOS permission name to idb permission ID.
-fn ios_permission_to_id(permission: &str) -> i32 {
-    // These IDs match the idb.proto Permission enum
-    match permission {
-        "photos" => 1,
-        "camera" => 2,
-        "contacts" => 3,
-        "url" => 4,
-        "location" => 5,
-        "notification" => 6,
-        "microphone" => 7,
-        _ => 0, // Unknown
     }
 }
 

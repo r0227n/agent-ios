@@ -5,12 +5,8 @@
 
 pub mod app;
 pub mod client;
-pub mod debug;
 pub mod device;
-pub mod file;
 pub mod hid;
-pub mod media;
 pub mod target;
-pub mod test;
 
-pub use client::{IdbClient, LaunchConfig, XctraceTarget};
+pub use client::{IdbClient, LaunchConfig};

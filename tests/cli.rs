@@ -1,11 +1,7 @@
 //! Integration tests for CLI feature commands.
 //!
 //! This file aggregates all CLI feature integration tests from the cli/ subdirectory.
-//! These tests verify the `agent-mobile <feature>` commands (excluding `idb` subcommand).
-
-// Import idb common utilities
-#[path = "idb/common/mod.rs"]
-mod idb_common;
+//! These tests verify the `agent-mobile <feature>` commands.
 
 // CLI feature common utilities
 #[path = "cli/common/mod.rs"]

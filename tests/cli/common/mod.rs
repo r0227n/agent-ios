@@ -10,8 +10,11 @@ use std::process::{Command, Output};
 mod android;
 mod platform;
 
-// Re-export iOS common functions from idb tests
-pub use crate::idb_common::{ensure_companion_running, get_available_udid, get_test_bundle_id};
+// iOS utility functions
+mod ios;
+
+// Re-export iOS common functions
+pub use ios::{ensure_companion_running, get_available_udid, get_test_bundle_id};
 
 // Re-export Android utilities
 pub use android::get_available_serial;
