@@ -3,6 +3,7 @@ mod command;
 mod console;
 mod core;
 mod device;
+mod doctor;
 mod helpers;
 mod idb;
 mod record;
@@ -136,6 +137,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         Commands::Session(args) => {
             session::run(args, session).await?;
+        }
+        Commands::Doctor(args) => {
+            doctor::run(args).await?;
         }
 
         // ==================== IDB Commands ====================

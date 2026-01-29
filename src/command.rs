@@ -89,4 +89,7 @@ pub enum Commands {
         #[command(subcommand)]
         command: Box<crate::idb::IdbCommands>,
     },
+
+    /// Check development environment dependencies
+    Doctor(crate::doctor::DoctorArgs),
 }
