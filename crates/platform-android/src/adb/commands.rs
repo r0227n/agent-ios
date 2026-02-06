@@ -22,6 +22,9 @@ pub enum AdbError {
 
     #[error("Invalid output: {0}")]
     InvalidOutput(String),
+
+    #[error("adb connection error: {0}")]
+    ConnectionError(String),
 }
 
 pub type Result<T> = std::result::Result<T, AdbError>;

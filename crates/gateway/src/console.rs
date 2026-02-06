@@ -90,7 +90,7 @@ async fn stream_android_console(
     use crate::AndroidDevice;
 
     // Connect via AndroidDevice
-    let mut device = AndroidDevice::connect(udid).await?;
+    let device = AndroidDevice::connect(udid).await?;
 
     // Stream logs
     let mut stream = device.stream_logs().await?;

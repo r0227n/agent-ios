@@ -7,6 +7,7 @@ pub mod app;
 pub mod commands;
 pub mod connection;
 pub mod input;
+pub mod logcat;
 pub mod permission;
 pub mod screenshot;
 pub mod uiautomator;
