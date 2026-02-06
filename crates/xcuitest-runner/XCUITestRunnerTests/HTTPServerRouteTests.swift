@@ -1,5 +1,5 @@
-import XCTest
 import Network
+import XCTest
 
 final class HTTPServerRouteTests: XCTestCase {
 
@@ -51,30 +51,33 @@ final class HTTPServerRouteTests: XCTestCase {
         var requestData = Data(raw.utf8)
         requestData.append(bodyData)
 
-        connection.send(content: requestData, completion: .contentProcessed { error in
-            if let error = error {
-                NSLog("Send error: \(error)")
-                semaphore.signal()
-                return
-            }
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, _, _ in
-                if let data = data, let rawStr = String(data: data, encoding: .utf8) {
-                    let parts = rawStr.components(separatedBy: "\r\n\r\n")
-                    if let statusLine = parts.first?.components(separatedBy: "\r\n").first {
-                        let statusParts = statusLine.components(separatedBy: " ")
-                        if statusParts.count >= 2, let code = Int(statusParts[1]) {
-                            result.0 = code
+        connection.send(
+            content: requestData,
+            completion: .contentProcessed { error in
+                if let error = error {
+                    NSLog("Send error: \(error)")
+                    semaphore.signal()
+                    return
+                }
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, _, _ in
+                    if let data = data, let rawStr = String(data: data, encoding: .utf8) {
+                        let parts = rawStr.components(separatedBy: "\r\n\r\n")
+                        if let statusLine = parts.first?.components(separatedBy: "\r\n").first {
+                            let statusParts = statusLine.components(separatedBy: " ")
+                            if statusParts.count >= 2, let code = Int(statusParts[1]) {
+                                result.0 = code
+                            }
+                        }
+                        if parts.count > 1, let jsonData = parts[1].data(using: .utf8),
+                            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+                        {
+                            result.1 = json
                         }
                     }
-                    if parts.count > 1, let jsonData = parts[1].data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                        result.1 = json
-                    }
+                    connection.cancel()
+                    semaphore.signal()
                 }
-                connection.cancel()
-                semaphore.signal()
-            }
-        })
+            })
 
         let waitResult = semaphore.wait(timeout: .now() + 5)
         if waitResult == .timedOut {

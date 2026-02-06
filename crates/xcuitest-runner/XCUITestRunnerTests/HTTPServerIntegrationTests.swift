@@ -1,5 +1,5 @@
-import XCTest
 import Network
+import XCTest
 
 /// Integration tests that verify the HTTP protocol contract between
 /// the XCUITest Runner and the Rust XCUITestClient.
@@ -37,20 +37,22 @@ final class HTTPServerIntegrationTests: XCTestCase {
         let connection = NWConnection(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!, using: .tcp)
         connection.start(queue: .global())
 
-        connection.send(content: raw, completion: .contentProcessed { error in
-            if let error = error {
-                NSLog("Send error: \(error)")
-                semaphore.signal()
-                return
-            }
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, _, _ in
-                if let data = data {
-                    responseData = data
+        connection.send(
+            content: raw,
+            completion: .contentProcessed { error in
+                if let error = error {
+                    NSLog("Send error: \(error)")
+                    semaphore.signal()
+                    return
                 }
-                connection.cancel()
-                semaphore.signal()
-            }
-        })
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, _, _ in
+                    if let data = data {
+                        responseData = data
+                    }
+                    connection.cancel()
+                    semaphore.signal()
+                }
+            })
 
         let result = semaphore.wait(timeout: .now() + 5)
         if result == .timedOut {
@@ -85,7 +87,8 @@ final class HTTPServerIntegrationTests: XCTestCase {
 
         var body: [String: Any] = [:]
         if parts.count > 1, let jsonData = parts[1].data(using: .utf8),
-           let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        {
             body = json
         }
 
@@ -138,12 +141,16 @@ final class HTTPServerIntegrationTests: XCTestCase {
         let data = try sendRawRequest(port: port, raw: Data(raw.utf8))
         let rawStr = String(data: data, encoding: .utf8) ?? ""
         let parts = rawStr.components(separatedBy: "\r\n\r\n")
-        guard parts.count > 1 else { XCTFail("No body"); return }
+        guard parts.count > 1 else {
+            XCTFail("No body")
+            return
+        }
         let bodyStr = parts[1]
         // With .sortedKeys, "a_first" should appear before "m_middle" which should appear before "z_last"
         if let aRange = bodyStr.range(of: "a_first"),
-           let mRange = bodyStr.range(of: "m_middle"),
-           let zRange = bodyStr.range(of: "z_last") {
+            let mRange = bodyStr.range(of: "m_middle"),
+            let zRange = bodyStr.range(of: "z_last")
+        {
             XCTAssertTrue(aRange.lowerBound < mRange.lowerBound)
             XCTAssertTrue(mRange.lowerBound < zRange.lowerBound)
         } else {

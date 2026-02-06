@@ -61,7 +61,7 @@ final class AccessibilityHandler {
     // MARK: - Flat element (nested=false, root only)
 
     private func buildFlatElement(from element: XCUIElement) -> [String: Any] {
-        return buildElementDict(from: element)
+        buildElementDict(from: element)
     }
 
     // MARK: - Element Dictionary
@@ -95,7 +95,7 @@ final class AccessibilityHandler {
             "x": frame.origin.x.isFinite ? frame.origin.x : 0,
             "y": frame.origin.y.isFinite ? frame.origin.y : 0,
             "width": frame.size.width.isFinite ? frame.size.width : 0,
-            "height": frame.size.height.isFinite ? frame.size.height : 0
+            "height": frame.size.height.isFinite ? frame.size.height : 0,
         ]
 
         // Enabled
