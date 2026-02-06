@@ -61,6 +61,7 @@ async fn stream_ios_console(
             _ = stop_rx.changed() => {
                 if *stop_rx.borrow() {
                     child.kill().await.ok();
+                    let _ = child.wait().await;
                     break;
                 }
             }

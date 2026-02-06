@@ -4,7 +4,7 @@
 //! for Android apps using `adb shell pm` commands.
 
 use super::commands::{AdbError, Result};
-use std::process::Command;
+use tokio::process::Command;
 
 /// Grant a runtime permission to an app.
 ///
@@ -46,7 +46,7 @@ pub async fn grant_permission(serial: Option<&str>, package: &str, permission: &
     }
     cmd.args(["shell", "pm", "grant", package, permission]);
 
-    let output = cmd.output().map_err(|e| {
+    let output = cmd.output().await.map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             AdbError::AdbNotFound
         } else {
@@ -88,7 +88,7 @@ pub async fn revoke_permission(
     }
     cmd.args(["shell", "pm", "revoke", package, permission]);
 
-    let output = cmd.output().map_err(|e| {
+    let output = cmd.output().await.map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             AdbError::AdbNotFound
         } else {
@@ -128,7 +128,7 @@ pub async fn reset_permissions(serial: Option<&str>, package: &str) -> Result<()
     }
     cmd.args(["shell", "pm", "reset-permissions", package]);
 
-    let output = cmd.output().map_err(|e| {
+    let output = cmd.output().await.map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             AdbError::AdbNotFound
         } else {
@@ -167,7 +167,7 @@ pub async fn list_permissions(serial: Option<&str>, package: &str) -> Result<Vec
     }
     cmd.args(["shell", "dumpsys", "package", package]);
 
-    let output = cmd.output().map_err(|e| {
+    let output = cmd.output().await.map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             AdbError::AdbNotFound
         } else {

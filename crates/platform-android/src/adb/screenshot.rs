@@ -4,7 +4,7 @@
 //! using the `adb shell screencap` command.
 
 use super::commands::{AdbError, Result};
-use std::process::Command;
+use tokio::process::Command;
 
 /// Take a screenshot and save to the specified path.
 ///
@@ -37,7 +37,7 @@ pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
     }
     screencap_cmd.args(["shell", "screencap", temp_path]);
 
-    let output = screencap_cmd.output().map_err(|e| {
+    let output = screencap_cmd.output().await.map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             AdbError::AdbNotFound
         } else {
@@ -60,7 +60,7 @@ pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
     }
     pull_cmd.args(["pull", temp_path, output_path]);
 
-    let output = pull_cmd.output().map_err(AdbError::ExecutionError)?;
+    let output = pull_cmd.output().await.map_err(AdbError::ExecutionError)?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -75,7 +75,7 @@ pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
     rm_cmd.args(["shell", "rm", temp_path]);
 
     // Ignore cleanup errors (non-critical)
-    let _ = rm_cmd.output();
+    let _ = rm_cmd.output().await;
 
     Ok(())
 }
