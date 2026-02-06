@@ -41,7 +41,7 @@ impl DeviceResolver {
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
                     if let Some(devices) = json.get("devices").and_then(|d| d.as_object()) {
                         return devices.values().any(|list| {
-                            list.as_array().map_or(false, |arr| {
+                            list.as_array().is_some_and(|arr| {
                                 arr.iter().any(|d| {
                                     d.get("state").and_then(|s| s.as_str()) == Some("Booted")
                                 })

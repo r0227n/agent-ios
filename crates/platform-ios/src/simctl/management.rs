@@ -455,8 +455,6 @@ fn parse_runtime_version(runtime: &str) -> Option<String> {
         let os_name = parts[0];
         let version_parts = &parts[1..];
         Some(format!("{} {}", os_name, version_parts.join(".")))
-    } else if parts.len() == 2 {
-        Some(version)
     } else {
         Some(version)
     }

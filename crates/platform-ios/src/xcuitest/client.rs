@@ -14,6 +14,12 @@ pub struct XCUITestClient {
     http_long: reqwest::Client,
 }
 
+impl Default for XCUITestClient {
+    fn default() -> Self {
+        Self::new(Self::DEFAULT_PORT)
+    }
+}
+
 impl XCUITestClient {
     /// Default port for the XCUITest Runner HTTP server.
     pub const DEFAULT_PORT: u16 = 8200;
@@ -37,11 +43,6 @@ impl XCUITestClient {
             http,
             http_long,
         }
-    }
-
-    /// Create a client with the default port.
-    pub fn default() -> Self {
-        Self::new(Self::DEFAULT_PORT)
     }
 
     /// Check if the runner is healthy and accepting connections.
