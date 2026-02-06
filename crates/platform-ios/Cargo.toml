@@ -18,6 +18,9 @@ serde_json = "1.0"
 thiserror = "2.0"
 anyhow = "1.0"
 
+# Plist parsing (for simctl listapps output)
+plist = "1"
+
 # Regex
 regex = "1"
 

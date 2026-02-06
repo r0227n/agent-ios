@@ -35,27 +35,12 @@ impl DeviceResolver {
 
     /// Check if any iOS simulators are currently booted
     pub async fn has_booted_ios_simulators() -> bool {
-        use tokio::process::Command;
-        let output = Command::new("xcrun")
-            .args(["simctl", "list", "devices", "-j"])
-            .output()
-            .await;
-        match output {
-            Ok(o) if o.status.success() => {
-                let stdout = String::from_utf8_lossy(&o.stdout);
-                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
-                    if let Some(devices) = json.get("devices").and_then(|d| d.as_object()) {
-                        return devices.values().any(|list| {
-                            list.as_array().is_some_and(|arr| {
-                                arr.iter().any(|d| {
-                                    d.get("state").and_then(|s| s.as_str()) == Some("Booted")
-                                })
-                            })
-                        });
-                    }
-                }
-                false
-            }
+        let result =
+            tokio::task::spawn_blocking(|| agent_mobile_platform_ios::simctl::list_simulators())
+                .await;
+
+        match result {
+            Ok(Ok(devices)) => devices.iter().any(|d| d.state.as_deref() == Some("Booted")),
             _ => false,
         }
     }

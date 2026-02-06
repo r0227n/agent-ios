@@ -4,6 +4,7 @@
 //! through the `xcrun simctl` command line tool.
 
 pub mod cache;
+mod helper;
 pub mod management;
 
 pub use management::{

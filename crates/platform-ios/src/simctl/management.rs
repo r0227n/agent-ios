@@ -4,8 +4,9 @@
 
 #![allow(dead_code)]
 
-use std::process::Command;
 use thiserror::Error;
+
+use super::helper::{run_simctl, run_simctl_tolerant};
 
 #[derive(Debug, Error)]
 pub enum SimctlError {
@@ -23,53 +24,21 @@ pub type Result<T> = std::result::Result<T, SimctlError>;
 
 /// Boot a simulator
 pub fn boot(udid: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "boot", udid])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        // "Unable to boot device in current state: Booted" is not an error
-        if stderr.contains("Booted") {
-            return Ok(());
-        }
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl_tolerant(&["boot", udid], &["Booted"])?;
     super::cache::invalidate_cache();
     Ok(())
 }
 
 /// Shutdown a simulator
 pub fn shutdown(udid: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "shutdown", udid])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        // "Unable to shutdown device in current state: Shutdown" is not an error
-        if stderr.contains("Shutdown") {
-            return Ok(());
-        }
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl_tolerant(&["shutdown", udid], &["Shutdown"])?;
     super::cache::invalidate_cache();
     Ok(())
 }
 
 /// Erase a simulator (reset to clean state)
 pub fn erase(udid: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "erase", udid])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl(&["erase", udid])?;
     super::cache::invalidate_cache();
     Ok(())
 }
@@ -77,22 +46,13 @@ pub fn erase(udid: &str) -> Result<()> {
 /// Create a new simulator.
 /// Returns the UDID of the created simulator.
 pub fn create(name: &str, device_type: &str, runtime: &str) -> Result<String> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "create", name, device_type, runtime])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
-    let udid = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stdout = run_simctl(&["create", name, device_type, runtime])?;
+    let udid = stdout.trim().to_string();
     if udid.is_empty() {
         return Err(SimctlError::InvalidOutput(
             "No UDID returned from create command".to_string(),
         ));
     }
-
     super::cache::invalidate_cache();
     Ok(udid)
 }
@@ -101,110 +61,51 @@ pub fn create(name: &str, device_type: &str, runtime: &str) -> Result<String> {
 /// Returns the UDID of the cloned simulator.
 pub fn clone(udid: &str) -> Result<String> {
     let name = format!("Clone of {}", udid);
-
-    let output = Command::new("xcrun")
-        .args(["simctl", "clone", udid, &name])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
-    let new_udid = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stdout = run_simctl(&["clone", udid, &name])?;
+    let new_udid = stdout.trim().to_string();
     if new_udid.is_empty() {
         return Err(SimctlError::InvalidOutput(
             "No UDID returned from clone command".to_string(),
         ));
     }
-
     super::cache::invalidate_cache();
     Ok(new_udid)
 }
 
 /// Delete a simulator
 pub fn delete(udid: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "delete", udid])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl(&["delete", udid])?;
     super::cache::invalidate_cache();
     Ok(())
 }
 
 /// Delete all simulators
 pub fn delete_all() -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "delete", "all"])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl(&["delete", "all"])?;
     super::cache::invalidate_cache();
     Ok(())
 }
 
 /// List all simulator devices as JSON string.
 pub fn list_devices_json() -> Result<String> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "list", "devices", "--json"])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
-    String::from_utf8(output.stdout).map_err(|e| SimctlError::InvalidOutput(e.to_string()))
+    run_simctl(&["list", "devices", "--json"])
 }
 
 /// Grant privacy permission using simctl.
 pub fn privacy_grant(udid: &str, service: &str, bundle_id: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "privacy", udid, "grant", service, bundle_id])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl(&["privacy", udid, "grant", service, bundle_id])?;
     Ok(())
 }
 
 /// Revoke privacy permission using simctl.
 pub fn privacy_revoke(udid: &str, service: &str, bundle_id: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "privacy", udid, "revoke", service, bundle_id])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl(&["privacy", udid, "revoke", service, bundle_id])?;
     Ok(())
 }
 
 /// Reset privacy permissions for an app.
 pub fn privacy_reset(udid: &str, service: &str, bundle_id: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "privacy", udid, "reset", service, bundle_id])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl(&["privacy", udid, "reset", service, bundle_id])?;
     Ok(())
 }
 
@@ -259,29 +160,13 @@ pub fn get_booted_simulator() -> Result<BootedSimulator> {
 
 /// Install an app on a simulator via simctl.
 pub fn install_app(udid: &str, path: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "install", udid, path])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl(&["install", udid, path])?;
     Ok(())
 }
 
 /// Uninstall an app from a simulator via simctl.
 pub fn uninstall_app(udid: &str, bundle_id: &str) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "uninstall", udid, bundle_id])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
+    run_simctl(&["uninstall", udid, bundle_id])?;
     Ok(())
 }
 
@@ -296,58 +181,38 @@ pub struct SimctlAppInfo {
 
 /// List installed apps on a simulator via simctl.
 ///
-/// Runs `xcrun simctl listapps` (plist output) and pipes through
-/// `plutil -convert json` to get JSON, then parses into structured data.
+/// Runs `xcrun simctl listapps` (plist output) and parses directly
+/// with the `plist` crate to get structured data.
 pub fn list_apps(udid: &str) -> Result<Vec<SimctlAppInfo>> {
-    use std::process::Stdio;
+    let stdout = run_simctl(&["listapps", udid])?;
+    let plist_value: plist::Value = plist::from_bytes(stdout.as_bytes())
+        .map_err(|e| SimctlError::InvalidOutput(format!("plist parse error: {}", e)))?;
 
-    // Run simctl listapps and pipe through plutil for JSON conversion
-    let simctl = Command::new("xcrun")
-        .args(["simctl", "listapps", udid])
-        .stdout(Stdio::piped())
-        .spawn()?;
-
-    let plutil = Command::new("plutil")
-        .args(["-convert", "json", "-o", "-", "--", "-"])
-        .stdin(simctl.stdout.ok_or_else(|| {
-            SimctlError::CommandFailed("Failed to capture simctl stdout".to_string())
-        })?)
-        .output()?;
-
-    if !plutil.status.success() {
-        let stderr = String::from_utf8_lossy(&plutil.stderr);
-        return Err(SimctlError::CommandFailed(format!(
-            "plutil conversion failed: {}",
-            stderr
-        )));
-    }
-
-    let json_str =
-        String::from_utf8(plutil.stdout).map_err(|e| SimctlError::InvalidOutput(e.to_string()))?;
-
-    let parsed: serde_json::Value =
-        serde_json::from_str(&json_str).map_err(|e| SimctlError::InvalidOutput(e.to_string()))?;
-
-    let obj = parsed
-        .as_object()
-        .ok_or_else(|| SimctlError::InvalidOutput("Expected JSON object".to_string()))?;
+    let dict = plist_value
+        .as_dictionary()
+        .ok_or_else(|| SimctlError::InvalidOutput("Expected plist dictionary".to_string()))?;
 
     let mut apps = Vec::new();
-    for (bundle_id, info) in obj {
-        let name = info
+    for (bundle_id, info) in dict {
+        let info_dict = match info.as_dictionary() {
+            Some(d) => d,
+            None => continue,
+        };
+
+        let name = info_dict
             .get("CFBundleDisplayName")
-            .or_else(|| info.get("CFBundleName"))
-            .and_then(|v| v.as_str())
+            .or_else(|| info_dict.get("CFBundleName"))
+            .and_then(|v| v.as_string())
             .unwrap_or("")
             .to_string();
-        let version = info
+        let version = info_dict
             .get("CFBundleShortVersionString")
-            .and_then(|v| v.as_str())
+            .and_then(|v| v.as_string())
             .unwrap_or("")
             .to_string();
-        let app_type = info
+        let app_type = info_dict
             .get("ApplicationType")
-            .and_then(|v| v.as_str())
+            .and_then(|v| v.as_string())
             .unwrap_or("")
             .to_string();
 

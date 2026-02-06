@@ -230,30 +230,14 @@ fn send_sigint_to_child(child: &tokio::process::Child) {
 
 /// Get the UDID of a booted simulator
 async fn get_booted_simulator_udid() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    use tokio::process::Command;
-
-    let output = Command::new("xcrun")
-        .args(["simctl", "list", "devices", "booted", "-j"])
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("xcrun simctl list devices booted failed: {}", stderr).into());
-    }
-
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-    json["devices"]
-        .as_object()
-        .and_then(|devices| {
-            devices.values().find_map(|sims| {
-                sims.as_array()
-                    .and_then(|arr| arr.first())
-                    .and_then(|sim| sim["udid"].as_str())
-                    .map(|s| s.to_string())
-            })
-        })
-        .ok_or_else(|| "No booted simulator found".into())
+    let booted =
+        tokio::task::spawn_blocking(|| agent_mobile_platform_ios::simctl::get_booted_simulator())
+            .await
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+                format!("spawn_blocking failed: {}", e).into()
+            })?
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { format!("{}", e).into() })?;
+    Ok(booted.udid)
 }
 
 /// Execute recording on Android using native ADB protocol.
