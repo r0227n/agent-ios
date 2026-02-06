@@ -60,7 +60,13 @@ pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
     }
     pull_cmd.args(["pull", temp_path, output_path]);
 
-    let output = pull_cmd.output().await.map_err(AdbError::ExecutionError)?;
+    let output = pull_cmd.output().await.map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            AdbError::AdbNotFound
+        } else {
+            AdbError::ExecutionError(e)
+        }
+    })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
