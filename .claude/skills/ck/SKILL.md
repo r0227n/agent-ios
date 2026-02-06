@@ -37,10 +37,10 @@ description: |
 ## Do Examples
 
 ```bash
-ck --sem "grpc client implementation" src/
+ck --sem "xcuitest client implementation" src/
 ck --sem --jsonl --topk 10 "error handling"
 ck --hybrid "authentication logic" .
-ck "pub struct IdbClient"
+ck "pub struct XCUITestClient"
 ```
 
 ## Don't Examples

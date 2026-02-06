@@ -9,7 +9,6 @@
 **iOS開発の場合:**
 - [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh` 実行成功
 - [ ] Xcode Command Line Tools インストール確認
-- [ ] idb_companion インストール確認
 - [ ] シミュレータ起動確認
 - [ ] `agent-mobile device list` でデバイス検出確認
 
@@ -30,10 +29,10 @@
 ### プラットフォーム判断
 
 **iOS実装判断:**
-- [ ] `proto/idb.proto` を確認（`./scripts/platform-check.sh <feature>`）
-- [ ] RPC定義がある → idb gRPC実装
-- [ ] RPC定義がない → xcrun simctl実装
-- [ ] 両方で可能 → ハイブリッド実装（gRPC優先、fallback）
+- [ ] `./scripts/platform-check.sh <feature>` で実装方法確認
+- [ ] XCUITest Runner (HTTP)で実装可能 → with_xcuitest() パターン
+- [ ] simctl操作（デバイスライフサイクル） → xcrun simctl実装
+- [ ] 両方で可能 → ハイブリッド実装（XCUITest Runner優先、fallback）
 
 **Android実装判断:**
 - [ ] adbコマンドで実現可能か確認
@@ -49,7 +48,7 @@
 ### アーキテクチャ配置
 
 - [ ] トップレベルコマンド → `src/core/<name>.rs`
-- [ ] IDB互換コマンド → `src/idb/<name>.rs`
+- [ ] サブコマンド → 適切なモジュールに配置
 - [ ] Platform層の拡張が必要か確認
 
 ## フェーズ2: 実装
@@ -65,12 +64,12 @@
     - [ ] `Commands::<Name>(<name>::<Name>Args)`
     - [ ] `Commands::<Name>(args) => <name>::run(args).await`
 
-### iOS実装（idb gRPC）
+### iOS実装（XCUITest Runner HTTP）
 
-- [ ] `with_client()` パターン使用
-- [ ] ストリーミングの場合は `with_client_streaming()` 使用
+- [ ] `with_xcuitest()` パターン使用
+- [ ] ストリーミングの場合は `with_xcuitest_streaming()` 使用
 - [ ] エラーハンドリング（`?` 演算子）
-- [ ] 適切なRPCメソッド呼び出し
+- [ ] 適切なXCUITestClient HTTPメソッド呼び出し
 
 ### iOS実装（xcrun simctl）
 
@@ -115,7 +114,7 @@
 - [ ] エッジケースのテスト追加
 - [ ] `common` モジュールのヘルパー使用:
   - [ ] `get_available_udid()`
-  - [ ] `ensure_companion_running()`
+  - [ ] `ensure_device_ready()`
   - [ ] `assert_success()`, `assert_failure()`
 
 ### 統合テスト実行
@@ -140,7 +139,6 @@
   - [ ] `agent-mobile <command> --udid invalid-udid`
   - [ ] エラーメッセージが明確で実行可能
 - [ ] 複数シナリオで確認（該当する場合）
-- [ ] Python idbとの動作差異確認（該当する場合）
 
 ### Android確認
 
@@ -157,7 +155,6 @@
 - [ ] エラーメッセージが適切（異常系）
 - [ ] UI操作結果が視覚的に確認可能
 - [ ] スクリーンショットで証跡保存済み
-- [ ] Python idbとの動作差異なし（該当する場合）
 - [ ] 複数デバイスで動作確認（該当する場合）
 
 **⚠️ 実機確認なしでのコミットは禁止!**
@@ -176,7 +173,7 @@
 - [ ] **CLAUDE.md**: AI開発者向け使用例追加
 - [ ] **README.md**: ユーザー向け使用例追加（該当する場合）
 - [ ] **docs/ARCHITECTURE.md**: アーキテクチャへの影響記載（該当する場合）
-- [ ] **proto/idb.proto**: gRPC API変更のコメント（該当する場合）
+- [ ] XCUITest Runner API変更の確認（該当する場合）
 
 ### 変更履歴
 

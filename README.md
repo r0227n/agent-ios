@@ -49,10 +49,6 @@ agent-mobile --version
 ```bash
 # Xcode Command Line Tools
 xcode-select --install
-
-# idb_companion (via Homebrew)
-brew tap facebook/fb
-brew install idb-companion
 ```
 
 **Android Development**:
@@ -233,20 +229,6 @@ agent-mobile device list --json | jq '.[0].udid'
 | `record` | Capture video (MP4) | `record output.mp4 --duration 30` |
 | `console` | Stream device logs | `console --platform ios` |
 
-### IDB Compatibility
-
-80+ commands compatible with Facebook's IDB CLI. Examples:
-
-```bash
-agent-mobile idb list-targets
-agent-mobile idb screenshot screenshot.png
-agent-mobile idb install app.ipa
-agent-mobile idb launch com.example.app
-agent-mobile idb log
-```
-
-Full reference: [src/idb/README.md](src/idb/README.md)
-
 **Tip**: Run `agent-mobile <command> --help` for detailed usage.
 
 ## Usage Examples
@@ -351,11 +333,10 @@ echo "Using device: $udid"
 
 ### iOS
 
-**Implementation**: idb_companion gRPC + xcrun simctl
+**Implementation**: XCUITest Runner (HTTP) + xcrun simctl
 
 **Supported**:
-- Simulators (via simctl)
-- Physical devices (via idb_companion)
+- Simulators (via simctl + XCUITest Runner)
 
 **Device lifecycle**:
 ```bash
@@ -388,7 +369,6 @@ agent-mobile device create "Test iPhone" "iPhone 15 Pro" "iOS 17.0"
 
 ## Documentation
 
-- [IDB Commands Reference](src/idb/README.md) - 80+ IDB-compatible commands
 - [Developer Guide](CLAUDE.md) - Development workflow (Japanese)
 - [Crate Documentation](crates/) - Core, Platform, Gateway APIs
 
@@ -407,4 +387,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Credits
 
-Built with Rust, powered by [Facebook IDB](https://github.com/facebook/idb) and [Android ADB](https://developer.android.com/tools/adb).
+Built with Rust, powered by XCUITest and [Android ADB](https://developer.android.com/tools/adb).

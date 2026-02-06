@@ -193,15 +193,10 @@ sleep 5
 agent-mobile device list
 ```
 
-2. idb_companion が起動しているか確認:
+2. XCUITest Runner が起動しているか確認:
 ```bash
-ps aux | grep idb_companion
-```
-
-3. companion を再起動:
-```bash
-agent-mobile idb kill
-# 自動的に再起動される
+# XCUITest Runner は agent-mobile コマンド実行時に自動起動されます
+agent-mobile device list
 ```
 
 **解決策（Android）:**
@@ -233,20 +228,21 @@ Error: Permission denied
 ```
 
 **原因:**
-- iOS: idb_companion のアクセス権限がない
+- iOS: XCUITest Runner のアクセス権限がない
 - Android: USB デバッグが無効
 
 **解決策（iOS）:**
 
-1. idb_companion に権限を付与:
+1. XCUITest Runner に権限を付与:
 ```bash
 # System Preferences → Security & Privacy → Privacy
-# Accessibility と Automation で idb_companion を許可
+# Accessibility と Automation で許可
 ```
 
-2. companion を再起動:
+2. デバイスを再起動:
 ```bash
-agent-mobile idb kill
+agent-mobile device shutdown <udid>
+agent-mobile device boot <name>
 ```
 
 **解決策（Android）:**
@@ -336,26 +332,6 @@ agent-mobile console --level error
 ## Platform-Specific Issues
 
 ### iOS
-
-#### "idb_companion not responding"
-
-**症状:**
-コマンドがハングする、タイムアウトする。
-
-**解決:**
-```bash
-# companion プロセスを確認
-ps aux | grep idb_companion
-
-# companion を kill
-agent-mobile idb kill
-
-# または手動で kill
-killall idb_companion
-
-# 再度コマンドを実行（自動的に companion が起動）
-agent-mobile device list
-```
 
 #### "Simulator stuck at 'Booting'"
 
@@ -552,10 +528,7 @@ agent-mobile is @e1 enabled
 
 **iOS:**
 ```bash
-# 1. idb_companion を停止
-agent-mobile idb kill
-
-# 2. シミュレータをシャットダウン
+# 1. シミュレータをシャットダウン
 xcrun simctl shutdown all
 
 # 3. シミュレータをリセット（オプション）

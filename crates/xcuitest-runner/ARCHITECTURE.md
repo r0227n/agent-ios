@@ -4,7 +4,7 @@
 
 XCUITest Runner は、iOS Simulator 上で動作する軽量 HTTP サーバーです。XCUITest プロセス内で起動し、Rust CLI (`agent-mobile`) からの HTTP リクエストを受けて XCUITest API を呼び出します。
 
-従来の idb gRPC + idb_companion アーキテクチャを置き換え、**外部依存ゼロ**（Apple 標準フレームワークのみ）で iOS 自動化を実現します。
+**外部依存ゼロ**（Apple 標準フレームワークのみ）で iOS 自動化を実現します。
 
 ## System Architecture
 
@@ -145,7 +145,7 @@ graph LR
 | `HTTPServer.swift` | NWListener ベース HTTP/1.1 サーバー | Swift Server |
 | `TouchHandler.swift` | tap / swipe / long-press / button | Swift Handler |
 | `InputHandler.swift` | text input / key press | Swift Handler |
-| `AccessibilityHandler.swift` | Accessibility tree 取得 (idb 互換 JSON) | Swift Handler |
+| `AccessibilityHandler.swift` | Accessibility tree 取得 (JSON) | Swift Handler |
 | `AppHandler.swift` | app launch / terminate | Swift Handler |
 | `client.rs` | reqwest HTTP クライアント | Rust Client |
 | `runner.rs` | xcodebuild プロセス管理 | Rust Client |
@@ -221,7 +221,7 @@ graph LR
 |----------|--------|-------------|-------------|
 | `/accessibility` | GET | `?nested=true` (default) / `?nested=false` | Recursive `children(matching:)` traversal |
 
-**Response Format (idb 互換):**
+**Response Format:**
 
 ```json
 {

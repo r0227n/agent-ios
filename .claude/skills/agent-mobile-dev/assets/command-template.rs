@@ -9,7 +9,7 @@ use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::cli::helpers::{with_xcuitest, CommandResult, DeviceArgs};
 
 /// {CommandName} コマンド引数
 #[derive(Args, Debug)]
@@ -35,8 +35,8 @@ pub async fn run(args: {CommandName}Args) -> CommandResult {
 
 /// iOS implementation
 async fn run_ios(udid: Option<&str>) -> CommandResult {
-    with_client(udid, |mut client| async move {
-        // TODO: Implement iOS logic using idb gRPC
+    with_xcuitest(udid, |mut client| async move {
+        // TODO: Implement iOS logic using XCUITest Runner (HTTP)
         // Example:
         // client.focus().await?;
 

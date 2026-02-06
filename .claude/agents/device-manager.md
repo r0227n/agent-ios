@@ -83,19 +83,6 @@ adb wait-for-device
 adb shell getprop sys.boot_completed
 ```
 
-### idb Companion Status
-
-```bash
-# Check if idb_companion is running
-pgrep -l idb_companion
-
-# List idb targets
-agent-mobile idb list-targets
-
-# Check companion state file
-cat /tmp/idb/state 2>/dev/null || echo "No state file"
-```
-
 ### adb Server Status
 
 ```bash
@@ -156,16 +143,6 @@ killall Simulator 2>/dev/null
 open -a Simulator
 ```
 
-**idb_companion not connecting:**
-```bash
-# Check for existing companions
-pgrep -f idb_companion
-
-# Kill and restart
-pkill -f idb_companion
-agent-mobile device list  # This should spawn new companion
-```
-
 **Android Emulator not responding:**
 ```bash
 # Restart adb
@@ -191,4 +168,4 @@ agent-mobile hid tap 100 200 --udid <specific-udid>
 2. Use device names for simulators, UDIDs for precision
 3. Shutdown unused devices to save resources
 4. Clear simulator data between test runs if needed
-5. Verify idb_companion/adb connectivity before E2E tests
+5. Verify device connectivity before E2E tests

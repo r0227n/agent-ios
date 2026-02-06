@@ -37,18 +37,19 @@ agent-mobile CLIの4層アーキテクチャ、モジュール配置規則、デ
 ┌──────────────────────────┐  ┌──────────────────────────────┐
 │  iOS Platform Layer      │  │  Android Platform Layer      │
 │  (crates/platform-ios/)  │  │  (crates/platform-android/)  │
-│  - gRPC Client           │  │  - adb wrapper               │
-│  - Companion管理         │  │  - Device operations         │
-│  - simctl wrapper        │  │                              │
+│  - XCUITestClient (HTTP) │  │  - adb wrapper               │
+│  - simctl wrapper        │  │  - Device operations         │
+│  - XCUITest Runner       │  │                              │
 └──────────────┬───────────┘  └──────────────────────────────┘
                │
                ↓
 ┌──────────────────────────┐
-│  idb_companion           │
-│  (Swift/ObjC daemon)     │
-│  - Framebuffer access    │
-│  - App lifecycle         │
-│  - File operations       │
+│  XCUITest Runner         │
+│  (Swift, localhost:8200) │
+│  - Screenshot            │
+│  - Accessibility         │
+│  - Clipboard             │
+│  - Touch/Input           │
 └──────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -65,7 +66,7 @@ agent-mobile CLIの4層アーキテクチャ、モジュール配置規則、デ
 |---------|------|------|
 | **CLI** | clap 4.5 (derive) | コマンドパース、引数定義 |
 | **Gateway** | Rust async/await | プラットフォーム抽象化 |
-| **iOS Platform** | tonic 0.12 + prost 0.13 | gRPC通信（idb_companion） |
+| **iOS Platform** | reqwest (HTTP) | XCUITest Runner通信 |
 | **iOS Platform** | std::process::Command | xcrun simctl呼び出し |
 | **Android Platform** | std::process::Command | adb呼び出し |
 | **Core** | tokio 1.49 | 非同期ランタイム |
@@ -102,15 +103,8 @@ src/
 │   └── screenshot.rs
 ├── console.rs              # Console log streaming
 ├── record.rs               # Screen recording
-├── idb/                    # IDB互換コマンド
-│   ├── mod.rs              # IdbCommands enum
-│   ├── file/               # File operations
-│   ├── hid/                # Input operations
-│   ├── target/             # Device management
-│   ├── video/              # Video recording
-│   └── ...
 └── helpers/                # ヘルパー関数
-    ├── client.rs           # with_client()
+    ├── client.rs           # with_xcuitest()
     ├── common_args.rs      # DeviceArgs, DeviceFormatArgs
     ├── format.rs           # OutputFormat
     └── ...
@@ -123,7 +117,7 @@ src/
 use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
-use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::cli::helpers::{with_xcuitest, CommandResult, DeviceArgs};
 
 #[derive(Args, Debug)]
 pub struct TapArgs {
@@ -148,9 +142,9 @@ pub async fn run(args: TapArgs) -> CommandResult {
 
 // 3. iOS実装（Gateway/Platform API使用）
 async fn run_ios(udid: Option<&str>) -> CommandResult {
-    with_client(udid, |mut client| async move {
-        // Platform層のgRPC呼び出し
-        client.hid(events).await?;
+    with_xcuitest(udid, |client| async move {
+        // Platform層のXCUITest Runner HTTP呼び出し
+        client.tap(x, y).await?;
         Ok(())
     }).await
 }
@@ -197,7 +191,7 @@ impl DeviceResolver {
             Some("ios") => Ok(Platform::Ios),
             Some("android") => Ok(Platform::Android),
             None => {
-                // 1. iOSデバイス確認（/tmp/idb/state）
+                // 1. iOSデバイス確認（simctl list_simulators()）
                 if Self::has_ios_devices().await? {
                     return Ok(Platform::Ios);
                 }
@@ -215,25 +209,24 @@ impl DeviceResolver {
 
 **IosDevice API**:
 ```rust
-// crates/gateway/src/api/ios.rs
+// crates/platform-ios/src/xcuitest/client.rs
 
-pub struct IosDevice {
-    client: IdbClient,
+pub struct XCUITestClient {
+    base_url: String,  // http://localhost:8200
 }
 
-impl IosDevice {
-    pub async fn tap(&mut self, x: f64, y: f64) -> Result<()> {
-        // Platform層のgRPC呼び出し
-        let events = tap_events(x, y);
-        self.client.hid(events).await
+impl XCUITestClient {
+    pub async fn tap(&self, x: f64, y: f64) -> Result<()> {
+        // XCUITest Runner HTTP呼び出し
+        self.post("/tap", json!({ "x": x, "y": y })).await
     }
 
-    pub async fn screenshot(&mut self) -> Result<Vec<u8>> {
-        self.client.screenshot().await
+    pub async fn screenshot(&self) -> Result<Vec<u8>> {
+        self.get_bytes("/screenshot").await
     }
 
-    pub async fn stream_logs(&mut self) -> Result<LogStream> {
-        self.client.log(LogSource::Target, vec![]).await
+    pub async fn accessibility_info(&self) -> Result<String> {
+        self.get("/accessibility").await
     }
 }
 ```
@@ -251,74 +244,46 @@ impl IosDevice {
 crates/platform-ios/
 └── src/
     ├── lib.rs
-    ├── companion/          # idb_companion管理
-    │   ├── resolver.rs     # UDID → Address解決
-    │   ├── state.rs        # /tmp/idb/state パース
-    │   ├── spawner.rs      # companion自動起動
-    │   └── lister.rs       # companion一覧
-    ├── grpc/               # idb gRPC実装
-    │   ├── client.rs       # IdbClient（接続管理）
-    │   ├── app.rs          # アプリ操作
-    │   ├── file.rs         # ファイル操作
-    │   ├── hid.rs          # HID入力
-    │   ├── media.rs        # スクリーンショット/動画
-    │   └── ...
+    ├── xcuitest/           # XCUITest Runner通信
+    │   └── client.rs       # XCUITestClient（HTTP, localhost:8200）
     ├── simctl/             # xcrun simctl wrapper
-    │   └── management.rs   # boot/shutdown/create/delete
-    ├── proto/              # Protocol Buffers
-    │   └── idb.proto       # gRPC定義
+    │   ├── management.rs   # boot/shutdown/install/uninstall/list_simulators
+    │   └── cache.rs        # DeviceCache (TTL 5秒)
     └── snapshot/           # UI要素抽出
         └── ...
 ```
 
-**IdbClient実装**:
+**XCUITestClient実装**:
 ```rust
-// crates/platform-ios/src/grpc/client.rs
+// crates/platform-ios/src/xcuitest/client.rs
 
-pub struct IdbClient {
-    inner: CompanionServiceClient<Channel>,
+pub struct XCUITestClient {
+    base_url: String,  // http://localhost:8200
+    client: reqwest::Client,
 }
 
-impl IdbClient {
-    /// gRPC接続確立
-    pub async fn connect(address: Address) -> Result<Self> {
-        let channel = match address {
-            Address::DomainSocket { path } => {
-                // UDS接続（ローカル）
-                Endpoint::try_from("http://[::]:50051")?
-                    .connect_with_connector(service_fn(move |_| {
-                        UnixStream::connect(path.clone())
-                    }))
-                    .await?
-            }
-            Address::Tcp { host, port } => {
-                // TCP接続（リモート）
-                Endpoint::from_shared(format!("http://{}:{}", host, port))?
-                    .connect()
-                    .await?
-            }
-        };
-
-        let inner = CompanionServiceClient::new(channel);
-        Ok(Self { inner })
+impl XCUITestClient {
+    /// HTTP接続確立
+    pub fn new(port: u16) -> Self {
+        Self {
+            base_url: format!("http://localhost:{}", port),
+            client: reqwest::Client::new(),
+        }
     }
 
-    /// HID入力
-    pub async fn hid(&mut self, events: Vec<HIDEvent>) -> Result<()> {
-        let stream = stream::iter(events);
-        self.inner.hid(stream).await?;
+    /// タップ操作
+    pub async fn tap(&self, x: f64, y: f64) -> Result<()> {
+        self.client.post(&format!("{}/tap", self.base_url))
+            .json(&json!({ "x": x, "y": y }))
+            .send().await?;
         Ok(())
     }
 
     /// アクセシビリティ情報
-    pub async fn accessibility_info(
-        &mut self,
-        point: Option<(f64, f64)>,
-        nested: bool
-    ) -> Result<String> {
-        let request = AccessibilityInfoRequest { point, nested };
-        let response = self.inner.accessibility_info(request).await?;
-        Ok(response.into_inner().json)
+    pub async fn accessibility_info(&self) -> Result<String> {
+        let response = self.client.get(&format!("{}/accessibility", self.base_url))
+            .send().await?;
+        Ok(response.text().await?)
     }
 }
 ```
@@ -426,22 +391,21 @@ impl OutputWriter {
 | コマンドタイプ | 配置場所 | 例 |
 |-------------|---------|-----|
 | **トップレベル（AI最適化）** | `src/core/` | tap, swipe, find, screenshot |
-| **IDB互換** | `src/idb/` | launch, terminate, install |
 | **特殊機能** | `src/` 直下 | console, record |
 
 ### Platform実装配置
 
 | 実装タイプ | 配置場所 | 例 |
 |----------|---------|-----|
-| **idb gRPC** | `crates/platform-ios/src/grpc/` | hid.rs, file.rs, media.rs |
-| **xcrun simctl** | `crates/platform-ios/src/simctl/` | management.rs |
+| **XCUITest Runner** | `crates/platform-ios/src/xcuitest/` | client.rs |
+| **xcrun simctl** | `crates/platform-ios/src/simctl/` | management.rs, cache.rs |
 | **adb wrapper** | `crates/platform-android/src/adb/` | input.rs, uiautomator.rs |
 
 ### ヘルパー配置
 
 | ヘルパータイプ | 配置場所 | 例 |
 |-------------|---------|-----|
-| **CLI共通** | `src/helpers/` | with_client(), DeviceArgs |
+| **CLI共通** | `src/helpers/` | with_xcuitest(), DeviceArgs |
 | **テスト** | `tests/cli/common/` | assert_success(), run_cli_command() |
 
 ## データフローパターン
@@ -462,13 +426,13 @@ Gateway Layer (DeviceResolver)
 CLI Layer (run_ios)
   │ with_client(udid, |client| {...})
   ↓
-Platform Layer (IdbClient)
-  │ client.hid(tap_events(100, 200))
+Platform Layer (XCUITestClient)
+  │ client.tap(100, 200) via HTTP
   ↓
-idb_companion (gRPC)
-  │ HIDEvent stream
+XCUITest Runner (localhost:8200)
+  │ XCUITest API call
   ↓
-iOS Simulator/Device
+iOS Simulator
   │ タップ実行
   ↓
 ユーザー（視覚的フィードバック）
@@ -487,13 +451,13 @@ CLI Layer (src/console.rs)
 Gateway Layer
   │ stream_console_logs(platform, udid, writer, stop_rx)
   ↓
-Platform Layer (IdbClient::log)
-  │ LogRequest { source: Target, args: [] }
+Platform Layer (simctl spawn log)
+  │ os_log stream
   │
   ↓ [ストリーム開始]
   │
-idb_companion
-  │ LogResponse stream
+simctl process
+  │ log output stream
   ↓
 Gateway Layer
   │ ログエントリ処理
@@ -528,7 +492,7 @@ Gateway Layer
   │ resolve_platform() → Platform::Ios
   ↓
 Platform Layer
-  │ client.accessibility_info(None, true)
+  │ client.accessibility_info()
   ↓
 CLI Layer
   │ JSON解析、要素抽出
@@ -568,8 +532,7 @@ agent-mobile (root)
 ├── crates/platform-ios/    # iOS実装
 │   └── [depends on]
 │       ├── agent_mobile_core
-│       ├── tonic
-│       ├── prost
+│       ├── reqwest
 │       └── tokio
 │
 └── crates/platform-android/ # Android実装
@@ -626,18 +589,18 @@ pub fn tap_device(ios_device: IosDevice) {
 各モジュールは1つの責務のみを持つ:
 
 ```rust
-// ✓ Good: HID入力専用
-// crates/platform-ios/src/grpc/hid.rs
-impl IdbClient {
-    pub async fn hid(&mut self, events: Vec<HIDEvent>) -> Result<()> {
-        // HID入力のみ
+// ✓ Good: タップ操作専用
+// crates/platform-ios/src/xcuitest/client.rs
+impl XCUITestClient {
+    pub async fn tap(&self, x: f64, y: f64) -> Result<()> {
+        // タップ操作のみ
     }
 }
 
 // ✗ Bad: 複数の責務
-impl IdbClient {
-    pub async fn do_everything(&mut self) -> Result<()> {
-        // HID、ファイル、アプリ、全部やる
+impl XCUITestClient {
+    pub async fn do_everything(&self) -> Result<()> {
+        // タップ、スクリーンショット、アクセシビリティ、全部やる
     }
 }
 ```
@@ -674,8 +637,8 @@ pub async fn run(args: MyArgs) -> CommandResult {
         args.device.platform.as_deref()
     ).await?;  // エラーは上位に伝播
 
-    with_client(args.device.udid.as_deref(), |mut client| async move {
-        client.focus().await?;  // エラーは上位に伝播
+    with_xcuitest(args.device.udid.as_deref(), |client| async move {
+        client.tap(100.0, 200.0).await?;  // エラーは上位に伝播
         Ok(())
     }).await
 }
@@ -701,8 +664,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 
 **配置規則**:
 - トップレベルコマンド → `src/core/`
-- IDB互換コマンド → `src/idb/`
-- idb gRPC実装 → `crates/platform-ios/src/grpc/`
+- XCUITest Runner実装 → `crates/platform-ios/src/xcuitest/`
 - xcrun simctl → `crates/platform-ios/src/simctl/`
 - adb wrapper → `crates/platform-android/src/adb/`
 

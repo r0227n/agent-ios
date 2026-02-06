@@ -67,10 +67,10 @@ agent-mobile device pbpaste        # Paste from clipboard (iOS)
 ### iOS-Specific Commands
 
 ```bash
-agent-mobile idb screenshot <path>    # Take screenshot
-agent-mobile idb accessibility describe-all  # Get UI tree
-agent-mobile idb log                  # Stream device logs
-agent-mobile idb list-targets         # List idb targets
+agent-mobile screenshot <path>        # Take screenshot
+agent-mobile snapshot                 # Get UI tree
+agent-mobile console                  # Stream device logs
+agent-mobile device list              # List available devices
 ```
 
 ### Snapshot (UI Analysis)
@@ -110,7 +110,7 @@ agent-mobile hid tap @e1              # Tap element by ref
 
 5. **Evidence Capture**: Take screenshots
    ```bash
-   agent-mobile idb screenshot test-result.png
+   agent-mobile screenshot test-result.png
    ```
 
 ## Element Targeting
@@ -129,7 +129,7 @@ Elements can be targeted using:
 
 - If `agent-mobile device list` shows no devices, the simulator/emulator needs to be started
 - If tap doesn't respond, try using coordinates instead of refs
-- For accessibility issues, use `agent-mobile idb accessibility describe-all`
+- For accessibility issues, use `agent-mobile snapshot`
 
 ## Best Practices
 

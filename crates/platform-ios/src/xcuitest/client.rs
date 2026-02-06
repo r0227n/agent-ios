@@ -178,7 +178,7 @@ impl XCUITestClient {
         .await
     }
 
-    /// Get the accessibility tree as JSON string (idb-compatible format).
+    /// Get the accessibility tree as JSON string.
     pub async fn accessibility_info(&self, nested: bool) -> Result<String> {
         self.accessibility_info_with_depth(nested, None).await
     }

@@ -48,10 +48,7 @@ pub fn get_test_bundle_id() -> String {
     "com.apple.mobilesafari".to_string()
 }
 
-/// Ensure the device is ready for testing.
-///
-/// Previously started idb_companion, now a no-op since we use
-/// simctl and XCUITest Runner directly.
+/// Ensure the device is ready for testing (no-op, kept for test compatibility).
 pub fn ensure_companion_running(_udid: &str) {
-    // No-op: idb_companion is no longer needed.
+    // No-op: simctl and XCUITest Runner are used directly.
 }

@@ -1,7 +1,6 @@
 //! Simulator management commands via xcrun simctl.
 //!
-//! This module provides direct access to simulator lifecycle operations
-//! without going through idb_companion.
+//! This module provides direct access to simulator lifecycle operations.
 
 #![allow(dead_code)]
 

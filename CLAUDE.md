@@ -2,10 +2,9 @@
 
  - **Rust 2021**: メインアプリケーション
  - **tokio 1.49**: 非同期ランタイム
- - **tonic 0.12 + prost 0.13**: gRPC クライアント/Protocol Buffers
  - **clap 4.5**: CLI フレームワーク (derive)
- - **idb_companion**: Swift/ObjC ダエモン（外部プロセス）
- - **Python idb**: 参照実装（サブモジュール）
+ - **reqwest**: HTTP クライアント (XCUITest Runner 通信用)
+ - **XCUITest Runner**: Swift HTTP サーバー (iOS 自動化)
 
  ## 開発ガイド
 
@@ -68,7 +67,6 @@ git commit -m "feat: 変更内容の説明"
 - [ ] エラーメッセージが適切に表示される
 - [ ] UI操作の結果が視覚的に確認できる
 - [ ] スクリーンショットで証跡を保存した
-- [ ] Python idbとの動作差異がない (該当する場合)
 
 ### ベストプラクティス
 
@@ -81,7 +79,7 @@ git commit -m "feat: 変更内容の説明"
 # tests/cli/your_feature_test.rs を作成
 
 # 2. 実装する
-# src/platform/ios/grpc/your_feature.rs を作成
+# src/core/your_feature.rs を作成
 
 # 3. テストを実行して確認
 cargo test --test cli your_feature -- --test-threads=1

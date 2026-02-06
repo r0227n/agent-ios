@@ -8,7 +8,7 @@ agent-mobile CLI（Rust製モバイルE2Eテストツール）の新機能開発
 
 **提供内容:**
 - 4層アーキテクチャ（CLI/Gateway/Platform/Core）の理解促進
-- プラットフォーム実装判断（iOS: idb gRPC vs xcrun simctl）の自動化
+- プラットフォーム実装判断（iOS: XCUITest Runner (HTTP) vs xcrun simctl）の自動化
 - 必須開発フロー（実装→テスト→実機確認→コミット）の遵守
 - 頻出パターン（with_client、DeviceArgs）のテンプレート化
 
@@ -29,7 +29,6 @@ agent-mobile CLI（Rust製モバイルE2Eテストツール）の新機能開発
 │   └── checklist.md                  # 対話的実装チェックリスト
 ├── references/                       # 詳細リファレンス
 │   ├── environment-setup.md          # 環境セットアップ詳細ガイド
-│   ├── platform-decisions.md         # iOS実装判断基準詳細（572行）
 │   ├── implementation-patterns.md    # コーディングパターン集（685行）
 │   ├── testing-guide.md              # テスト戦略詳細（784行）
 │   └── architecture.md               # アーキテクチャ詳細（712行）
@@ -55,7 +54,7 @@ less .claude/skills/agent-mobile-dev/SKILL.md
 - Quick Start Decision Tree: 新機能追加時の判断フロー
 - Development Workflow: 必須5ステップ（設計→実装→テスト→実機確認→コミット）
 - Common Patterns: 頻出パターンのクイックリファレンス
-- Platform Decision (iOS): idb gRPC vs xcrun simctl の判断基準
+- Platform Decision (iOS): XCUITest Runner (HTTP) vs xcrun simctl の判断基準
 - Scripts & Templates: スクリプト使用方法
 - References: 詳細リファレンスへのリンク
 
@@ -71,7 +70,7 @@ less .claude/skills/agent-mobile-dev/SKILL.md
 
 **実行内容:**
 1. Xcode & xcrun simctl確認
-2. idb_companionインストール確認
+2. XCUITest Runnerインストール確認
 3. シミュレータ起動（未起動の場合）
 4. agent-mobile接続確認
 
@@ -93,7 +92,7 @@ less .claude/skills/agent-mobile-dev/SKILL.md
 
 #### 3.1. platform-check.sh - iOS実装判断支援
 
-新機能のiOS実装方法を判断します（proto/idb.proto を検索）。
+新機能のiOS実装方法を判断します（XCUITest Runner or simctl）。
 
 ```bash
 ./scripts/platform-check.sh <feature-name>
@@ -105,13 +104,10 @@ less .claude/skills/agent-mobile-dev/SKILL.md
 ./scripts/platform-check.sh accessibility
 
 # 出力:
-# ✓ Found RPC definition(s):
-#     rpc accessibility_info(AccessibilityInfoRequest) returns (AccessibilityInfoResponse) {}
-#
-# Recommendation: Use idb gRPC
+# Recommendation: Use XCUITest Runner (HTTP)
 # Implementation:
-#   - Use with_client() pattern
-#   - Location: src/core/<feature>.rs or src/idb/<feature>.rs
+#   - Use with_xcuitest() pattern
+#   - Location: src/core/<feature>.rs
 # ...
 ```
 
@@ -187,7 +183,7 @@ Description: Tests CLI commands with real devices/simulators
 Location: tests/cli/<name>_integration.rs
 
 Prerequisites:
-  - iOS: Simulator running with idb_companion
+  - iOS: Simulator running with XCUITest Runner
   - Android: Emulator running with adb
 
 Command:
@@ -219,24 +215,12 @@ iOS Verification:
 
 **内容:**
 - iOS/Android環境要件
-- ツールインストール手順（Xcode、idb_companion、Android SDK）
+- ツールインストール手順（Xcode、XCUITest Runner、Android SDK）
 - シミュレータ/エミュレータ管理
 - トラブルシューティング（デバイス検出、起動エラーなど）
 - セットアップスクリプトの詳細
 
-#### 4.2. platform-decisions.md
-
-iOS実装判断基準の詳細版（`.claude/rules/cli-feature.md` を統合・拡充）。
-
-**内容:**
-- 判断基準、判断フローチャート詳細版
-- idb.proto RPC一覧（カテゴリ別: App, HID, File, Media, Debug...）
-- xcrun simctl コマンド一覧
-- ハイブリッド実装パターン（複数例）
-- 機能別実装状況表
-- 判断履歴（既存機能がなぜgRPC/simctlを選んだか）
-
-#### 4.3. implementation-patterns.md
+#### 4.2. implementation-patterns.md
 
 コーディングパターン集。
 
@@ -254,7 +238,6 @@ iOS実装判断基準の詳細版（`.claude/rules/cli-feature.md` を統合・�
 **内容:**
 - 3層テスト詳細（ユニット、統合、実機確認）
 - `tests/cli/common/mod.rs` ヘルパー関数リスト
-- `tests/idb/common/mod.rs` ヘルパー関数リスト
 - **実機確認詳細手順（/mobile-e2eスキル使用）**
   - iOS/Android別の確認手順
   - スクリーンショット保存方法
@@ -340,18 +323,6 @@ git commit -m "feat: add <command> command"
 chmod +x .claude/skills/agent-mobile-dev/scripts/*.sh
 ```
 
-### プロジェクトルートが見つからない
-
-**問題**: `proto/idb.proto: No such file or directory`
-
-**原因**: スクリプトをプロジェクトルート以外から実行している
-
-**解決**: プロジェクトルートから実行してください:
-```bash
-cd /Users/r0227n/Dev/agent-mobile
-./.claude/skills/agent-mobile-dev/scripts/platform-check.sh <feature>
-```
-
 ### 実機確認でコマンドが見つからない
 
 **問題**: `agent-mobile: command not found`
@@ -395,8 +366,7 @@ ls -la target/debug/agent-mobile
 - `CLAUDE.md`: AI開発者向けクイックスタート
 - `README.md`: ユーザー向け使用方法
 - `docs/ARCHITECTURE.md`: アーキテクチャ概要
-- `proto/idb.proto`: gRPC API定義
-- `.claude/rules/cli-feature.md`: iOS実装判断基準（非推奨、このスキルに統合済み）
+- `.claude/rules/cli-feature.md`: iOS実装判断基準
 
 **このスキル内:**
 - `SKILL.md`: メインスキル定義

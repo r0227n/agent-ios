@@ -5,7 +5,7 @@
 //!
 //! # Features
 //!
-//! - **CLI Tool**: Drop-in replacement for Python `idb` CLI
+//! - **CLI Tool**: AI-optimized CLI for iOS/Android device automation
 //! - **AI Commands**: Simplified commands for AI agent automation
 //! - **Library API**: Programmatic access for Rust projects
 //!
