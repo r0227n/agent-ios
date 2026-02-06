@@ -1,64 +1,30 @@
 //! Permission management module for Android apps.
 //!
 //! This module provides functions to grant, revoke, and reset runtime permissions
-//! for Android apps using `adb shell pm` commands.
+//! for Android apps using the native ADB protocol.
 
 use super::commands::{AdbError, Result};
-use std::process::Command;
+use super::connection::AdbConnection;
 
 /// Grant a runtime permission to an app.
 ///
-/// Uses `adb shell pm grant <package> <permission>` to grant a runtime permission.
+/// Uses `pm grant <package> <permission>` via native ADB protocol.
 ///
 /// # Arguments
 /// - `serial`: Device serial number (optional, uses default device if None)
 /// - `package`: App package name (e.g., "com.example.app")
 /// - `permission`: Permission name (e.g., "android.permission.CAMERA")
-///
-/// # Returns
-/// - `Ok(())` on success
-/// - `Err(AdbError)` if grant fails
-///
-/// # Example
-/// ```
-/// use platform_android::adb::permission::grant_permission;
-///
-/// grant_permission(
-///     Some("emulator-5554"),
-///     "com.example.app",
-///     "android.permission.CAMERA"
-/// ).await?;
-/// ```
-///
-/// # Common Permissions
-/// - `android.permission.CAMERA`
-/// - `android.permission.RECORD_AUDIO`
-/// - `android.permission.ACCESS_FINE_LOCATION`
-/// - `android.permission.ACCESS_COARSE_LOCATION`
-/// - `android.permission.READ_CONTACTS`
-/// - `android.permission.WRITE_CONTACTS`
-/// - `android.permission.READ_EXTERNAL_STORAGE`
-/// - `android.permission.WRITE_EXTERNAL_STORAGE`
 pub async fn grant_permission(serial: Option<&str>, package: &str, permission: &str) -> Result<()> {
-    let mut cmd = Command::new("adb");
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-    cmd.args(["shell", "pm", "grant", package, permission]);
+    let mut conn = AdbConnection::for_device(serial)?;
+    let output = conn.shell_command_args(&["pm", "grant", package, permission])?;
 
-    let output = cmd.output().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+    // pm grant outputs error messages on failure
+    if output.contains("Exception") || output.contains("Error") || output.contains("Unknown") {
         return Err(AdbError::CommandFailed(format!(
             "Failed to grant permission '{}' to '{}': {}",
-            permission, package, stderr
+            permission,
+            package,
+            output.trim()
         )));
     }
 
@@ -67,40 +33,21 @@ pub async fn grant_permission(serial: Option<&str>, package: &str, permission: &
 
 /// Revoke a runtime permission from an app.
 ///
-/// Uses `adb shell pm revoke <package> <permission>` to revoke a runtime permission.
-///
-/// # Arguments
-/// - `serial`: Device serial number (optional)
-/// - `package`: App package name
-/// - `permission`: Permission name to revoke
-///
-/// # Returns
-/// - `Ok(())` on success
-/// - `Err(AdbError)` if revoke fails
+/// Uses `pm revoke <package> <permission>` via native ADB protocol.
 pub async fn revoke_permission(
     serial: Option<&str>,
     package: &str,
     permission: &str,
 ) -> Result<()> {
-    let mut cmd = Command::new("adb");
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-    cmd.args(["shell", "pm", "revoke", package, permission]);
+    let mut conn = AdbConnection::for_device(serial)?;
+    let output = conn.shell_command_args(&["pm", "revoke", package, permission])?;
 
-    let output = cmd.output().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+    if output.contains("Exception") || output.contains("Error") || output.contains("Unknown") {
         return Err(AdbError::CommandFailed(format!(
             "Failed to revoke permission '{}' from '{}': {}",
-            permission, package, stderr
+            permission,
+            package,
+            output.trim()
         )));
     }
 
@@ -109,40 +56,21 @@ pub async fn revoke_permission(
 
 /// Reset all permissions for an app to their default state.
 ///
-/// Uses `adb shell pm reset-permissions <package>` to reset all permissions.
-///
-/// # Arguments
-/// - `serial`: Device serial number (optional)
-/// - `package`: App package name
-///
-/// # Returns
-/// - `Ok(())` on success
-/// - `Err(AdbError)` if reset fails
+/// Uses `pm reset-permissions <package>` via native ADB protocol.
 ///
 /// # Note
 /// This requires Android 6.0 (API 23) or higher.
 pub async fn reset_permissions(serial: Option<&str>, package: &str) -> Result<()> {
-    let mut cmd = Command::new("adb");
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-    cmd.args(["shell", "pm", "reset-permissions", package]);
+    let mut conn = AdbConnection::for_device(serial)?;
+    let output = conn.shell_command_args(&["pm", "reset-permissions", package])?;
 
-    let output = cmd.output().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+    if output.contains("Exception") || output.contains("Error") {
         // reset-permissions may not be available on all Android versions
         // Treat as non-critical error
         eprintln!(
             "Warning: Failed to reset permissions for '{}': {}",
-            package, stderr
+            package,
+            output.trim()
         );
     }
 
@@ -151,39 +79,11 @@ pub async fn reset_permissions(serial: Option<&str>, package: &str) -> Result<()
 
 /// List all runtime permissions for a package.
 ///
-/// Uses `adb shell dumpsys package <package>` and parses the permissions section.
-///
-/// # Arguments
-/// - `serial`: Device serial number (optional)
-/// - `package`: App package name
-///
-/// # Returns
-/// - `Ok(Vec<(permission, granted)>)` - List of permissions and their grant status
-/// - `Err(AdbError)` if command fails
+/// Uses `dumpsys package <package>` via native ADB protocol and parses the permissions section.
 pub async fn list_permissions(serial: Option<&str>, package: &str) -> Result<Vec<(String, bool)>> {
-    let mut cmd = Command::new("adb");
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-    cmd.args(["shell", "dumpsys", "package", package]);
+    let mut conn = AdbConnection::for_device(serial)?;
+    let stdout = conn.shell_command_args(&["dumpsys", "package", package])?;
 
-    let output = cmd.output().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(format!(
-            "Failed to list permissions for '{}': {}",
-            package, stderr
-        )));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
     let mut permissions = Vec::new();
     let mut in_runtime_permissions = false;
 

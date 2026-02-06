@@ -1,13 +1,13 @@
-//! Android app management via adb am/pm commands.
+//! Android app management via native ADB protocol.
 //!
 //! This module provides functions for launching, terminating, installing,
-//! and managing Android applications.
+//! and managing Android applications using the native ADB protocol.
 
 #![allow(dead_code)]
 
-use super::{AdbError, Result};
+use super::commands::{AdbError, Result};
+use super::connection::AdbConnection;
 use serde::{Deserialize, Serialize};
-use tokio::process::Command;
 
 /// Installed app information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,39 +23,23 @@ pub struct AppInfo {
 
 /// Launch an app by package name.
 ///
-/// Uses `adb shell am start` to launch the app's main activity.
+/// Uses `monkey` to launch the app's main LAUNCHER activity.
 pub async fn launch(serial: Option<&str>, package_name: &str) -> Result<()> {
-    let mut cmd = Command::new("adb");
-
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
-    // Use monkey to launch (simpler than finding the main activity)
-    cmd.args([
-        "shell",
+    let mut conn = AdbConnection::for_device(serial)?;
+    let output = conn.shell_command_args(&[
         "monkey",
         "-p",
         package_name,
         "-c",
         "android.intent.category.LAUNCHER",
         "1",
-    ]);
+    ])?;
 
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
+    // monkey returns success even on some failures, check output
+    if output.contains("No activities found") {
         return Err(AdbError::CommandFailed(format!(
-            "stdout: {}, stderr: {}",
-            stdout, stderr
+            "No LAUNCHER activity found for {}",
+            package_name
         )));
     }
 
@@ -68,86 +52,47 @@ pub async fn launch_activity(
     package_name: &str,
     activity: &str,
 ) -> Result<()> {
-    let mut cmd = Command::new("adb");
-
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
+    let mut conn = AdbConnection::for_device(serial)?;
     let component = format!("{}/{}", package_name, activity);
-    cmd.args(["shell", "am", "start", "-n", &component]);
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
+    conn.shell_command_args(&["am", "start", "-n", &component])?;
     Ok(())
 }
 
 /// Terminate (force stop) an app.
 pub async fn terminate(serial: Option<&str>, package_name: &str) -> Result<()> {
-    let mut cmd = Command::new("adb");
-
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
-    cmd.args(["shell", "am", "force-stop", package_name]);
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
+    let mut conn = AdbConnection::for_device(serial)?;
+    conn.shell_command_args(&["am", "force-stop", package_name])?;
     Ok(())
 }
 
 /// Install an APK.
 pub async fn install(serial: Option<&str>, apk_path: &str, reinstall: bool) -> Result<()> {
-    let mut cmd = Command::new("adb");
+    let mut conn = AdbConnection::for_device(serial)?;
 
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
-    cmd.arg("install");
     if reinstall {
-        cmd.arg("-r");
-    }
-    cmd.arg(apk_path);
+        // For reinstall, use shell pm install with -r flag via push + pm install
+        // adb_client's install doesn't support -r flag, so use shell command approach
+        let temp_path = "/data/local/tmp/agent_mobile_install.apk";
 
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
+        // Push APK to device
+        let file = std::fs::File::open(apk_path).map_err(AdbError::ExecutionError)?;
+        conn.push(file, temp_path)?;
+
+        // Install from device temp path with -r flag
+        let output = conn.shell_command_args(&["pm", "install", "-r", temp_path])?;
+        if output.contains("Failure") {
+            // Cleanup
+            let _ = conn.shell_command_args(&["rm", "-f", temp_path]);
+            return Err(AdbError::CommandFailed(format!(
+                "install failed: {}",
+                output.trim()
+            )));
         }
-    })?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if !output.status.success() || stdout.contains("Failure") {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(format!(
-            "stdout: {}, stderr: {}",
-            stdout, stderr
-        )));
+        // Cleanup
+        let _ = conn.shell_command_args(&["rm", "-f", temp_path]);
+    } else {
+        conn.install(apk_path)?;
     }
 
     Ok(())
@@ -155,61 +100,21 @@ pub async fn install(serial: Option<&str>, apk_path: &str, reinstall: bool) -> R
 
 /// Uninstall an app.
 pub async fn uninstall(serial: Option<&str>, package_name: &str) -> Result<()> {
-    let mut cmd = Command::new("adb");
-
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
-    cmd.args(["uninstall", package_name]);
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if !output.status.success() || stdout.contains("Failure") {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(format!(
-            "stdout: {}, stderr: {}",
-            stdout, stderr
-        )));
-    }
-
+    let mut conn = AdbConnection::for_device(serial)?;
+    conn.uninstall(package_name)?;
     Ok(())
 }
 
 /// List installed packages.
 pub async fn list_packages(serial: Option<&str>, third_party_only: bool) -> Result<Vec<AppInfo>> {
-    let mut cmd = Command::new("adb");
+    let mut conn = AdbConnection::for_device(serial)?;
 
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
+    let stdout = if third_party_only {
+        conn.shell_command_args(&["pm", "list", "packages", "-3"])?
+    } else {
+        conn.shell_command_args(&["pm", "list", "packages"])?
+    };
 
-    cmd.args(["shell", "pm", "list", "packages"]);
-    if third_party_only {
-        cmd.arg("-3");
-    }
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
     let apps: Vec<AppInfo> = stdout
         .lines()
         .filter_map(|line| {
@@ -227,28 +132,8 @@ pub async fn list_packages(serial: Option<&str>, third_party_only: bool) -> Resu
 
 /// Get detailed info about a specific package.
 pub async fn get_package_info(serial: Option<&str>, package_name: &str) -> Result<AppInfo> {
-    let mut cmd = Command::new("adb");
-
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
-    cmd.args(["shell", "dumpsys", "package", package_name]);
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut conn = AdbConnection::for_device(serial)?;
+    let stdout = conn.shell_command_args(&["dumpsys", "package", package_name])?;
 
     let mut version_name = None;
     let mut version_code = None;
@@ -279,27 +164,8 @@ pub async fn get_package_info(serial: Option<&str>, package_name: &str) -> Resul
 
 /// Clear app data.
 pub async fn clear_data(serial: Option<&str>, package_name: &str) -> Result<()> {
-    let mut cmd = Command::new("adb");
-
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
-    cmd.args(["shell", "pm", "clear", package_name]);
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
+    let mut conn = AdbConnection::for_device(serial)?;
+    conn.shell_command_args(&["pm", "clear", package_name])?;
     Ok(())
 }
 

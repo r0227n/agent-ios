@@ -1,40 +1,22 @@
 //! ADB input command module.
 //!
 //! This module provides functions to execute ADB input commands for
-//! touch/gesture interactions with Android devices.
+//! touch/gesture interactions with Android devices using native ADB protocol.
 
 #![allow(dead_code)]
 
-use super::{AdbError, Result};
-use tokio::process::Command;
+use super::commands::{AdbError, Result};
+use super::connection::AdbConnection;
 
 /// Default swipe duration in milliseconds.
 const DEFAULT_SWIPE_DURATION_MS: u64 = 300;
 
-/// Execute an adb shell input command.
-async fn adb_input(serial: Option<&str>, args: &[&str]) -> Result<()> {
-    let mut cmd = Command::new("adb");
-
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
-    cmd.arg("shell").arg("input");
-    cmd.args(args);
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
+/// Execute an adb shell input command via native protocol.
+fn adb_input(serial: Option<&str>, args: &[&str]) -> Result<()> {
+    let mut conn = AdbConnection::for_device(serial)?;
+    let mut cmd_args = vec!["input"];
+    cmd_args.extend_from_slice(args);
+    conn.shell_command_args(&cmd_args)?;
     Ok(())
 }
 
@@ -47,7 +29,7 @@ async fn adb_input(serial: Option<&str>, args: &[&str]) -> Result<()> {
 pub async fn tap(serial: Option<&str>, x: f64, y: f64) -> Result<()> {
     let x_str = x.round().to_string();
     let y_str = y.round().to_string();
-    adb_input(serial, &["tap", &x_str, &y_str]).await
+    adb_input(serial, &["tap", &x_str, &y_str])
 }
 
 /// Long press at the specified screen coordinates.
@@ -66,7 +48,6 @@ pub async fn long_press(serial: Option<&str>, x: f64, y: f64, duration_ms: u64) 
         serial,
         &["swipe", &x_str, &y_str, &x_str, &y_str, &duration_str],
     )
-    .await
 }
 
 /// Swipe from one point to another.
@@ -90,25 +71,12 @@ pub async fn swipe(
     let y1_str = y1.round().to_string();
     let x2_str = x2.round().to_string();
     let y2_str = y2.round().to_string();
+    let duration_str = duration_ms.unwrap_or(DEFAULT_SWIPE_DURATION_MS).to_string();
 
-    match duration_ms {
-        Some(d) => {
-            let duration_str = d.to_string();
-            adb_input(
-                serial,
-                &["swipe", &x1_str, &y1_str, &x2_str, &y2_str, &duration_str],
-            )
-            .await
-        }
-        None => {
-            let duration_str = DEFAULT_SWIPE_DURATION_MS.to_string();
-            adb_input(
-                serial,
-                &["swipe", &x1_str, &y1_str, &x2_str, &y2_str, &duration_str],
-            )
-            .await
-        }
-    }
+    adb_input(
+        serial,
+        &["swipe", &x1_str, &y1_str, &x2_str, &y2_str, &duration_str],
+    )
 }
 
 /// Input text on the device.
@@ -133,7 +101,7 @@ pub async fn text(serial: Option<&str>, text: &str) -> Result<()> {
         .replace('$', "\\$")
         .replace('`', "\\`");
 
-    adb_input(serial, &["text", &escaped]).await
+    adb_input(serial, &["text", &escaped])
 }
 
 /// Press a key by keycode.
@@ -143,7 +111,7 @@ pub async fn text(serial: Option<&str>, text: &str) -> Result<()> {
 /// * `keycode` - Android keycode (e.g., 3 for HOME, 4 for BACK)
 pub async fn keyevent(serial: Option<&str>, keycode: u32) -> Result<()> {
     let keycode_str = keycode.to_string();
-    adb_input(serial, &["keyevent", &keycode_str]).await
+    adb_input(serial, &["keyevent", &keycode_str])
 }
 
 /// Press a key by name.
@@ -152,7 +120,7 @@ pub async fn keyevent(serial: Option<&str>, keycode: u32) -> Result<()> {
 /// * `serial` - Optional device serial number
 /// * `keyname` - Key name (e.g., "KEYCODE_HOME", "KEYCODE_BACK")
 pub async fn keyevent_by_name(serial: Option<&str>, keyname: &str) -> Result<()> {
-    adb_input(serial, &["keyevent", keyname]).await
+    adb_input(serial, &["keyevent", keyname])
 }
 
 /// Common Android key codes.
@@ -181,30 +149,11 @@ pub mod keycodes {
     pub const SEARCH: u32 = 84;
 }
 
-/// Get screen dimensions via `adb shell wm size`.
+/// Get screen dimensions via ADB shell `wm size`.
 pub async fn get_screen_size(serial: Option<&str>) -> Result<(u32, u32)> {
-    let mut cmd = Command::new("adb");
+    let mut conn = AdbConnection::for_device(serial)?;
+    let stdout = conn.shell_command_args(&["wm", "size"])?;
 
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
-
-    cmd.args(["shell", "wm", "size"]);
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
     // Output format: "Physical size: 1080x1920"
     for line in stdout.lines() {
         if line.contains("Physical size:") || line.contains("Override size:") {

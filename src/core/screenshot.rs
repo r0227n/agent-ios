@@ -30,11 +30,6 @@ impl ImageFormat {
             Self::Jpeg => "jpeg",
         }
     }
-
-    /// Check if format is supported on Android
-    pub fn is_android_supported(&self) -> bool {
-        matches!(self, Self::Png)
-    }
 }
 
 impl std::str::FromStr for ImageFormat {
@@ -229,38 +224,16 @@ async fn execute_screenshot_android(
     path: &str,
     format: ImageFormat,
 ) -> CommandResult {
-    use tokio::process::Command;
+    // Capture screenshot via native ADB protocol
+    let png_bytes = agent_mobile_platform_android::screenshot_bytes(udid)
+        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
 
-    // Validate format support on Android - only PNG is supported
-    if !format.is_android_supported() {
-        return Err(
-            "Android only supports PNG format. JPEG conversion is not implemented. \
-            Please use '--format png' or omit the format option."
-                .to_string()
-                .into(),
-        );
-    }
+    let final_bytes = match format {
+        ImageFormat::Png => png_bytes,
+        ImageFormat::Jpeg => convert_png_to_jpeg(&png_bytes)?,
+    };
 
-    // Use adb to capture screenshot
-    let serial_arg = udid
-        .map(|s| vec!["-s".to_string(), s.to_string()])
-        .unwrap_or_default();
-
-    let output = Command::new("adb")
-        .args(&serial_arg)
-        .args(["exec-out", "screencap", "-p"])
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("adb screencap failed: {}", stderr).into());
-    }
-
-    let bytes = output.stdout;
-
-    // File mode
-    std::fs::write(path, &bytes)?;
+    std::fs::write(path, &final_bytes)?;
     println!("Screenshot saved to: {}", path);
 
     Ok(())
@@ -331,8 +304,9 @@ mod tests {
 
     #[test]
     fn test_image_format_android_support() {
-        assert!(ImageFormat::Png.is_android_supported());
-        assert!(!ImageFormat::Jpeg.is_android_supported());
+        // Both PNG and JPEG are now supported on Android (JPEG via PNG conversion)
+        assert_eq!(ImageFormat::Png.extension(), "png");
+        assert_eq!(ImageFormat::Jpeg.extension(), "jpeg");
     }
 
     // Tests for resolve_output_path()

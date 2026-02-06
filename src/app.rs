@@ -527,18 +527,11 @@ async fn execute_grant(
             Ok(())
         }
         Platform::Android => {
-            use tokio::process::Command;
-
             let android_perm = android_permission_name(permission)?;
 
-            let mut cmd = Command::new("adb");
-            cmd.args(["-s", udid, "shell", "pm", "grant", bundle_id, android_perm]);
-
-            let output = cmd.output().await?;
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(format!("Failed to grant permission: {}", stderr).into());
-            }
+            agent_mobile_platform_android::grant_permission(Some(udid), bundle_id, android_perm)
+                .await
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
 
             println!("Granted {} to {}", permission, bundle_id);
             Ok(())
@@ -562,18 +555,11 @@ async fn execute_revoke(
             Ok(())
         }
         Platform::Android => {
-            use tokio::process::Command;
-
             let android_perm = android_permission_name(permission)?;
 
-            let mut cmd = Command::new("adb");
-            cmd.args(["-s", udid, "shell", "pm", "revoke", bundle_id, android_perm]);
-
-            let output = cmd.output().await?;
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(format!("Failed to revoke permission: {}", stderr).into());
-            }
+            agent_mobile_platform_android::revoke_permission(Some(udid), bundle_id, android_perm)
+                .await
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
 
             println!("Revoked {} from {}", permission, bundle_id);
             Ok(())

@@ -1,4 +1,6 @@
 //! Android device API
+//!
+//! Uses the native ADB protocol via `agent_mobile_platform_android::AdbConnection`.
 
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -17,12 +19,23 @@ impl AndroidDevice {
     /// If `udid` is provided, connects to that specific device.
     /// Otherwise, auto-selects an available device.
     pub async fn connect(udid: Option<&str>) -> Result<Self> {
+        // Verify ADB server is reachable
+        if !agent_mobile_platform_android::is_adb_available() {
+            return Err(
+                "ADB server not reachable at 127.0.0.1:5037. Please start the ADB server with 'adb start-server'.".into()
+            );
+        }
         Ok(Self {
             udid: udid.map(|s| s.to_string()),
         })
     }
 
-    /// Stream logs from the device via adb logcat
+    /// Stream logs from the device.
+    ///
+    /// Note: logcat streaming requires a persistent process for continuous output.
+    /// We use `adb logcat` process for this since ADB protocol's logcat
+    /// is a blocking operation that doesn't work well with async streaming.
+    /// This is the one remaining `adb` CLI usage, kept for its streaming nature.
     pub async fn stream_logs(&mut self) -> Result<LogcatStream> {
         let mut cmd = Command::new("adb");
         if let Some(s) = &self.udid {

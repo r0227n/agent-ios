@@ -1,11 +1,11 @@
 //! ADB command execution module.
 //!
-//! This module provides functions to execute ADB commands and parse their output
-//! for Android device/emulator management.
+//! This module provides functions to manage Android devices/emulators.
+//! All operations use the native ADB protocol via `adb_client` crate
+//! (TCP :5037 direct communication) instead of shelling out to the `adb` CLI.
 
 #![allow(dead_code)]
 
-use std::process::Command;
 use thiserror::Error;
 
 /// ADB command execution errors.
@@ -17,7 +17,7 @@ pub enum AdbError {
     #[error("adb execution error: {0}")]
     ExecutionError(#[from] std::io::Error),
 
-    #[error("adb not found in PATH. Please install Android SDK platform-tools.")]
+    #[error("adb server not reachable at 127.0.0.1:5037. Please start the ADB server with 'adb start-server'.")]
     AdbNotFound,
 
     #[error("Invalid output: {0}")]
@@ -26,101 +26,25 @@ pub enum AdbError {
 
 pub type Result<T> = std::result::Result<T, AdbError>;
 
-/// Check if adb is available in PATH.
+/// Check if ADB server is reachable (native TCP check).
 pub fn is_adb_available() -> bool {
-    Command::new("adb").arg("version").output().is_ok()
+    super::connection::is_adb_available()
 }
 
-/// List connected devices via `adb devices`.
+/// List connected devices via ADB protocol.
 /// Returns a vector of (serial, state) tuples.
 pub fn list_devices() -> Result<Vec<(String, String)>> {
-    let output = Command::new("adb")
-        .args(["devices"])
-        .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                AdbError::AdbNotFound
-            } else {
-                AdbError::ExecutionError(e)
-            }
-        })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut devices = Vec::new();
-
-    for line in stdout.lines().skip(1) {
-        // Skip "List of devices attached" header
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 2 {
-            devices.push((parts[0].to_string(), parts[1].to_string()));
-        }
-    }
-
-    Ok(devices)
+    super::connection::list_devices()
 }
 
-/// List available AVDs via `emulator -list-avds`.
+/// List available AVDs by reading `~/.android/avd/*.ini` files.
 pub fn list_avds() -> Result<Vec<String>> {
-    let output = Command::new("emulator")
-        .args(["-list-avds"])
-        .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                AdbError::CommandFailed("emulator command not found".to_string())
-            } else {
-                AdbError::ExecutionError(e)
-            }
-        })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let avds: Vec<String> = stdout
-        .lines()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect();
-
-    Ok(avds)
-}
-
-/// Get a device property via `adb shell getprop`.
-fn get_prop(serial: &str, prop: &str) -> Result<String> {
-    let output = Command::new("adb")
-        .args(["-s", serial, "shell", "getprop", prop])
-        .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                AdbError::AdbNotFound
-            } else {
-                AdbError::ExecutionError(e)
-            }
-        })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    super::connection::list_avds()
 }
 
 /// Get API level (SDK version) for a device.
 pub fn get_api_level(serial: &str) -> Result<Option<u32>> {
-    let value = get_prop(serial, "ro.build.version.sdk")?;
+    let value = super::connection::get_prop(serial, "ro.build.version.sdk")?;
     if value.is_empty() {
         return Ok(None);
     }
@@ -132,7 +56,7 @@ pub fn get_api_level(serial: &str) -> Result<Option<u32>> {
 
 /// Get Android version string (e.g., "14", "13").
 pub fn get_android_version(serial: &str) -> Result<Option<String>> {
-    let value = get_prop(serial, "ro.build.version.release")?;
+    let value = super::connection::get_prop(serial, "ro.build.version.release")?;
     if value.is_empty() {
         Ok(None)
     } else {
@@ -142,7 +66,7 @@ pub fn get_android_version(serial: &str) -> Result<Option<String>> {
 
 /// Get device model name.
 pub fn get_device_model(serial: &str) -> Result<Option<String>> {
-    let value = get_prop(serial, "ro.product.model")?;
+    let value = super::connection::get_prop(serial, "ro.product.model")?;
     if value.is_empty() {
         Ok(None)
     } else {
@@ -152,7 +76,7 @@ pub fn get_device_model(serial: &str) -> Result<Option<String>> {
 
 /// Get AVD name for an emulator.
 pub fn get_avd_name(serial: &str) -> Result<Option<String>> {
-    let value = get_prop(serial, "ro.boot.qemu.avd_name")?;
+    let value = super::connection::get_prop(serial, "ro.boot.qemu.avd_name")?;
     if value.is_empty() {
         Ok(None)
     } else {
@@ -177,7 +101,7 @@ mod tests {
         assert!(err.to_string().contains("test error"));
 
         let err = AdbError::AdbNotFound;
-        assert!(err.to_string().contains("adb not found"));
+        assert!(err.to_string().contains("adb server not reachable"));
     }
 
     #[test]

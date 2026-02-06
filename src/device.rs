@@ -349,20 +349,12 @@ async fn execute_shutdown(platform: Platform, udid: &str) -> CommandResult {
             Ok(())
         }
         Platform::Android => {
-            use tokio::process::Command;
+            use agent_mobile_platform_android::AdbConnection;
 
-            // For Android emulators, use adb emu kill
-            let mut cmd = Command::new("adb");
-            cmd.args(["-s", udid, "emu", "kill"]);
-
-            let output = cmd.output().await.map_err(|e: std::io::Error| {
-                Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-            })?;
-
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(format!("Failed to shutdown: {}", stderr).into());
-            }
+            let mut conn = AdbConnection::new(udid)
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+            conn.emu_kill()
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
 
             println!("Shutdown emulator: {}", udid);
             Ok(())

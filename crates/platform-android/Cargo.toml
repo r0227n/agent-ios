@@ -7,6 +7,9 @@ description = "Android platform implementation for agent-mobile"
 [dependencies]
 agent-mobile-core = { path = "../core" }
 
+# ADB protocol client (TCP :5037 direct communication)
+adb_client = "2.0"
+
 # Async runtime
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "process", "sync"] }
 

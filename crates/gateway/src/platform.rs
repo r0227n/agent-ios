@@ -1,4 +1,6 @@
 //! Platform detection and device resolution
+//!
+//! Uses native ADB protocol for Android device detection.
 
 use agent_mobile_core::Platform;
 
@@ -19,7 +21,7 @@ impl DeviceResolver {
         if Self::has_ios_devices().await {
             return Ok(Platform::Ios);
         }
-        if Self::has_android_devices().await {
+        if Self::has_android_devices() {
             return Ok(Platform::Android);
         }
         Err(
@@ -55,19 +57,14 @@ impl DeviceResolver {
         }
     }
 
-    /// Check if Android devices are available
-    pub async fn has_android_devices() -> bool {
-        use tokio::process::Command;
-        let output = Command::new("adb").args(["devices", "-l"]).output().await;
-        match output {
-            Ok(o) if o.status.success() => {
-                let stdout = String::from_utf8_lossy(&o.stdout);
-                stdout.lines().skip(1).any(|line| {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    parts.len() >= 2 && parts[1] == "device"
-                })
-            }
-            _ => false,
+    /// Check if Android devices are available via native ADB protocol.
+    pub fn has_android_devices() -> bool {
+        if !agent_mobile_platform_android::is_adb_available() {
+            return false;
+        }
+        match agent_mobile_platform_android::list_devices() {
+            Ok(devices) => devices.iter().any(|(_, state)| state == "device"),
+            Err(_) => false,
         }
     }
 }
