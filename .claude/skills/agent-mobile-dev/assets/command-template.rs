@@ -9,7 +9,8 @@ use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::cli::helpers::{with_xcuitest, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_xcuitest, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
 /// {CommandName} コマンド引数
 #[derive(Args, Debug)]
@@ -25,17 +26,20 @@ pub struct {CommandName}Args {
 
 /// Execute the {COMMAND_NAME} command
 pub async fn run(args: {CommandName}Args) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref()).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     match platform {
-        Platform::Ios => run_ios(args.device.udid.as_deref()).await,
-        Platform::Android => run_android(args.device.udid.as_deref()).await,
+        Platform::Ios => run_ios().await,
+        Platform::Android => run_android().await,
     }
 }
 
 /// iOS implementation
-async fn run_ios(udid: Option<&str>) -> CommandResult {
-    with_xcuitest(udid, |mut client| async move {
+async fn run_ios() -> CommandResult {
+    with_xcuitest(|client| async move {
         // TODO: Implement iOS logic using XCUITest Runner (HTTP)
         // Example:
         // client.focus().await?;
@@ -47,11 +51,11 @@ async fn run_ios(udid: Option<&str>) -> CommandResult {
 }
 
 /// Android implementation
-async fn run_android(udid: Option<&str>) -> CommandResult {
-    // TODO: Implement Android logic using adb
+async fn run_android() -> CommandResult {
+    // TODO: Implement Android logic using ADB native protocol
     // Example:
-    // use agent_mobile_platform_android::adb::input;
-    // input::tap(udid, 100.0, 200.0).await?;
+    // use agent_mobile_platform_android::adb;
+    // adb::commands::shell_command(serial, "input tap 100 200").await?;
 
     println!("Android {COMMAND_NAME} executed");
     Ok(())
@@ -66,7 +70,7 @@ mod tests {
         // TODO: Add unit tests for argument parsing
         // Example:
         // let args = {CommandName}Args {
-        //     device: DeviceArgs::default(),
+        //     device: DeviceArgs { udid: None },
         // };
         // assert!(args.device.udid.is_none());
     }

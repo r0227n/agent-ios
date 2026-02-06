@@ -1,7 +1,7 @@
 ---
 name: agent-mobile-dev
-description: Guide for developing CLI commands in agent-mobile (Rust mobile E2E testing tool). Use when adding new commands, implementing features, or refactoring agent-mobile code. Enforces 4-layer architecture (CLI/Gateway/Platform/Core), platform decision-making (iOS: XCUITest Runner (HTTP) vs xcrun simctl), and mandatory real-device testing workflow (Phase 0 environment setup → design → implement → test → device verification → commit).
-version: 2.0.0
+description: Guide for developing CLI commands in agent-mobile (Rust mobile E2E testing tool). Use when adding new commands, implementing features, or refactoring agent-mobile code. Enforces 4-layer architecture (CLI/Gateway/Platform/Core), platform decision-making (iOS: XCUITest Runner HTTP vs xcrun simctl, Android: ADB native protocol), and mandatory real-device testing workflow (Phase 0 environment setup → design → implement → test → device verification → commit).
+version: 3.0.0
 argument-hint: "[setup-ios|setup-android|<other-args>]"
 ---
 
@@ -17,51 +17,84 @@ agent-mobile CLI（Rust製モバイルE2Eテストツール）の新機能開発
 
 **主要特徴:**
 - **4層アーキテクチャ**: CLI → Gateway → Platform → Core
-- **iOS対応**: XCUITest Runner (HTTP) + xcrun simctl ハイブリッド
-- **Android対応**: adb wrapper
+- **iOS対応**: XCUITest Runner (HTTP, localhost:8200) + xcrun simctl ハイブリッド
+- **Android対応**: ADB native protocol (TCP :5037) via adb_client crate
 - **AI最適化**: 簡潔なコマンド、JSON出力、エラーメッセージ明確化
 
 **技術スタック:**
 ```
-Rust 2021 | tokio 1.49 | reqwest (HTTP) | clap 4.5
+Rust 2021 | tokio 1.49 | reqwest (HTTP) | clap 4.5 | adb_client 2.0
+```
+
+### 現在のCLIコマンド一覧
+
+```text
+Core Commands (AI Agent 向け):
+  tap          - Tap an element by ref, text, coordinates, or key
+  long-press   - Long press with configurable duration
+  check        - Idempotent checkbox check
+  uncheck      - Idempotent checkbox uncheck
+  select       - Select from picker/spinner
+  fill         - Clear + type text into field
+  type         - Append text to focused field
+  swipe        - Swipe gesture (up/down/left/right)
+  scroll       - Scroll within element or screen
+  get          - Get element property
+  is           - Check element state (exit code)
+  wait         - Wait for element appearance
+  find         - Semantic locator search with actions
+  screenshot   - Take screenshot
+  snapshot     - Capture UI with element references (@e1, @e2...)
+  record       - Record screen to MP4
+  console      - Stream device logs
+
+Management Commands:
+  app          - App management (launch, terminate, install, list)
+  device       - Device management (list, boot, shutdown)
+  session      - Session management (list, show, create, destroy)
+  doctor       - Check external dependency availability
 ```
 
 ### 4層アーキテクチャ
 
 ```text
 ┌─────────────────────────────────────────┐
-│  CLI Layer (src/)                   │
-│  - コマンドパース (clap derive)        │
-│  - 引数定義のみ                         │
-│  - Gateway API呼び出し                  │
+│  CLI Layer (src/)                       │
+│  - コマンドパース (clap derive)          │
+│  - 引数定義 (src/command.rs)            │
+│  - コア操作 (src/core/*.rs)             │
+│  - 管理操作 (src/app.rs, device.rs等)   │
+│  - ヘルパー (src/helpers/)              │
 └───────────────┬─────────────────────────┘
                 │
                 ↓
 ┌─────────────────────────────────────────┐
 │  Gateway Layer (crates/gateway/)        │
-│  - プラットフォーム検出                 │
-│  - 統一API (IosDevice/AndroidDevice)   │
-│  - 高レベル操作                         │
+│  - DeviceResolver (プラットフォーム検出) │
+│  - AndroidDevice (Android統一API)      │
+│  - stream_console_logs (共通ログ)      │
 └────┬──────────────────────┬─────────────┘
      │                      │
      ↓ (iOS)                ↓ (Android)
-┌──────────────┐      ┌─────────────────┐
-│ iOS Platform │      │ Android Platform│
-│ - XCUITest   │      │ - adb wrapper   │
-│ - simctl     │      │                 │
-└──────────────┘      └─────────────────┘
+┌──────────────┐      ┌──────────────────┐
+│ iOS Platform │      │ Android Platform │
+│ - XCUITest   │      │ - ADB native     │
+│   (HTTP)     │      │   (TCP :5037)    │
+│ - simctl     │      │ - uiautomator    │
+└──────────────┘      └──────────────────┘
 ┌─────────────────────────────────────────┐
 │  Core Layer (crates/core/)              │
 │  - Platform enum                        │
 │  - OutputWriter (stdout/file/tee)      │
+│  - Error types, Traits                 │
 └─────────────────────────────────────────┘
 ```
 
 **各層の責務:**
-- **CLI層**: コマンドパース、引数検証のみ
-- **Gateway層**: プラットフォーム抽象化、統一API提供
-- **Platform層**: iOS (XCUITest Runner HTTP/simctl)、Android (adb) 実装
-- **Core層**: 共通型、OutputWriter
+- **CLI層**: コマンドパース、引数検証、プラットフォーム分岐
+- **Gateway層**: プラットフォーム検出（DeviceResolver）、Android統一API
+- **Platform層**: iOS (XCUITest Runner HTTP / simctl)、Android (ADB native protocol) 実装
+- **Core層**: 共通型（Platform enum）、OutputWriter、エラー型、トレイト
 
 ## Quick Start: 新機能追加の判断フロー
 
@@ -69,25 +102,26 @@ Rust 2021 | tokio 1.49 | reqwest (HTTP) | clap 4.5
 
 ```text
 1. 機能の分類
-   ├─ トップレベルコマンド？ (tap, swipe, find...)
+   ├─ コア操作（tap, swipe, find等）？
    │  └─ src/core/<name>.rs に実装
-   └─ サブコマンド？
-      └─ 適切なモジュールに配置
+   └─ 管理操作（app, device, session等）？
+      └─ src/<name>.rs に実装
 
 2. iOS実装判断
-   ├─ XCUITest Runner (HTTP)で実装可能？
-   │  ├─ Yes → XCUITest Runner (HTTP) で実装
-   │  │  └─ with_xcuitest() パターン使用
-   │  └─ No → xcrun simctl で実装
+   ├─ UI操作/要素操作/スクリーンショット？
+   │  └─ XCUITest Runner (HTTP) で実装
+   │     └─ with_xcuitest() パターン使用
+   ├─ デバイスライフサイクル（boot/shutdown/create/delete）？
+   │  └─ xcrun simctl で実装
    │     └─ simctl::management モジュール拡張
    └─ 両方で可能？
       └─ ハイブリッド (XCUITest Runner優先、fallback)
 
 3. Android実装判断
-   ├─ adb コマンドで実装可能？
+   ├─ ADB native protocol で実装可能？
    │  └─ crates/platform-android/src/adb/ に実装
    └─ 複雑な操作？
-      └─ Gateway層でラッパー実装
+      └─ Gateway層の AndroidDevice 拡張
 
 4. テスト戦略
    ├─ ユニットテスト: src/ 内の #[cfg(test)] mod tests
@@ -112,6 +146,20 @@ Rust 2021 | tokio 1.49 | reqwest (HTTP) | clap 4.5
 ## Phase 0: 環境セットアップ（初回・プラットフォーム切替時）
 
 機能開発を開始する前に、開発環境が正しくセットアップされていることを確認してください。
+
+### 環境診断（推奨）
+
+```bash
+# doctor コマンドで環境を一括チェック
+cargo run -- doctor
+
+# JSON出力で確認
+cargo run -- doctor --format json
+```
+
+**チェック項目:**
+- iOS: Xcode, simctl, CoreSimulator, XCUITest Runner
+- Android: ADB server, Android SDK, Android Emulator
 
 ### iOS環境セットアップ
 
@@ -160,7 +208,7 @@ Rust 2021 | tokio 1.49 | reqwest (HTTP) | clap 4.5
    ./scripts/platform-check.sh <feature>
    # → XCUITest Runner (HTTP) or xcrun simctl の推奨を提示
    ```
-2. Android: adbコマンドで実現可能か確認
+2. Android: ADB native protocolで実現可能か確認
 
 **引数設計:**
 ```rust
@@ -170,7 +218,7 @@ pub struct MyCommandArgs {
     pub target: String,
 
     #[command(flatten)]
-    pub device: DeviceArgs,  // --udid, --platform
+    pub device: DeviceArgs,  // --udid のみ (platformは自動検出)
 }
 ```
 
@@ -182,16 +230,19 @@ pub struct MyCommandArgs {
 # 生成:
 # ✓ src/core/vibrate.rs
 # ✓ tests/cli/vibrate_integration.rs
-# ✓ src/mod.rs に自動追記
+# ⚠ src/command.rs に手動追加が必要
 ```
 
 **手動実装の場合:**
 ```rust
 // src/core/my_feature.rs
 use clap::Args;
+
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
-use crate::cli::helpers::{with_xcuitest, CommandResult, DeviceArgs};
+
+use crate::helpers::client::{with_xcuitest, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
 #[derive(Args, Debug)]
 pub struct MyFeatureArgs {
@@ -200,43 +251,43 @@ pub struct MyFeatureArgs {
 }
 
 pub async fn run(args: MyFeatureArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(
-        args.device.platform.as_deref()
-    ).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     match platform {
-        Platform::Ios => run_ios(args.device.udid.as_deref()).await,
-        Platform::Android => run_android(args.device.udid.as_deref()).await,
+        Platform::Ios => run_ios().await,
+        Platform::Android => run_android().await,
     }
 }
 
-async fn run_ios(udid: Option<&str>) -> CommandResult {
-    with_xcuitest(udid, |mut client| async move {
+async fn run_ios() -> CommandResult {
+    with_xcuitest(|client| async move {
         // XCUITest Runner (HTTP)実装
         Ok(())
     }).await
 }
 
-async fn run_android(udid: Option<&str>) -> CommandResult {
-    // adb実装
+async fn run_android() -> CommandResult {
+    // ADB native protocol実装
     Ok(())
 }
 ```
 
-**src/mod.rsに追加:**
+**src/command.rsに追加:**
 ```rust
-// mod宣言
-pub mod my_feature;
-
-// Commands enum
-#[derive(Subcommand, Debug)]
+// Commands enum にバリアント追加
+#[derive(Subcommand)]
 pub enum Commands {
     // ...
-    MyFeature(my_feature::MyFeatureArgs),
+    MyFeature(crate::core::my_feature::MyFeatureArgs),
 }
+```
 
-// match分岐
-Commands::MyFeature(args) => my_feature::run(args).await,
+**src/main.rs の match 分岐に追加:**
+```rust
+Commands::MyFeature(args) => crate::core::my_feature::run(args).await,
 ```
 
 ### ステップ3: ユニットテスト
@@ -274,14 +325,14 @@ cargo test --test cli -- --test-threads=1
 ```rust
 // tests/cli/my_feature_integration.rs
 use crate::common::{
-    assert_success, ensure_device_ready, get_available_udid,
+    assert_success, ensure_companion_running, get_available_udid,
     run_cli_command_with_udid,
 };
 
 #[test]
 fn test_my_feature_success() {
     let udid = get_available_udid();
-    ensure_device_ready(&udid);
+    ensure_companion_running(&udid);
 
     let output = run_cli_command_with_udid("my-feature", &[], &udid);
     assert_success(&output, "my-feature command");
@@ -348,11 +399,12 @@ git commit -m "feat: add my-feature command"
 ### with_xcuitest() パターン
 
 最も頻繁に使用するパターン。XCUITest Runnerへの接続を抽象化します。
+Runner の自動起動・ヘルスチェックを内部で行います。
 
 **基本形:**
 ```rust
-pub async fn run(udid: Option<String>) -> CommandResult {
-    with_xcuitest(udid.as_deref(), |mut client| async move {
+pub async fn run() -> CommandResult {
+    with_xcuitest(|client| async move {
         // XCUITest Runner (HTTP)操作
         client.accessibility_info(None, true).await?;
         Ok(())
@@ -360,22 +412,27 @@ pub async fn run(udid: Option<String>) -> CommandResult {
 }
 ```
 
-**ストリーミング用:**
-```rust
-use crate::cli::helpers::with_xcuitest_streaming;
+**重要**: `with_xcuitest()` はUDIDパラメータを取りません。デバイス選択はCLI層で行い、Platform分岐後に呼び出します。
 
-pub async fn run(udid: Option<String>) -> CommandResult {
-    with_xcuitest_streaming(udid.as_deref(), |mut client| async move {
-        let mut stream = client.log(LogSource::Target, vec![]).await?;
-        // ストリーム処理...
-        Ok(())
-    }).await
-}
+### プラットフォーム検出パターン
+
+```rust
+// UDIDが指定されている場合 → UDIDからプラットフォームを判定
+// UDIDが未指定の場合 → 起動中のデバイスから自動検出
+let platform = match args.device.udid.as_deref() {
+    Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+    None => DeviceResolver::detect_platform().await?,
+};
 ```
+
+**DeviceResolver::detect_platform()** の検出順序:
+1. iOS: `simctl::list_simulators()` で Booted シミュレータ確認
+2. Android: ADB native protocol でデバイス確認
+3. どちらもなければエラー
 
 ### DeviceArgs flatten パターン
 
-デバイス指定引数（--udid、--platform）を標準化します。
+デバイス指定引数（--udid）を標準化します。プラットフォームはUDIDから自動検出されます。
 
 ```rust
 #[derive(Args, Debug)]
@@ -384,9 +441,15 @@ pub struct MyCommandArgs {
     pub target: String,
 
     #[command(flatten)]
-    pub device: DeviceArgs,  // --udid, --platform を自動追加
+    pub device: DeviceArgs,  // --udid を自動追加
 }
 ```
+
+**バリエーション:**
+- `DeviceArgs`: `--udid` のみ
+- `FormatArgs`: `--format` のみ
+- `FormatOutputArgs`: `--format` + `--output`
+- `DeviceFormatArgs`: `--udid` + `--format`
 
 ### エラーハンドリング
 
@@ -398,11 +461,13 @@ pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sy
 **使用例:**
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref())
-        .await?;  // ?演算子でエラー伝播
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     if platform == Platform::Ios {
-        with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
+        with_xcuitest(|client| async move {
             client.focus().await?;
             Ok(())
         }).await
@@ -418,13 +483,13 @@ pub async fn run(args: MyArgs) -> CommandResult {
 #[derive(Args, Debug)]
 pub struct MyCommandArgs {
     #[command(flatten)]
-    pub device: DeviceFormatArgs,  // --udid, --platform, --format
+    pub device: DeviceFormatArgs,  // --udid, --format
 }
 
 pub async fn run(args: MyCommandArgs) -> CommandResult {
     let result = perform_operation().await?;
 
-    match args.device.format.format {
+    match args.device.format {
         OutputFormat::Json => {
             let json = serde_json::json!({
                 "status": "success",
@@ -432,7 +497,7 @@ pub async fn run(args: MyCommandArgs) -> CommandResult {
             });
             println!("{}", serde_json::to_string_pretty(&json)?);
         }
-        OutputFormat::Human => {
+        OutputFormat::Text => {
             println!("Result: {}", result);
         }
     }
@@ -445,27 +510,36 @@ pub async fn run(args: MyCommandArgs) -> CommandResult {
 ### 判断フローチャート
 
 ```text
-XCUITest Runner (HTTP) で実装可能？
-├─ Yes → XCUITest Runner (HTTP) 実装
-│  └─ with_xcuitest() 使用
-├─ No  → xcrun simctl 実装
-│  └─ simctl::management 拡張
-└─ 両方？→ ハイブリッド
-   └─ XCUITest Runner優先、fallback で simctl
+機能のカテゴリは？
+├─ UI操作（tap/swipe/text/find等）
+│  └─ XCUITest Runner (HTTP) 実装
+│     └─ with_xcuitest() 使用
+├─ 要素情報取得（accessibility/screenshot等）
+│  └─ XCUITest Runner (HTTP) 実装
+│     └─ with_xcuitest() 使用
+├─ アプリ操作（launch/terminate/install等）
+│  └─ XCUITest Runner (HTTP) 実装
+│     └─ with_xcuitest() 使用
+├─ クリップボード操作
+│  └─ XCUITest Runner (HTTP) 実装
+│     └─ UIPasteboard.general 経由
+└─ デバイスライフサイクル（boot/shutdown/create/delete）
+   └─ xcrun simctl 実装
+      └─ simctl::management モジュール
 ```
 
 ### 機能別推奨実装
 
 | 機能カテゴリ | 推奨実装 | 理由 |
 |------------|---------|------|
-| HID入力 (tap/swipe/text) | **XCUITest Runner (HTTP)** | 精密な制御、ストリーミング対応 |
+| HID入力 (tap/swipe/text) | **XCUITest Runner (HTTP)** | 精密な制御 |
 | アクセシビリティ | **XCUITest Runner (HTTP)** | simctlでは不可 |
-| スクリーンショット | **XCUITest Runner (HTTP)** | Framebuffer直接アクセス |
-| アプリ操作 (launch/terminate) | **XCUITest Runner (HTTP)** | 進捗ストリーミング |
-| ファイル操作 | **XCUITest Runner (HTTP)** | 統一インターフェース |
+| スクリーンショット | **XCUITest Runner (HTTP)** | 高品質キャプチャ |
+| アプリ操作 (launch/terminate) | **XCUITest Runner (HTTP)** | 統一インターフェース |
+| クリップボード | **XCUITest Runner (HTTP)** | UIPasteboard.general 経由 |
 | シミュレータ起動/停止 | **xcrun simctl** | デバイスライフサイクル管理 |
 | シミュレータ作成/削除 | **xcrun simctl** | デバイスライフサイクル管理 |
-| クリップボード | **XCUITest Runner (HTTP)** | UIPasteboard.general 経由 |
+| デバイス一覧 | **xcrun simctl** | list_simulators() (キャッシュ付き, TTL 5秒) |
 
 ### ハイブリッド実装例
 
@@ -485,7 +559,36 @@ pub async fn grant_permission(bundle: &str, perm: Permission) -> Result<()> {
 }
 ```
 
-**詳細**: `references/platform-decisions.md` 参照
+## プラットフォーム判断（Android）
+
+### ADB native protocol 構成
+
+```text
+Android操作: ADB native protocol (TCP :5037) via adb_client crate
+  ├─ AdbConnection: shell_command, pull, push, install, uninstall
+  ├─ Screenshot: screencap -p (PNG直接取得)
+  ├─ UI階層: uiautomator dump (XML解析)
+  ├─ Input: input tap/swipe/text
+  ├─ App: am start/force-stop, pm install/uninstall
+  └─ AVD一覧: ~/.android/avd/*.ini ファイル読取
+残存CLI: emulator -avd (QEMU起動), adb logcat (ストリーミング)
+```
+
+### Android実装例
+
+```rust
+use agent_mobile_platform_android::adb;
+
+async fn run_android() -> CommandResult {
+    // ADB native protocol でスクリーンショット取得
+    let png_data = adb::screenshot::capture(serial).await?;
+
+    // shell コマンド実行
+    let output = adb::commands::shell_command(serial, "input tap 100 200").await?;
+
+    Ok(())
+}
+```
 
 ## スクリプト & テンプレート
 
@@ -496,25 +599,15 @@ pub async fn grant_permission(bundle: &str, perm: Permission) -> Result<()> {
 **使用方法:**
 ```bash
 ./scripts/new-command.sh vibrate
-
-# 対話:
-# > Description (optional): Vibrate device
-#
-# 生成:
-# ✓ Created src/core/vibrate.rs
-# ✓ Created tests/cli/vibrate_integration.rs
-# ✓ Updated src/mod.rs (added VibrateArgs, vibrate command)
-#
-# Next steps:
-# 1. cargo build
-# 2. Customize vibrate.rs implementation
-# 3. cargo test --test cli vibrate
 ```
 
 **生成内容:**
 - `src/core/<name>.rs`: コマンド実装骨格（`assets/command-template.rs`ベース）
 - `tests/cli/<name>_integration.rs`: 統合テスト骨格（`assets/test-template.rs`ベース）
-- `src/mod.rs`: 自動的にmod宣言、Commands enum、match分岐を追加
+
+**手動追加が必要:**
+- `src/command.rs` の Commands enum にバリアント追加
+- `src/main.rs` の match 分岐に追加
 
 ### scripts/platform-check.sh
 
@@ -523,19 +616,10 @@ iOS実装判断を支援します（XCUITest Runner or simctl の推奨判定）
 **使用方法:**
 ```bash
 ./scripts/platform-check.sh accessibility
+# → Recommendation: Use XCUITest Runner (HTTP)
 
-# 出力:
-# Recommendation: Use XCUITest Runner (HTTP)
-# Implementation: with_xcuitest() pattern
-# API: accessibility_info()
-```
-
-```bash
-./scripts/platform-check.sh clipboard
-
-# 出力:
-# Recommendation: Use XCUITest Runner (HTTP)
-# Implementation: UIPasteboard.general 経由
+./scripts/platform-check.sh boot
+# → Recommendation: Use xcrun simctl
 ```
 
 ### scripts/run-tests.sh
@@ -545,18 +629,6 @@ iOS実装判断を支援します（XCUITest Runner or simctl の推奨判定）
 **使用方法:**
 ```bash
 ./scripts/run-tests.sh
-
-# 出力:
-# Step 1: Unit tests
-# $ cargo test --verbose --bins
-#
-# Step 2: Integration tests
-# $ cargo test --test cli -- --test-threads=1
-#
-# Step 3: Real device verification (REQUIRED!)
-# $ /mobile-e2e ios
-# or
-# $ /mobile-e2e android
 ```
 
 ### assets/command-template.rs
@@ -576,14 +648,47 @@ iOS実装判断を支援します（XCUITest Runner or simctl の推奨判定）
 
 実装チェックリスト（各フェーズの確認項目）。
 
+## 重要ファイル一覧
+
+### CLI層 (src/)
+
+| ファイル | 説明 |
+|---------|------|
+| `src/command.rs` | Commands enum（全コマンド定義） |
+| `src/main.rs` | エントリポイント、コマンドディスパッチ |
+| `src/helpers/client.rs` | `with_xcuitest()` ヘルパー |
+| `src/helpers/common_args.rs` | DeviceArgs, DeviceFormatArgs 等 |
+| `src/helpers/format.rs` | OutputFormat (Text/Json) |
+| `src/helpers/signal.rs` | Ctrl+C シグナルハンドリング |
+| `src/core/*.rs` | コア操作コマンド実装 |
+| `src/doctor.rs` | 環境診断コマンド |
+
+### Platform層
+
+| ファイル | 説明 |
+|---------|------|
+| `crates/platform-ios/src/xcuitest/client.rs` | XCUITestClient (HTTP) |
+| `crates/platform-ios/src/simctl/management.rs` | simctl 操作 (boot/shutdown等) |
+| `crates/platform-ios/src/simctl/cache.rs` | DeviceCache (TTL 5秒) |
+| `crates/platform-android/src/adb/connection.rs` | AdbConnection (TCP :5037) |
+| `crates/platform-android/src/adb/commands.rs` | ADB公開API |
+| `crates/xcuitest-runner/` | Swift XCUITest Runner プロジェクト |
+
+### Gateway層
+
+| ファイル | 説明 |
+|---------|------|
+| `crates/gateway/src/platform.rs` | DeviceResolver（プラットフォーム検出） |
+| `crates/gateway/src/api/android.rs` | AndroidDevice 統一API |
+| `crates/gateway/src/console.rs` | stream_console_logs（共通ログ） |
+
 ## References & Next Steps
 
 詳細情報は以下のリファレンスファイルを参照してください:
 
 ### references/implementation-patterns.md
 - `with_xcuitest()` の複数バリエーション
-  - 基本形
-  - ストリーミング用
+  - 基本形（UDIDパラメータなし）
   - 複数クライアント操作
 - 引数パターン（DeviceArgs、DeviceFormatArgs、カスタム検証）
 - エラーハンドリングパターン
@@ -610,14 +715,13 @@ iOS実装判断を支援します（XCUITest Runner or simctl の推奨判定）
 
 - **CLAUDE.md**: AI開発者向けクイックスタート
 - **README.md**: ユーザー向け使用方法
-- **docs/ARCHITECTURE.md**: アーキテクチャ詳細
-- **crates/xcuitest-runner/**: XCUITest Runner (Swift) プロジェクト
+- **crates/xcuitest-runner/ARCHITECTURE.md**: XCUITest Runner アーキテクチャ詳細
 
 ## まとめ
 
 新機能追加時のクイックスタート:
 
-0. **環境確認**: `./scripts/setup-ios.sh` または `./scripts/setup-android.sh` で環境準備
+0. **環境確認**: `cargo run -- doctor` で環境診断、または `./scripts/setup-ios.sh` / `./scripts/setup-android.sh` で環境準備
 1. **判断**: `./scripts/platform-check.sh <feature>` で実装方法確認
 2. **生成**: `./scripts/new-command.sh <command>` でテンプレート生成
 3. **実装**: TODOコメントを埋める

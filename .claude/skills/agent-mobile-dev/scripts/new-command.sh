@@ -7,7 +7,8 @@
 # Generates:
 # - src/core/<command-name>.rs (command implementation)
 # - tests/cli/<command-name>_integration.rs (integration test)
-# - Updates src/mod.rs (adds mod, Commands enum, match branch)
+# Manual addition needed:
+# - src/command.rs (Commands enum variant + match branch)
 
 set -e
 
@@ -52,7 +53,7 @@ echo ""
 # File paths
 COMMAND_FILE="$PROJECT_DIR/src/core/${SNAKE_CASE}.rs"
 TEST_FILE="$PROJECT_DIR/tests/cli/${SNAKE_CASE}_integration.rs"
-MOD_FILE="$PROJECT_DIR/src/mod.rs"
+COMMAND_RS="$PROJECT_DIR/src/command.rs"
 TEMPLATE_DIR="$SCRIPT_DIR/../assets"
 
 # Check if files already exist
@@ -84,35 +85,26 @@ cat "$TEMPLATE_DIR/test-template.rs" | \
 
 echo "✓ Created $TEST_FILE"
 
-# Update src/mod.rs
-# 1. Add mod declaration
-if ! grep -q "pub mod $SNAKE_CASE;" "$MOD_FILE"; then
-    # Find the line with "pub mod core;" and add after it
-    sed -i.bak "/pub mod core;/a\\
-pub mod $SNAKE_CASE;" "$MOD_FILE"
-    rm "${MOD_FILE}.bak"
-    echo "✓ Added 'pub mod $SNAKE_CASE;' to src/mod.rs"
+# Add mod declaration to src/core/mod.rs if it exists
+CORE_MOD="$PROJECT_DIR/src/core/mod.rs"
+if [ -f "$CORE_MOD" ]; then
+    if ! grep -q "pub mod $SNAKE_CASE;" "$CORE_MOD"; then
+        echo "pub mod $SNAKE_CASE;" >> "$CORE_MOD"
+        echo "✓ Added 'pub mod $SNAKE_CASE;' to src/core/mod.rs"
+    fi
 fi
 
-# 2. Add Commands enum variant
-if ! grep -q "${PASCAL_CASE}(" "$MOD_FILE"; then
-    # Find Commands enum and add variant
-    # This is a simple append - manual adjustment may be needed for proper placement
-    echo "⚠ Please manually add '${PASCAL_CASE}(${SNAKE_CASE}::${PASCAL_CASE}Args),' to Commands enum in src/mod.rs"
-fi
-
-# 3. Add match branch
-if ! grep -q "Commands::${PASCAL_CASE}" "$MOD_FILE"; then
-    echo "⚠ Please manually add 'Commands::${PASCAL_CASE}(args) => ${SNAKE_CASE}::run(args).await,' to match in src/mod.rs"
-fi
-
+echo ""
+echo "⚠ Manual additions needed in src/command.rs:"
+echo "  1. Add to Commands enum:"
+echo "     /// $DESCRIPTION"
+echo "     ${PASCAL_CASE}(crate::core::${SNAKE_CASE}::${PASCAL_CASE}Args),"
+echo ""
+echo "  2. Add match branch in src/main.rs:"
+echo "     Commands::${PASCAL_CASE}(args) => crate::core::${SNAKE_CASE}::run(args).await,"
 echo ""
 echo "Next steps:"
 echo "  1. cargo build"
 echo "  2. Customize ${COMMAND_FILE} implementation"
 echo "  3. cargo test --test cli ${SNAKE_CASE}"
 echo "  4. /mobile-e2e ios  # Real device verification (REQUIRED!)"
-echo ""
-echo "Manual updates needed:"
-echo "  - Add '${PASCAL_CASE}(${SNAKE_CASE}::${PASCAL_CASE}Args),' to Commands enum in src/mod.rs"
-echo "  - Add 'Commands::${PASCAL_CASE}(args) => ${SNAKE_CASE}::run(args).await,' to match in src/mod.rs"

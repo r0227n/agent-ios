@@ -21,10 +21,11 @@ agent-mobile CLI開発における頻出パターンとベストプラクティ�
 **最も頻繁に使用するパターン**:
 
 ```rust
-use crate::cli::helpers::{with_xcuitest, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_xcuitest, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
 pub async fn run(args: MyArgs) -> CommandResult {
-    with_xcuitest(args.device.udid.as_deref(), |client| async move {
+    with_xcuitest(|client| async move {
         // XCUITest Runner HTTP操作
         client.tap(100.0, 200.0).await?;
         Ok(())
@@ -33,20 +34,21 @@ pub async fn run(args: MyArgs) -> CommandResult {
 ```
 
 **処理フロー**:
-1. デバイスUDIDを解決（Noneの場合は最初の利用可能デバイス）
-2. XCUITestClient (HTTP) に接続
+1. XCUITest Runnerの自動起動（未起動の場合）
+2. XCUITestClient (HTTP, localhost:8200) を作成
 3. クロージャ内でHTTP操作
-4. 接続は自動的にクローズ
+4. `with_xcuitest()` はUDIDパラメータを取らない（プラットフォーム分岐はCLI層で行う）
 
 ### ストリーミング用
 
 **長時間実行RPCの場合** (log、video、tail など):
 
 ```rust
-use crate::cli::helpers::{with_xcuitest_streaming, CommandResult};
+use crate::helpers::client::CommandResult;
 
 pub async fn run(args: MyArgs) -> CommandResult {
-    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
+    // ストリーミング用：タイムアウトなしのクライアントを使用
+    with_xcuitest(|mut client| async move {
         let mut stream = client.log(LogSource::Target, vec![]).await?;
 
         while let Some(log_entry) = stream.message().await? {
@@ -64,7 +66,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|mut client| async move {
         // 1. アクセシビリティ情報取得
         let json_str = client.accessibility_info(None, true).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
@@ -84,8 +86,8 @@ pub async fn run(args: MyArgs) -> CommandResult {
 ### 戻り値がある場合
 
 ```rust
-pub async fn get_screen_size(udid: Option<&str>) -> CommandResult<(u32, u32)> {
-    with_xcuitest(udid, |mut client| async move {
+pub async fn get_screen_size() -> CommandResult<(u32, u32)> {
+    with_xcuitest(|client| async move {
         let desc = client.describe(false).await?;
         let dims = desc.screen_dimensions;
         Ok((dims.width as u32, dims.height as u32))
@@ -97,7 +99,7 @@ pub async fn get_screen_size(udid: Option<&str>) -> CommandResult<(u32, u32)> {
 
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|mut client| async move {
         match client.accessibility_info(None, true).await {
             Ok(json_str) => {
                 process_json(&json_str)?;
@@ -120,7 +122,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 
 ```rust
 use clap::Args;
-use crate::cli::helpers::DeviceArgs;
+use crate::helpers::common_args::DeviceArgs;
 
 #[derive(Args, Debug)]
 pub struct MyCommandArgs {
@@ -128,27 +130,27 @@ pub struct MyCommandArgs {
     pub target: String,
 
     #[command(flatten)]
-    pub device: DeviceArgs,  // --udid, --platform を追加
+    pub device: DeviceArgs,  // --udid を追加（platformは自動検出）
 }
 ```
 
 **生成される引数**:
-- `--udid <UDID>`: デバイスUDID（省略時は最初の利用可能デバイス）
-- `--platform <ios|android>`: プラットフォーム指定（省略時は自動検出）
+- `--udid <UDID>`: デバイスUDID/serial（省略時は最初の利用可能デバイスを自動検出）
+- プラットフォームはUDIDから自動検出（`DeviceResolver::detect_platform()`）
 
 ### DeviceFormatArgs
 
 **JSON出力対応コマンド用**:
 
 ```rust
-use crate::cli::helpers::DeviceFormatArgs;
+use crate::helpers::common_args::DeviceFormatArgs;
 
 #[derive(Args, Debug)]
 pub struct MyCommandArgs {
     pub target: String,
 
     #[command(flatten)]
-    pub device: DeviceFormatArgs,  // --udid, --platform, --format を追加
+    pub device: DeviceFormatArgs,  // --udid, --format を追加
 }
 ```
 
@@ -241,10 +243,10 @@ pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sy
 
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref())
+    let platform = DeviceResolver::detect_platform()
         .await?;  // エラーはそのまま伝播
 
-    with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|mut client| async move {
         client.focus().await?;  // エラーはそのまま伝播
         Ok(())
     }).await
@@ -280,7 +282,7 @@ pub async fn run(args: TapArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    match with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
+    match with_xcuitest(|mut client| async move {
         client.accessibility_info(None, true).await
     }).await {
         Ok(json_str) => {
@@ -323,13 +325,13 @@ Err("Invalid element ref '@e999'. Run 'agent-mobile find <text>' to find element
 ### 基本形
 
 ```rust
-use crate::cli::helpers::{DeviceFormatArgs, OutputFormat};
+use crate::helpers::{DeviceFormatArgs, OutputFormat};
 use serde_json::json;
 
 pub async fn run(args: MyArgs) -> CommandResult {
     let result = perform_operation(&args).await?;
 
-    match args.device.format.format {
+    match args.device.format {
         OutputFormat::Json => {
             let json = json!({
                 "status": "success",
@@ -337,7 +339,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
             });
             println!("{}", serde_json::to_string_pretty(&json)?);
         }
-        OutputFormat::Human => {
+        OutputFormat::Text => {
             println!("Result: {}", result);
         }
     }
@@ -364,7 +366,7 @@ struct ElementInfo {
 pub async fn run(args: FindArgs) -> CommandResult {
     let elements = find_elements(&args.query).await?;
 
-    match args.device.format.format {
+    match args.device.format {
         OutputFormat::Json => {
             let json = json!({
                 "query": args.query,
@@ -373,7 +375,7 @@ pub async fn run(args: FindArgs) -> CommandResult {
             });
             println!("{}", serde_json::to_string_pretty(&json)?);
         }
-        OutputFormat::Human => {
+        OutputFormat::Text => {
             println!("Found {} elements:", elements.len());
             for elem in elements {
                 println!("  {} - {} ({}, {})", elem.ref_id, elem.label, elem.x, elem.y);
@@ -391,7 +393,7 @@ pub async fn run(args: FindArgs) -> CommandResult {
 pub async fn run(args: MyArgs) -> CommandResult {
     let result = perform_operation(&args).await;
 
-    match args.device.format.format {
+    match args.device.format {
         OutputFormat::Json => {
             match result {
                 Ok(data) => {
@@ -412,7 +414,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
                 }
             }
         }
-        OutputFormat::Human => result,
+        OutputFormat::Text => result,
     }
 }
 ```
@@ -424,7 +426,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 ```rust
 use tokio::select;
 use tokio::sync::watch;
-use crate::cli::helpers::setup_ctrl_c_handler;
+use crate::helpers::setup_ctrl_c_handler;
 
 pub async fn run(args: MyArgs) -> CommandResult {
     let (stop_tx, mut stop_rx) = watch::channel(false);
@@ -432,7 +434,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
     // Ctrl+Cハンドラー設定
     setup_ctrl_c_handler(stop_tx.clone());
 
-    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|mut client| async move {
         let mut stream = client.log(LogSource::Target, vec![]).await?;
 
         loop {
@@ -464,7 +466,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: InstallArgs) -> CommandResult {
-    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|mut client| async move {
         let mut stream = client.install(&args.path).await?;
 
         while let Some(response) = stream.message().await? {
@@ -509,13 +511,13 @@ pub async fn run(args: MyArgs) -> CommandResult {
 }
 
 async fn take_screenshot(udid: Option<&str>) -> CommandResult<Vec<u8>> {
-    with_xcuitest(udid, |mut client| async move {
+    with_xcuitest(|mut client| async move {
         client.screenshot().await
     }).await
 }
 
 async fn get_accessibility_info(udid: Option<&str>) -> CommandResult<String> {
-    with_xcuitest(udid, |mut client| async move {
+    with_xcuitest(|mut client| async move {
         client.accessibility_info(None, true).await
     }).await
 }
@@ -530,9 +532,10 @@ use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
 pub async fn run(args: MyArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(
-        args.device.platform.as_deref()
-    ).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     match platform {
         Platform::Ios => run_ios(args.device.udid.as_deref()).await,
@@ -541,7 +544,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 }
 
 async fn run_ios(udid: Option<&str>) -> CommandResult {
-    with_xcuitest(udid, |mut client| async move {
+    with_xcuitest(|mut client| async move {
         // iOS実装
         Ok(())
     }).await
@@ -557,9 +560,10 @@ async fn run_android(udid: Option<&str>) -> CommandResult {
 
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(
-        args.device.platform.as_deref()
-    ).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     match platform {
         Platform::Ios => run_ios(args).await,
@@ -574,9 +578,10 @@ pub async fn run(args: MyArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: TapArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(
-        args.device.platform.as_deref()
-    ).await?;
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
     // 1. 共通処理: 座標解決
     let (x, y) = resolve_coords(&args.target, platform, args.device.udid.as_deref()).await?;
@@ -588,7 +593,7 @@ pub async fn run(args: TapArgs) -> CommandResult {
 async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
-            with_xcuitest(udid, |mut client| async move {
+            with_xcuitest(|mut client| async move {
                 let events = tap_events(x, y);
                 client.hid(events).await?;
                 Ok(())
@@ -609,7 +614,7 @@ async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> 
 
 ```rust
 pub async fn run(args: LogArgs) -> CommandResult {
-    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|mut client| async move {
         let mut stream = client.log(LogSource::Target, vec![]).await?;
 
         while let Some(log_entry) = stream.message().await? {
@@ -625,7 +630,7 @@ pub async fn run(args: LogArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: PushArgs) -> CommandResult {
-    with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|mut client| async move {
         let file_data = std::fs::read(&args.local_path)?;
 
         // ストリーミング送信
@@ -644,7 +649,7 @@ pub async fn run(args: PushArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: LaunchArgs) -> CommandResult {
-    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|mut client| async move {
         let (mut tx, mut rx) = client.launch_bidirectional().await?;
 
         // 起動リクエスト送信

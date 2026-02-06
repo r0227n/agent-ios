@@ -30,7 +30,7 @@ fn test_{COMMAND_NAME}_success() {
 
     // TODO: Add assertions for output content
     // Example:
-    // let stdout = common::get_stdout(&output);
+    // let stdout = String::from_utf8_lossy(&output.stdout);
     // assert!(stdout.contains("expected text"));
 }
 
@@ -39,10 +39,14 @@ fn test_{COMMAND_NAME}_success() {
 fn test_{COMMAND_NAME}_invalid_device() {
     let output = run_command_with_udid(&[], "invalid-udid-12345");
 
-    common::assert_failure(&output, "Invalid UDID");
+    // Expect failure with invalid UDID
+    assert!(
+        !output.status.success(),
+        "Should fail with invalid UDID"
+    );
 
     // Verify error message is actionable
-    let stderr = common::get_stderr(&output);
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("device") || stderr.contains("UDID") || stderr.contains("not found"),
         "Error message should mention device/UDID: {}",

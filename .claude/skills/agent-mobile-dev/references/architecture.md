@@ -29,7 +29,7 @@ agent-mobile CLIの4層アーキテクチャ、モジュール配置規則、デ
 ┌─────────────────────────────────────────────────────────────┐
 │  Gateway Layer (crates/gateway/)                             │
 │  - プラットフォーム検出 (DeviceResolver)                    │
-│  - 統一API (IosDevice / AndroidDevice)                      │
+│  - 統一API (AndroidDevice / DeviceResolver)                  │
 │  - 高レベル操作抽象化                                       │
 └──────────────┬──────────────────────┬───────────────────────┘
                │                      │
@@ -37,7 +37,7 @@ agent-mobile CLIの4層アーキテクチャ、モジュール配置規則、デ
 ┌──────────────────────────┐  ┌──────────────────────────────┐
 │  iOS Platform Layer      │  │  Android Platform Layer      │
 │  (crates/platform-ios/)  │  │  (crates/platform-android/)  │
-│  - XCUITestClient (HTTP) │  │  - adb wrapper               │
+│  - XCUITestClient (HTTP) │  │  - ADB native (TCP :5037)    │
 │  - simctl wrapper        │  │  - Device operations         │
 │  - XCUITest Runner       │  │                              │
 └──────────────┬───────────┘  └──────────────────────────────┘
@@ -68,7 +68,7 @@ agent-mobile CLIの4層アーキテクチャ、モジュール配置規則、デ
 | **Gateway** | Rust async/await | プラットフォーム抽象化 |
 | **iOS Platform** | reqwest (HTTP) | XCUITest Runner通信 |
 | **iOS Platform** | std::process::Command | xcrun simctl呼び出し |
-| **Android Platform** | std::process::Command | adb呼び出し |
+| **Android Platform** | adb_client 2.0 (TCP) | ADB native protocol |
 | **Core** | tokio 1.49 | 非同期ランタイム |
 
 ## 4層アーキテクチャ詳細
@@ -88,7 +88,8 @@ agent-mobile CLIの4層アーキテクチャ、モジュール配置規則、デ
 **ディレクトリ構造**:
 ```text
 src/
-├── mod.rs                  # CLI entry point, Commands enum
+├── command.rs              # Commands enum 定義
+├── main.rs                 # CLI entry point
 ├── core/                   # トップレベルコマンド
 │   ├── tap.rs
 │   ├── swipe.rs
@@ -117,7 +118,8 @@ src/
 use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
-use crate::cli::helpers::{with_xcuitest, CommandResult, DeviceArgs};
+use crate::helpers::client::{with_xcuitest, CommandResult};
+use crate::helpers::common_args::DeviceArgs;
 
 #[derive(Args, Debug)]
 pub struct TapArgs {
@@ -128,21 +130,22 @@ pub struct TapArgs {
 }
 
 pub async fn run(args: TapArgs) -> CommandResult {
-    // 1. プラットフォーム検出（Gateway API）
-    let platform = DeviceResolver::resolve_platform(
-        args.device.platform.as_deref()
-    ).await?;
+    // 1. プラットフォーム検出（UDIDから自動 or デバイス自動検出）
+    let platform = match args.device.udid.as_deref() {
+        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+        None => DeviceResolver::detect_platform().await?,
+    };
 
-    // 2. プラットフォーム別処理（Gateway API）
+    // 2. プラットフォーム別処理
     match platform {
-        Platform::Ios => run_ios(args.device.udid.as_deref()).await,
-        Platform::Android => run_android(args.device.udid.as_deref()).await,
+        Platform::Ios => run_ios().await,
+        Platform::Android => run_android().await,
     }
 }
 
-// 3. iOS実装（Gateway/Platform API使用）
-async fn run_ios(udid: Option<&str>) -> CommandResult {
-    with_xcuitest(udid, |client| async move {
+// 3. iOS実装（with_xcuitest() はUDIDパラメータなし）
+async fn run_ios() -> CommandResult {
+    with_xcuitest(|client| async move {
         // Platform層のXCUITest Runner HTTP呼び出し
         client.tap(x, y).await?;
         Ok(())
@@ -158,8 +161,8 @@ async fn run_ios(udid: Option<&str>) -> CommandResult {
 - 高レベル操作の抽象化
 
 **提供API**:
-- `DeviceResolver::resolve_platform()`: プラットフォーム検出
-- `IosDevice`: iOS統一API
+- `DeviceResolver::detect_platform()`: プラットフォーム自動検出（引数なし）
+- `DeviceResolver::parse_platform()`: 文字列からプラットフォーム解析
 - `AndroidDevice`: Android統一API
 - `stream_console_logs()`: コンソールログストリーミング
 
@@ -167,13 +170,12 @@ async fn run_ios(udid: Option<&str>) -> CommandResult {
 ```text
 crates/gateway/
 └── src/
-    ├── lib.rs              # Gateway entry point
+    ├── lib.rs              # Gateway entry point (AndroidDevice, DeviceResolver, stream_console_logs)
     ├── platform.rs         # DeviceResolver (プラットフォーム検出)
     ├── console.rs          # Console streaming (iOS/Android)
-    ├── api/
-    │   ├── ios.rs          # IosDevice API
-    │   └── android.rs      # AndroidDevice API (WIP)
-    └── ...
+    └── api/
+        ├── mod.rs          # API routing
+        └── android.rs      # AndroidDevice API
 ```
 
 **DeviceResolver実装**:
@@ -183,26 +185,17 @@ crates/gateway/
 pub struct DeviceResolver;
 
 impl DeviceResolver {
-    /// プラットフォーム自動検出
-    pub async fn resolve_platform(
-        platform_hint: Option<&str>
-    ) -> Result<Platform> {
-        match platform_hint {
-            Some("ios") => Ok(Platform::Ios),
-            Some("android") => Ok(Platform::Android),
-            None => {
-                // 1. iOSデバイス確認（simctl list_simulators()）
-                if Self::has_ios_devices().await? {
-                    return Ok(Platform::Ios);
-                }
-                // 2. Androidデバイス確認（adb devices）
-                if Self::has_android_devices().await? {
-                    return Ok(Platform::Android);
-                }
-                Err("No devices found".into())
-            }
-            Some(p) => Err(format!("Unknown platform: {}", p).into()),
+    /// プラットフォーム自動検出（引数なし）
+    pub async fn detect_platform() -> Result<Platform> {
+        // 1. iOSデバイス確認（simctl list_simulators() + Booted状態チェック）
+        if Self::has_booted_ios_simulators().await {
+            return Ok(Platform::Ios);
         }
+        // 2. Androidデバイス確認（ADB native protocol）
+        if Self::has_android_devices() {
+            return Ok(Platform::Android);
+        }
+        Err("No device found. Please connect an iOS simulator/device or Android emulator/device.".into())
     }
 }
 ```
@@ -327,9 +320,12 @@ pub fn shutdown(udid: &str) -> Result<()> {
 crates/platform-android/
 └── src/
     ├── lib.rs
-    └── adb/                # adb wrapper
+    └── adb/                # ADB native protocol (TCP :5037) via adb_client
+        ├── connection.rs   # AdbConnection (native TCP)
+        ├── commands.rs     # Public API
         ├── input.rs        # Input operations (tap, swipe, keyevent)
-        ├── uiautomator.rs  # UI Automator (dump, parse)
+        ├── screenshot.rs   # Screenshot capture (screencap -p)
+        ├── uiautomator.rs  # UI Automator (dump, parse XML)
         └── ...
 ```
 
@@ -399,7 +395,7 @@ impl OutputWriter {
 |----------|---------|-----|
 | **XCUITest Runner** | `crates/platform-ios/src/xcuitest/` | client.rs |
 | **xcrun simctl** | `crates/platform-ios/src/simctl/` | management.rs, cache.rs |
-| **adb wrapper** | `crates/platform-android/src/adb/` | input.rs, uiautomator.rs |
+| **ADB native protocol** | `crates/platform-android/src/adb/` | connection.rs, commands.rs, input.rs |
 
 ### ヘルパー配置
 
@@ -421,10 +417,10 @@ CLI Layer (src/core/tap.rs)
   │ TapArgs { target: "100,200", device: DeviceArgs }
   ↓
 Gateway Layer (DeviceResolver)
-  │ resolve_platform() → Platform::Ios
+  │ detect_platform() → Platform::Ios
   ↓
 CLI Layer (run_ios)
-  │ with_client(udid, |client| {...})
+  │ with_xcuitest(|client| {...})
   ↓
 Platform Layer (XCUITestClient)
   │ client.tap(100, 200) via HTTP
@@ -633,11 +629,10 @@ pub fn run(args: MyArgs) -> Result<()> {
 ```rust
 // ✓ Good: ?演算子でエラー伝播
 pub async fn run(args: MyArgs) -> CommandResult {
-    let platform = DeviceResolver::resolve_platform(
-        args.device.platform.as_deref()
-    ).await?;  // エラーは上位に伝播
+    let platform = DeviceResolver::detect_platform()
+        .await?;  // エラーは上位に伝播
 
-    with_xcuitest(args.device.udid.as_deref(), |client| async move {
+    with_xcuitest(|client| async move {
         client.tap(100.0, 200.0).await?;  // エラーは上位に伝播
         Ok(())
     }).await

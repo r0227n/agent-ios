@@ -4,16 +4,9 @@
 #
 # Usage: ./scripts/platform-check.sh <feature-name>
 #
-# Checks proto/idb.proto for RPC definitions and recommends implementation approach.
+# Recommends XCUITest Runner (HTTP) or xcrun simctl based on feature category.
 
 set -e
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Navigate to project root (.claude/skills/agent-mobile-dev/scripts -> ../..)
-SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-# Project root is 3 levels up from skill dir (.claude/skills/agent-mobile-dev -> ../../..)
-PROJECT_DIR="$(cd "$SKILL_DIR/../../.." && pwd)"
-PROTO_FILE="$PROJECT_DIR/proto/idb.proto"
 
 # Check arguments
 if [ $# -lt 1 ]; then
@@ -21,72 +14,155 @@ if [ $# -lt 1 ]; then
     echo ""
     echo "Example:"
     echo "  $0 accessibility"
+    echo "  $0 boot"
     echo "  $0 clipboard"
     exit 1
 fi
 
-FEATURE="$1"
+FEATURE=$(echo "$1" | tr '[:upper:]' '[:lower:]')
 
-echo "Checking proto/idb.proto for: $FEATURE"
+# XCUITest Runner (HTTP) features - UI/interaction/app operations
+XCUITEST_FEATURES=(
+    "tap" "swipe" "scroll" "long-press" "longpress"
+    "type" "fill" "input" "text" "keyboard"
+    "accessibility" "snapshot" "find" "get" "is" "wait" "element"
+    "screenshot" "screen" "capture"
+    "clipboard" "copy" "paste" "pasteboard"
+    "app" "launch" "terminate" "activate"
+    "touch" "gesture" "drag" "drop"
+    "check" "uncheck" "select" "picker"
+    "focus" "alert" "dialog"
+    "record" "video"
+)
+
+# simctl features - device lifecycle management
+SIMCTL_FEATURES=(
+    "boot" "shutdown" "erase" "reset"
+    "create" "delete" "clone"
+    "install" "uninstall"
+    "list" "device" "simulator"
+    "rename" "pair" "unpair"
+    "privacy" "permission"
+    "status_bar" "statusbar"
+    "keychain"
+    "openurl" "open-url"
+    "push" "notification"
+    "io" "video-recording"
+)
+
+# Check if feature matches XCUITest Runner category
+is_xcuitest() {
+    for f in "${XCUITEST_FEATURES[@]}"; do
+        if [[ "$FEATURE" == *"$f"* ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Check if feature matches simctl category
+is_simctl() {
+    for f in "${SIMCTL_FEATURES[@]}"; do
+        if [[ "$FEATURE" == *"$f"* ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+echo "Checking implementation recommendation for: $FEATURE"
 echo ""
 
-# Search for RPC definitions (case-insensitive)
-RPC_MATCHES=$(grep -i "rpc.*$FEATURE" "$PROTO_FILE" || true)
+XCUITEST_MATCH=false
+SIMCTL_MATCH=false
 
-if [ -n "$RPC_MATCHES" ]; then
-    echo "✓ Found RPC definition(s):"
-    echo "$RPC_MATCHES" | sed 's/^/  /'
+if is_xcuitest; then
+    XCUITEST_MATCH=true
+fi
+
+if is_simctl; then
+    SIMCTL_MATCH=true
+fi
+
+if $XCUITEST_MATCH && $SIMCTL_MATCH; then
+    echo "⚡ Hybrid: Both XCUITest Runner and simctl match"
     echo ""
-    echo "Recommendation: Use idb gRPC"
+    echo "Recommendation: Hybrid implementation"
+    echo "  - Primary: XCUITest Runner (HTTP) via with_xcuitest()"
+    echo "  - Fallback: xcrun simctl for lifecycle/permissions"
     echo ""
     echo "Implementation:"
-    echo "  - Use with_client() pattern"
-    echo "  - Location: src/core/<feature>.rs or src/idb/<feature>.rs"
+    echo "  pub async fn run() -> CommandResult {"
+    echo "      // Try XCUITest Runner first"
+    echo "      match with_xcuitest(|client| async move {"
+    echo "          client.<method>().await"
+    echo "      }).await {"
+    echo "          Ok(result) => Ok(result),"
+    echo "          Err(_) => {"
+    echo "              // Fallback to simctl"
+    echo "              simctl::management::<method>(udid).await"
+    echo "          }"
+    echo "      }"
+    echo "  }"
+    echo ""
+elif $XCUITEST_MATCH; then
+    echo "✓ Recommendation: Use XCUITest Runner (HTTP)"
+    echo ""
+    echo "Implementation:"
+    echo "  - Use with_xcuitest() pattern (no UDID parameter)"
+    echo "  - Location: src/core/<feature>.rs"
     echo ""
     echo "Example:"
-    echo "  pub async fn run(args: MyArgs) -> CommandResult {"
-    echo "      with_client(args.device.udid.as_deref(), |mut client| async move {"
-    echo "          // Call gRPC method"
-    echo "          client.<method>(...).await?;"
+    echo "  async fn run_ios() -> CommandResult {"
+    echo "      with_xcuitest(|client| async move {"
+    echo "          client.<method>().await?;"
     echo "          Ok(())"
     echo "      }).await"
     echo "  }"
     echo ""
     echo "References:"
-    echo "  - proto/idb.proto (RPC definition)"
-    echo "  - src/helpers/client.rs (with_client implementation)"
-    echo "  - references/platform-decisions.md (detailed guidance)"
-else
-    echo "✗ No RPC found for: $FEATURE"
-    echo ""
-    echo "Recommendation: Use xcrun simctl"
+    echo "  - src/helpers/client.rs (with_xcuitest implementation)"
+    echo "  - crates/platform-ios/src/xcuitest/client.rs (XCUITestClient API)"
+elif $SIMCTL_MATCH; then
+    echo "✓ Recommendation: Use xcrun simctl"
     echo ""
     echo "Implementation:"
     echo "  - Use simctl::management module"
     echo "  - Location: crates/platform-ios/src/simctl/management.rs"
-    echo ""
-    echo "Example (simctl command):"
-    echo "  xcrun simctl <subcommand> <udid> [args...]"
     echo ""
     echo "Common simctl commands:"
     echo "  - boot <udid>              # Start simulator"
     echo "  - shutdown <udid>          # Stop simulator"
     echo "  - create <name> <type>     # Create simulator"
     echo "  - delete <udid>            # Delete simulator"
-    echo "  - pbcopy <udid>            # Copy to clipboard"
-    echo "  - pbpaste <udid>           # Paste from clipboard"
+    echo "  - install <udid> <app>     # Install app"
+    echo "  - uninstall <udid> <id>    # Uninstall app"
     echo ""
     echo "References:"
     echo "  - crates/platform-ios/src/simctl/management.rs (simctl wrapper)"
-    echo "  - references/platform-decisions.md (detailed guidance)"
+    echo "  - crates/platform-ios/src/simctl/cache.rs (device cache, TTL 5s)"
+else
+    echo "? No matching category found for: $FEATURE"
+    echo ""
+    echo "Manual decision needed. Consider:"
+    echo ""
+    echo "  Use XCUITest Runner (HTTP) if:"
+    echo "    - Feature involves UI interaction"
+    echo "    - Feature reads screen/element state"
+    echo "    - Feature operates on running app"
+    echo ""
+    echo "  Use xcrun simctl if:"
+    echo "    - Feature manages simulator lifecycle"
+    echo "    - Feature is device-level operation"
+    echo "    - Feature doesn't need app context"
 fi
 
 echo ""
 echo "Decision criteria:"
-echo "  ✓ RPC in proto        → idb gRPC"
-echo "  ✓ Streaming needed    → idb gRPC"
-echo "  ✓ Real device support → idb gRPC"
-echo "  ✓ Simulator lifecycle → xcrun simctl"
-echo "  ✓ No RPC in proto     → xcrun simctl"
-echo ""
-echo "For detailed decision logic, see: references/platform-decisions.md"
+echo "  ✓ UI/element operation  → XCUITest Runner (HTTP, localhost:8200)"
+echo "  ✓ App interaction       → XCUITest Runner (HTTP)"
+echo "  ✓ Screenshot/capture    → XCUITest Runner (HTTP)"
+echo "  ✓ Clipboard             → XCUITest Runner (HTTP, UIPasteboard)"
+echo "  ✓ Simulator lifecycle   → xcrun simctl"
+echo "  ✓ Device management     → xcrun simctl"
+echo "  ✓ Device detection      → simctl::list_simulators() (cached, TTL 5s)"

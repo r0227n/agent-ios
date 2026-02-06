@@ -6,16 +6,21 @@
 
 ### 開発環境確認
 
+**環境一括チェック（推奨）:**
+- [ ] `cargo run -- doctor` で環境診断実行
+- [ ] エラー/警告がないことを確認
+
 **iOS開発の場合:**
 - [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh` 実行成功
 - [ ] Xcode Command Line Tools インストール確認
+- [ ] XCUITest Runner インストール確認
 - [ ] シミュレータ起動確認
 - [ ] `agent-mobile device list` でデバイス検出確認
 
 **Android開発の場合:**
 - [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-android.sh` 実行成功
 - [ ] Android SDK (adb, emulator) インストール確認
-- [ ] adb server 起動確認
+- [ ] adb server 起動確認 (TCP :5037)
 - [ ] エミュレータ起動確認
 - [ ] `agent-mobile device list` でデバイス検出確認
 
@@ -35,20 +40,20 @@
 - [ ] 両方で可能 → ハイブリッド実装（XCUITest Runner優先、fallback）
 
 **Android実装判断:**
-- [ ] adbコマンドで実現可能か確認
-- [ ] 複雑な操作の場合はGateway層でラッパー検討
+- [ ] ADB native protocol で実現可能か確認
+- [ ] 複雑な操作の場合はGateway層の AndroidDevice 拡張
 
 ### 引数設計
 
 - [ ] コマンド固有の引数を定義
-- [ ] `DeviceArgs` flatten を使用（--udid, --platform）
-- [ ] 必要に応じて `DeviceFormatArgs` を使用（--format）
+- [ ] `DeviceArgs` flatten を使用（--udid、platformは自動検出）
+- [ ] 必要に応じて `DeviceFormatArgs` を使用（--udid + --format）
 - [ ] 引数の検証ロジックを考慮
 
 ### アーキテクチャ配置
 
-- [ ] トップレベルコマンド → `src/core/<name>.rs`
-- [ ] サブコマンド → 適切なモジュールに配置
+- [ ] コア操作 → `src/core/<name>.rs`
+- [ ] 管理操作 → `src/<name>.rs`
 - [ ] Platform層の拡張が必要か確認
 
 ## フェーズ2: 実装
@@ -59,15 +64,21 @@
 - [ ] または手動作成:
   - [ ] `src/core/<name>.rs` 作成
   - [ ] `tests/cli/<name>_integration.rs` 作成
-  - [ ] `src/mod.rs` に追加:
-    - [ ] `pub mod <name>;`
-    - [ ] `Commands::<Name>(<name>::<Name>Args)`
-    - [ ] `Commands::<Name>(args) => <name>::run(args).await`
+  - [ ] `src/command.rs` に追加:
+    - [ ] `Commands::<Name>(crate::core::<name>::<Name>Args)`
+  - [ ] `src/main.rs` の match 分岐に追加:
+    - [ ] `Commands::<Name>(args) => crate::core::<name>::run(args).await`
 
 ### iOS実装（XCUITest Runner HTTP）
 
-- [ ] `with_xcuitest()` パターン使用
-- [ ] ストリーミングの場合は `with_xcuitest_streaming()` 使用
+- [ ] `with_xcuitest()` パターン使用（UDIDパラメータなし）
+- [ ] プラットフォーム検出を先に実行:
+  ```rust
+  let platform = match args.device.udid.as_deref() {
+      Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
+      None => DeviceResolver::detect_platform().await?,
+  };
+  ```
 - [ ] エラーハンドリング（`?` 演算子）
 - [ ] 適切なXCUITestClient HTTPメソッド呼び出し
 
@@ -80,7 +91,7 @@
 ### Android実装
 
 - [ ] `crates/platform-android/src/adb/` に実装
-- [ ] adbコマンドラッパー作成
+- [ ] ADB native protocol (adb_client crate) 使用
 - [ ] 出力パース、エラーハンドリング
 
 ### エラーハンドリング
@@ -95,7 +106,7 @@
 
 - [ ] `DeviceFormatArgs` 使用
 - [ ] `OutputFormat::Json` で構造化出力
-- [ ] `OutputFormat::Human` で人間可読出力
+- [ ] `OutputFormat::Text` で人間可読出力
 
 ## フェーズ3: テスト
 
@@ -114,8 +125,8 @@
 - [ ] エッジケースのテスト追加
 - [ ] `common` モジュールのヘルパー使用:
   - [ ] `get_available_udid()`
-  - [ ] `ensure_device_ready()`
-  - [ ] `assert_success()`, `assert_failure()`
+  - [ ] `ensure_companion_running()`
+  - [ ] `assert_success()`
 
 ### 統合テスト実行
 
@@ -157,7 +168,7 @@
 - [ ] スクリーンショットで証跡保存済み
 - [ ] 複数デバイスで動作確認（該当する場合）
 
-**⚠️ 実機確認なしでのコミットは禁止!**
+**実機確認なしでのコミットは禁止!**
 
 ## フェーズ5: ドキュメント
 
@@ -172,7 +183,6 @@
 
 - [ ] **CLAUDE.md**: AI開発者向け使用例追加
 - [ ] **README.md**: ユーザー向け使用例追加（該当する場合）
-- [ ] **docs/ARCHITECTURE.md**: アーキテクチャへの影響記載（該当する場合）
 - [ ] XCUITest Runner API変更の確認（該当する場合）
 
 ### 変更履歴
