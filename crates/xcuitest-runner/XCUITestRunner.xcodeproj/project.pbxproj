@@ -1,0 +1,501 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* AppDelegate.swift */; };
+		AA000010 /* AutomationServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100010 /* AutomationServer.swift */; };
+		AA000011 /* HTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011 /* HTTPServer.swift */; };
+		AA000012 /* TouchHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* TouchHandler.swift */; };
+		AA000013 /* InputHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100013 /* InputHandler.swift */; };
+		AA000014 /* AccessibilityHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100014 /* AccessibilityHandler.swift */; };
+		AA000015 /* AppHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100015 /* AppHandler.swift */; };
+		AA000016 /* ScreenshotHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100017 /* ScreenshotHandler.swift */; };
+		AA000017 /* ClipboardHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100018 /* ClipboardHandler.swift */; };
+		AAC00001 /* HTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011 /* HTTPServer.swift */; };
+		AAC00002 /* HTTPRequestParseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC10001 /* HTTPRequestParseTests.swift */; };
+		AAC00003 /* HTTPRequestJSONTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC10002 /* HTTPRequestJSONTests.swift */; };
+		AAC00004 /* HTTPResponseSerializeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC10003 /* HTTPResponseSerializeTests.swift */; };
+		AAC00005 /* HTTPResponseFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC10004 /* HTTPResponseFactoryTests.swift */; };
+		AAC00006 /* HTTPServerRouteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC10005 /* HTTPServerRouteTests.swift */; };
+		AAC00007 /* HTTPServerIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC10006 /* HTTPServerIntegrationTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA200001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA900001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA300001;
+			remoteInfo = XCUITestRunner;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		AA100001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AA100002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA100010 /* AutomationServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationServer.swift; sourceTree = "<group>"; };
+		AA100011 /* HTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPServer.swift; sourceTree = "<group>"; };
+		AA100012 /* TouchHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchHandler.swift; sourceTree = "<group>"; };
+		AA100013 /* InputHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputHandler.swift; sourceTree = "<group>"; };
+		AA100014 /* AccessibilityHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHandler.swift; sourceTree = "<group>"; };
+		AA100015 /* AppHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHandler.swift; sourceTree = "<group>"; };
+		AA100017 /* ScreenshotHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHandler.swift; sourceTree = "<group>"; };
+		AA100018 /* ClipboardHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHandler.swift; sourceTree = "<group>"; };
+		AA100016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA400001 /* XCUITestRunner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XCUITestRunner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA400002 /* XCUITestRunnerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XCUITestRunnerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAC10001 /* HTTPRequestParseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPRequestParseTests.swift; sourceTree = "<group>"; };
+		AAC10002 /* HTTPRequestJSONTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPRequestJSONTests.swift; sourceTree = "<group>"; };
+		AAC10003 /* HTTPResponseSerializeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPResponseSerializeTests.swift; sourceTree = "<group>"; };
+		AAC10004 /* HTTPResponseFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPResponseFactoryTests.swift; sourceTree = "<group>"; };
+		AAC10005 /* HTTPServerRouteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPServerRouteTests.swift; sourceTree = "<group>"; };
+		AAC10006 /* HTTPServerIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPServerIntegrationTests.swift; sourceTree = "<group>"; };
+		AAC10007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AAC40001 /* XCUITestRunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XCUITestRunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA500001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA500002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAC50001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA600001 = {
+			isa = PBXGroup;
+			children = (
+				AA600002 /* XCUITestRunner */,
+				AA600003 /* XCUITestRunnerUITests */,
+				AAC60001 /* XCUITestRunnerTests */,
+				AA600004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA600002 /* XCUITestRunner */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001 /* AppDelegate.swift */,
+				AA100002 /* Info.plist */,
+			);
+			path = XCUITestRunner;
+			sourceTree = "<group>";
+		};
+		AA600003 /* XCUITestRunnerUITests */ = {
+			isa = PBXGroup;
+			children = (
+				AA100010 /* AutomationServer.swift */,
+				AA100011 /* HTTPServer.swift */,
+				AA100012 /* TouchHandler.swift */,
+				AA100013 /* InputHandler.swift */,
+				AA100014 /* AccessibilityHandler.swift */,
+				AA100015 /* AppHandler.swift */,
+				AA100017 /* ScreenshotHandler.swift */,
+				AA100018 /* ClipboardHandler.swift */,
+				AA100016 /* Info.plist */,
+			);
+			path = XCUITestRunnerUITests;
+			sourceTree = "<group>";
+		};
+		AA600004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA400001 /* XCUITestRunner.app */,
+				AA400002 /* XCUITestRunnerUITests.xctest */,
+				AAC40001 /* XCUITestRunnerTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AAC60001 /* XCUITestRunnerTests */ = {
+			isa = PBXGroup;
+			children = (
+				AAC10001 /* HTTPRequestParseTests.swift */,
+				AAC10002 /* HTTPRequestJSONTests.swift */,
+				AAC10003 /* HTTPResponseSerializeTests.swift */,
+				AAC10004 /* HTTPResponseFactoryTests.swift */,
+				AAC10005 /* HTTPServerRouteTests.swift */,
+				AAC10006 /* HTTPServerIntegrationTests.swift */,
+				AAC10007 /* Info.plist */,
+			);
+			path = XCUITestRunnerTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA300001 /* XCUITestRunner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA800001 /* Build configuration list for PBXNativeTarget "XCUITestRunner" */;
+			buildPhases = (
+				AA700001 /* Sources */,
+				AA500001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = XCUITestRunner;
+			productName = XCUITestRunner;
+			productReference = AA400001 /* XCUITestRunner.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AA300002 /* XCUITestRunnerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA800002 /* Build configuration list for PBXNativeTarget "XCUITestRunnerUITests" */;
+			buildPhases = (
+				AA700002 /* Sources */,
+				AA500002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA200002 /* PBXTargetDependency */,
+			);
+			name = XCUITestRunnerUITests;
+			productName = XCUITestRunnerUITests;
+			productReference = AA400002 /* XCUITestRunnerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		AAC30001 /* XCUITestRunnerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAC80001 /* Build configuration list for PBXNativeTarget "XCUITestRunnerTests" */;
+			buildPhases = (
+				AAC70001 /* Sources */,
+				AAC50001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = XCUITestRunnerTests;
+			productName = XCUITestRunnerTests;
+			productReference = AAC40001 /* XCUITestRunnerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AA900001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = AA800003 /* Build configuration list for PBXProject "XCUITestRunner" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AA600001;
+			productRefGroup = AA600004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA300001 /* XCUITestRunner */,
+				AA300002 /* XCUITestRunnerUITests */,
+				AAC30001 /* XCUITestRunnerTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA700001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000001 /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA700002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000010 /* AutomationServer.swift in Sources */,
+				AA000011 /* HTTPServer.swift in Sources */,
+				AA000012 /* TouchHandler.swift in Sources */,
+				AA000013 /* InputHandler.swift in Sources */,
+				AA000014 /* AccessibilityHandler.swift in Sources */,
+				AA000015 /* AppHandler.swift in Sources */,
+				AA000016 /* ScreenshotHandler.swift in Sources */,
+				AA000017 /* ClipboardHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAC70001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAC00001 /* HTTPServer.swift in Sources */,
+				AAC00002 /* HTTPRequestParseTests.swift in Sources */,
+				AAC00003 /* HTTPRequestJSONTests.swift in Sources */,
+				AAC00004 /* HTTPResponseSerializeTests.swift in Sources */,
+				AAC00005 /* HTTPResponseFactoryTests.swift in Sources */,
+				AAC00006 /* HTTPServerRouteTests.swift in Sources */,
+				AAC00007 /* HTTPServerIntegrationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AA200002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA300001 /* XCUITestRunner */;
+			targetProxy = AA200001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		/* Debug config for App target */
+		AAB00001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = XCUITestRunner/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.agent-mobile.xcuitest-runner";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		/* Release config for App target */
+		AAB00002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = XCUITestRunner/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.agent-mobile.xcuitest-runner";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		/* Debug config for UITests target */
+		AAB00003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = XCUITestRunnerUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.agent-mobile.xcuitest-runner-uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = XCUITestRunner;
+			};
+			name = Debug;
+		};
+		/* Release config for UITests target */
+		AAB00004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = XCUITestRunnerUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.agent-mobile.xcuitest-runner-uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = XCUITestRunner;
+			};
+			name = Release;
+		};
+		/* Debug config for Project */
+		AAB00005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		/* Release config for Project */
+		AAB00006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		/* Debug config for UnitTests target */
+		AACB0001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = XCUITestRunnerTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.agent-mobile.xcuitest-runner-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		/* Release config for UnitTests target */
+		AACB0002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = XCUITestRunnerTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.agent-mobile.xcuitest-runner-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA800001 /* Build configuration list for PBXNativeTarget "XCUITestRunner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAB00001 /* Debug */,
+				AAB00002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA800002 /* Build configuration list for PBXNativeTarget "XCUITestRunnerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAB00003 /* Debug */,
+				AAB00004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA800003 /* Build configuration list for PBXProject "XCUITestRunner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAB00005 /* Debug */,
+				AAB00006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AAC80001 /* Build configuration list for PBXNativeTarget "XCUITestRunnerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AACB0001 /* Debug */,
+				AACB0002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = AA900001 /* Project object */;
+}

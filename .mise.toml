@@ -1,7 +1,6 @@
 [tools]
 # Rust toolchain
 rust = "1.92.0"
-python = "3.12.12"
 
 # Build tools
 "cargo:cargo-watch" = "8.5.3"
@@ -25,14 +24,9 @@ set -e
 
 echo "=== Setting up test environment ==="
 
-# 1. Check if idb and idb_companion are installed
-if ! command -v idb &> /dev/null; then
-    echo "Error: Python idb not found. Install with: pip install fb-idb"
-    exit 1
-fi
-
-if ! command -v idb_companion &> /dev/null; then
-    echo "Error: idb_companion not found. Install with: brew install idb-companion"
+# 1. Check Xcode command line tools
+if ! command -v xcrun &> /dev/null; then
+    echo "Error: Xcode command line tools not found. Install with: xcode-select --install"
     exit 1
 fi
 
@@ -63,21 +57,7 @@ fi
 
 echo "Using simulator: $SIMULATOR_UDID"
 
-# 3. Start idb_companion if not already running
-if ! idb list-targets --json 2>/dev/null | grep -q '"companion"'; then
-    echo "Starting idb_companion for simulator..."
-    idb_companion --boot "$SIMULATOR_UDID" &
-    sleep 5
-fi
-
-# 4. Verify companion is running
-if idb list-targets --json | grep -q '"companion"'; then
-    echo "Companion is running successfully"
-else
-    echo "Warning: Companion may not be fully started"
-fi
-
-# 5. Build MockApp if needed
+# 3. Build MockApp if needed
 if [ ! -d "tests/fixtures/MockApp.app" ]; then
     echo "Building MockApp..."
     ./tests/fixtures/MockApp/build.sh

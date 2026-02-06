@@ -218,22 +218,6 @@ agent-mobile snapshot
 | `session show` | 現在のセッション情報 | `session show` (requires --session) |
 | `session destroy <name>` | セッションを削除 | `session destroy test` |
 
-### IDB Commands (80+ iOS-specific)
-
-`agent-mobile idb <command>` でフル IDB CLI 互換コマンドを実行可能:
-
-**よく使われるコマンド:**
-- `idb list-targets`: 接続デバイス一覧
-- `idb launch <bundle-id>`: アプリ起動（詳細オプション付き）
-- `idb log`: デバイスログ取得
-- `idb focus`: シミュレータウィンドウを前面に
-- `idb ui-server`: Xcode Inspector サーバー起動
-- `idb file push/pull`: ファイル転送
-- `idb xctest`: XCTest 実行
-- `idb debugserver`: デバッガアタッチ
-
-完全なリスト: `agent-mobile idb --help`
-
 ## Global Options
 
 すべてのコマンドで使用可能:
@@ -436,10 +420,10 @@ agent-mobile find text "NonExistent" tap
 
 ### iOS
 
-- **Implementation**: idb gRPC (高機能) + xcrun simctl (ライフサイクル管理)
-- **Device Types**: Simulator, Physical Device (要ペアリング)
-- **Advantages**: フル IDB CLI 互換、アクセシビリティ API、XCTest サポート
-- **Limitations**: idb_companion プロセスが必要、一部機能はシミュレータのみ
+- **Implementation**: XCUITest Runner (HTTP) + xcrun simctl (ライフサイクル管理)
+- **Device Types**: Simulator
+- **Advantages**: アクセシビリティ API、スクリーンショット、クリップボード、HID入力
+- **Limitations**: 一部機能はシミュレータのみ
 
 ### Android
 
@@ -537,7 +521,6 @@ fi
 - [Element References](references/element-references.md) - @e1 参照システムの完全ガイド
 - [Session Management](references/session-management.md) - マルチデバイスワークフローのベストプラクティス
 - [Platform Differences](references/platform-differences.md) - iOS vs Android の実装詳細
-- [gRPC vs simctl](references/grpc-vs-simctl.md) - アーキテクチャの設計思想
 - [Troubleshooting](references/troubleshooting.md) - 一般的な問題と解決策
 
 ## Templates

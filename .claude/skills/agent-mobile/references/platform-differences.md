@@ -11,24 +11,23 @@ agent-mobile は iOS と Android の両方をサポートしていますが、�
 ### iOS Implementation
 
 **Technology Stack:**
-- **idb gRPC**: 高機能な操作（HID、アクセシビリティ、アプリ管理）
-- **xcrun simctl**: ライフサイクル管理（boot、shutdown、clipboard）
-- **idb_companion**: バックグラウンドプロセス（デバイスごとに1つ）
+- **XCUITest Runner**: UI操作（HID、アクセシビリティ、スクリーンショット、クリップボード）
+- **xcrun simctl**: ライフサイクル管理（boot、shutdown、install、uninstall、list_simulators）
 
 **アーキテクチャ:**
 ```
 agent-mobile
     ↓
-idb gRPC Client ──→ idb_companion (port 10882) ──→ iOS Simulator/Device
-    ↓                                                      ↓
-xcrun simctl ───────────────────────────────→ iOS Simulator
+XCUITestClient (HTTP) ──→ XCUITest Runner (localhost:8200) ──→ iOS Simulator
+    ↓
+xcrun simctl ───────────────────────────────────→ iOS Simulator
 ```
 
 **特徴:**
-- gRPC ストリーミング対応（ログ、インストール進捗）
-- 型安全な API
-- XCTest、デバッグサーバーなど高度な機能
-- 実機対応（ペアリング必要）
+- HTTP/JSON ベースの通信
+- XCUITest API による高精度なUI操作
+- スクリーンショット、アクセシビリティ、クリップボード対応
+- デバイス検出はキャッシュ付き（TTL 5秒）
 
 ### Android Implementation
 
@@ -89,9 +88,9 @@ UIAutomator dump ───────────────────→ UI
 | Clipboard Paste | ✅ (pbpaste) | ❌ | Android: adb 経由で非対応 |
 | **Advanced** |
 | XCTest | ✅ | ❌ | iOS のみ |
-| Debugger Attach | ✅ | ⚠️ (limited) | iOS: idb debugserver |
-| File Transfer | ✅ | ✅ | iOS: idb file, Android: adb push/pull |
-| UI Inspector | ✅ (idb ui-server) | ⚠️ (uiautomatorviewer) | |
+| Debugger Attach | ⚠️ (limited) | ⚠️ (limited) | Platform tools required |
+| File Transfer | ✅ | ✅ | iOS: simctl, Android: adb push/pull |
+| UI Inspector | ✅ (XCUITest) | ⚠️ (uiautomatorviewer) | |
 
 **凡例:**
 - ✅ = 完全サポート
@@ -114,7 +113,7 @@ agent-mobile --platform android snapshot
 ```
 
 **検出ロジック:**
-1. `/tmp/idb/state` が存在 → iOS
+1. `simctl list_simulators()` で起動中のシミュレータあり → iOS
 2. `adb devices` でデバイスあり → Android
 3. デフォルト → iOS
 
@@ -316,16 +315,16 @@ adb shell input text "Hello%sWorld"  # スペースは %s
 
 **スナップショット取得:**
 - **速度**: 約 500ms
-- **方法**: accessibility_info gRPC
-- **制限**: 大きな UI では遅くなる
+- **方法**: XCUITest Runner accessibility API
+- **制限**: 大きな UI では遅くなる（WebView含むアプリは60秒以上の場合あり）
 
 **タップ操作:**
 - **速度**: 約 100ms
-- **方法**: HID event over gRPC
+- **方法**: XCUITest Runner HTTP API
 
 **アプリ起動:**
 - **速度**: 約 2-3秒
-- **方法**: launch gRPC
+- **方法**: simctl launch
 
 ### Android
 
@@ -357,11 +356,7 @@ adb shell input text "Hello%sWorld"  # スペースは %s
 - **問題**: 一部の権限で SQLite スキーマエラー
 - **回避策**: simctl にフォールバック（自動）
 
-**2. idb_companion Crash**
-- **問題**: 長時間実行でクラッシュすることがある
-- **回避策**: companion を再起動
-
-**3. Simulator Boot Timeout**
+**2. Simulator Boot Timeout**
 - **問題**: シミュレータ起動に時間がかかる
 - **回避策**: headless モードを使用
 
@@ -462,7 +457,6 @@ grant_permission "camera" "com.example.app" "android"
 
 ## Related Concepts
 
-- [gRPC vs simctl](grpc-vs-simctl.md) - iOS のアーキテクチャ詳細
 - [SKILL.md - Platform-Specific Notes](../SKILL.md#platform-specific-notes) - プラットフォーム固有の注意事項
 
 ---

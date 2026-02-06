@@ -24,7 +24,6 @@ agent-mobile CLI開発を開始する前に、以下の環境が必要です:
 
 **iOS開発:**
 - Xcode (Command Line Tools含む)
-- idb_companion
 
 **Android開発:**
 - Android SDK (adb, emulator)
@@ -64,35 +63,6 @@ xcode-select --install
   - 原因: Xcode本体が必要
   - 解決: App StoreからXcodeをインストール
 
-#### 2. idb_companion
-
-**確認方法:**
-```bash
-which idb_companion
-```
-
-**インストール (Homebrew):**
-```bash
-brew tap facebook/fb
-brew install idb-companion
-```
-
-**インストール (手動ビルド):**
-```bash
-git clone https://github.com/facebook/idb.git
-cd idb
-./idb_build.sh idb_companion build /tmp/idb_build
-```
-
-**トラブルシューティング:**
-- エラー: `idb_companion: command not found`
-  - 原因: インストールされていない、またはPATHが通っていない
-  - 解決: Homebrewでインストール、またはPATHに追加
-
-- エラー: `dyld: Library not loaded`
-  - 原因: Homebrewの依存関係が壊れている
-  - 解決: `brew reinstall idb-companion`
-
 ### シミュレータ管理
 
 #### シミュレータ一覧確認
@@ -125,33 +95,16 @@ open -a Simulator
 xcrun simctl create "iPhone 15" "iPhone 15" "iOS17.0"
 ```
 
-### idb_companion起動確認
-
-```bash
-# プロセス確認
-pgrep -fl idb_companion
-
-# 自動起動の場合、状態ファイル確認
-cat /tmp/idb/state
-```
-
-**自動起動の仕組み:**
-- シミュレータ起動時に自動的にidb_companionがspawnされる
-- 手動起動する場合: `idb_companion --udid <udid> &`
-
 ### iOS環境検証
 
 ```bash
 # 1. simctlが動作するか
 xcrun simctl list devices | head -20
 
-# 2. idb_companionがインストールされているか
-which idb_companion
-
-# 3. シミュレータが起動しているか
+# 2. シミュレータが起動しているか
 xcrun simctl list devices | grep Booted
 
-# 4. agent-mobileがデバイスを認識するか
+# 3. agent-mobileがデバイスを認識するか
 agent-mobile device list
 ```
 
@@ -327,9 +280,8 @@ agent-mobile device list --platform android
 
 **実行内容:**
 1. ✅ Xcode Command Line Tools確認
-2. ✅ idb_companionインストール確認
-3. ✅ シミュレータ起動（未起動の場合）
-4. ✅ agent-mobile接続確認
+2. ✅ シミュレータ起動（未起動の場合）
+3. ✅ agent-mobile接続確認
 
 **出力例:**
 ```
@@ -337,10 +289,6 @@ agent-mobile device list --platform android
 
 >>> Checking Xcode installation...
   [OK] xcrun simctl available
-
->>> Checking idb_companion...
-  [OK] idb_companion found at /opt/homebrew/bin/idb_companion
-  [INFO] Found 2 running idb_companion process(es)
 
 >>> Checking simulator status...
   [OK] Simulator already booted
@@ -422,27 +370,6 @@ xcrun simctl erase <udid>
 xcrun simctl create "iPhone 15 Clean" "iPhone 15" "iOS17.0"
 ```
 
-#### idb_companionが起動しない
-
-**症状:**
-```
-Connection refused (os error 61)
-```
-
-**原因:** companionプロセスが異常終了、ポート競合
-
-**解決:**
-```bash
-# 既存のcompanionプロセスを終了
-pkill -9 idb_companion
-
-# 手動起動
-idb_companion --udid <udid> &
-
-# ログ確認
-tail -f /tmp/idb_companion_<udid>.log
-```
-
 #### agent-mobileがデバイスを検出しない
 
 **症状:**
@@ -455,13 +382,7 @@ No iOS devices detected
 # 1. シミュレータが起動しているか
 xcrun simctl list devices | grep Booted
 
-# 2. idb_companionが起動しているか
-pgrep -fl idb_companion
-
-# 3. companionの状態ファイル確認
-cat /tmp/idb/state
-
-# 4. agent-mobileをデバッグモードで実行
+# 2. agent-mobileをデバッグモードで実行
 RUST_LOG=debug agent-mobile device list
 ```
 
@@ -625,7 +546,6 @@ Phase 6: コミット
 
 ```bash
 # iOS
-brew upgrade idb-companion
 xcrun simctl list devices | grep Booted
 
 # Android

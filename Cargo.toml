@@ -19,20 +19,13 @@ path = "src/main.rs"
 
 [dependencies]
 # Workspace crates
-agent-mobile-core = { path = "crates/core", features = ["cli", "tonic"] }
+agent-mobile-core = { path = "crates/core", features = ["cli"] }
 agent-mobile-platform-ios = { path = "crates/platform-ios" }
 agent-mobile-platform-android = { path = "crates/platform-android" }
 agent-mobile-gateway = { path = "crates/gateway" }
 
-# gRPC/Protobuf
-tonic = "0.12"
-prost = "0.13"
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "process"] }
-tokio-stream = "0.1"
-
-# Unix Domain Socket support for tonic
-tower = "0.4"
-hyper-util = "0.1"
+# Async runtime
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "signal", "sync", "process"] }
 
 # CLI
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -67,11 +60,11 @@ async-trait = "0.1"
 # DateTime handling
 chrono = { version = "0.4", features = ["serde"] }
 
+# Image format conversion (PNG → JPEG)
+image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
+
 # Unique ID generation
 nanoid = "0.4"
-
-[build-dependencies]
-tonic-build = "0.12"
 
 [dev-dependencies]
 tempfile = "3.19"

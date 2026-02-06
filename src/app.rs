@@ -9,7 +9,7 @@ use serde::Serialize;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::client::CommandResult;
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::{DeviceArgs, DeviceFormatArgs};
 use crate::helpers::format::OutputFormat;
 
@@ -298,41 +298,24 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
 /// Execute app launch.
 async fn execute_launch(
     platform: Platform,
-    udid: Option<&str>,
+    _udid: Option<&str>,
     bundle_id: &str,
     _output: &OutputFormat,
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::client::with_client;
-            use agent_mobile_platform_ios::grpc::LaunchConfig;
-            use std::collections::HashMap;
-            use tokio::sync::watch;
-
-            let (_tx, stop_rx) = watch::channel(false);
             let bundle_id = bundle_id.to_string();
 
-            with_client(udid, |mut client| async move {
-                let config = LaunchConfig {
-                    bundle_id: bundle_id.clone(),
-                    app_args: Vec::new(),
-                    env: HashMap::new(),
-                    foreground_if_running: true,
-                    wait_for_debugger: false,
-                };
-                let pid = client.launch(config, false, stop_rx).await?;
-                if let Some(p) = pid {
-                    println!("Launched {} (PID: {})", bundle_id, p);
-                } else {
-                    println!("Launched {}", bundle_id);
-                }
+            with_xcuitest(|client| async move {
+                client.launch_app(&bundle_id).await?;
+                println!("Launched {}", bundle_id);
                 Ok(())
             })
             .await
         }
         Platform::Android => {
             use agent_mobile_platform_android::adb::app;
-            app::launch(udid, bundle_id).await?;
+            app::launch(_udid, bundle_id).await?;
             println!("Launched {}", bundle_id);
             Ok(())
         }
@@ -347,12 +330,10 @@ async fn execute_terminate(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::client::with_client;
-
             let bundle_id = bundle_id.to_string();
 
-            with_client(udid, |mut client| async move {
-                client.terminate(&bundle_id).await?;
+            with_xcuitest(|client| async move {
+                client.terminate_app(&bundle_id).await?;
                 println!("Terminated {}", bundle_id);
                 Ok(())
             })
@@ -372,34 +353,15 @@ async fn execute_install(
     platform: Platform,
     udid: Option<&str>,
     path: &str,
-    output: &OutputFormat,
+    _output: &OutputFormat,
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::client::with_client;
-
             let path = path.to_string();
-            let output = *output;
 
-            with_client(udid, |mut client| async move {
-                let mut stream = client.install(&path, false, false, None).await?;
-                while let Some(response) = stream.message().await? {
-                    let name = &response.name;
-                    if !name.is_empty() {
-                        let progress = response.progress;
-                        if output.is_json() {
-                            println!(
-                                "{}",
-                                serde_json::json!({
-                                    "name": name,
-                                    "progress": progress
-                                })
-                            );
-                        } else if progress > 0.0 {
-                            println!("Installing {}: {:.0}%", name, progress * 100.0);
-                        }
-                    }
-                }
+            with_xcuitest(|client| async move {
+                println!("Installing {}...", path);
+                client.install_app(&path).await?;
                 println!("Installation complete");
                 Ok(())
             })
@@ -423,12 +385,10 @@ async fn execute_uninstall(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::client::with_client;
-
             let bundle_id = bundle_id.to_string();
 
-            with_client(udid, |mut client| async move {
-                client.uninstall(&bundle_id).await?;
+            with_xcuitest(|client| async move {
+                client.uninstall_app(&bundle_id).await?;
                 println!("Uninstalled {}", bundle_id);
                 Ok(())
             })
@@ -451,42 +411,48 @@ async fn execute_list(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use crate::helpers::client::with_client;
+            // Use simctl directly (no XCUITest Runner needed)
+            let udid = match udid {
+                Some(u) => u.to_string(),
+                None => agent_mobile_platform_ios::simctl::get_booted_simulator()?.udid,
+            };
+            let apps = agent_mobile_platform_ios::simctl::list_apps(&udid)?;
+            let unified: Vec<UnifiedAppInfo> = apps
+                .iter()
+                .map(|app| UnifiedAppInfo {
+                    bundle_id: app.bundle_id.clone(),
+                    name: if app.name.is_empty() {
+                        None
+                    } else {
+                        Some(app.name.clone())
+                    },
+                    version: if app.version.is_empty() {
+                        None
+                    } else {
+                        Some(app.version.clone())
+                    },
+                    install_type: if app.app_type.is_empty() {
+                        None
+                    } else {
+                        Some(app.app_type.clone())
+                    },
+                })
+                .collect();
 
-            let output = *output;
-
-            with_client(udid, |mut client| async move {
-                let apps = client.list_apps().await?;
-                let unified: Vec<UnifiedAppInfo> = apps
-                    .iter()
-                    .map(|app| UnifiedAppInfo {
-                        bundle_id: app.bundle_id.clone(),
-                        name: if app.name.is_empty() {
-                            None
-                        } else {
-                            Some(app.name.clone())
-                        },
-                        version: None,      // iOS doesn't provide this in list_apps
-                        install_type: None, // Simplify - skip install_type for now
-                    })
-                    .collect();
-
-                if output.is_json() {
-                    println!("{}", serde_json::to_string_pretty(&unified)?);
-                } else {
-                    println!("Installed Apps ({}):", unified.len());
-                    println!("{:-<60}", "");
-                    for app in &unified {
-                        if let Some(name) = &app.name {
-                            println!("{} ({})", name, app.bundle_id);
-                        } else {
-                            println!("{}", app.bundle_id);
-                        }
+            if output.is_json() {
+                println!("{}", serde_json::to_string_pretty(&unified)?);
+            } else {
+                println!("Installed Apps ({}):", unified.len());
+                println!("{:-<60}", "");
+                for app in &unified {
+                    if let Some(name) = &app.name {
+                        println!("{} ({})", name, app.bundle_id);
+                    } else {
+                        println!("{}", app.bundle_id);
                     }
                 }
-                Ok(())
-            })
-            .await
+            }
+            Ok(())
         }
         Platform::Android => {
             use agent_mobile_platform_android::adb::app;
@@ -522,21 +488,8 @@ async fn get_default_udid(
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::companion::CompanionLister;
-
-            let targets = match CompanionLister::new() {
-                Ok(lister) => lister.list_targets(None).unwrap_or_default(),
-                Err(_) => Vec::new(),
-            };
-
-            let booted = targets
-                .iter()
-                .find(|t| t.state.as_deref() == Some("Booted"));
-
-            match booted {
-                Some(t) => Ok(t.udid.clone()),
-                None => Err("No booted iOS simulator found".into()),
-            }
+            let booted = agent_mobile_platform_ios::simctl::get_booted_simulator()?;
+            Ok(booted.udid)
         }
         Platform::Android => {
             let devices = agent_mobile_platform_android::adb::list_devices()?;
@@ -567,28 +520,11 @@ async fn execute_grant(
                 .into());
             }
 
-            // Try idb gRPC first, fall back to simctl
-            use crate::helpers::client::with_client;
-
-            let result = with_client(Some(udid), |mut client| async move {
-                let perm_id = ios_permission_to_id(permission);
-                client.approve(bundle_id, vec![perm_id], None).await
-            })
-            .await;
-
-            match result {
-                Ok(_) => {
-                    println!("Granted {} to {}", permission, bundle_id);
-                    Ok(())
-                }
-                Err(_) => {
-                    // Fall back to simctl
-                    use agent_mobile_platform_ios::simctl::management;
-                    management::privacy_grant(udid, permission, bundle_id)?;
-                    println!("Granted {} to {} (via simctl)", permission, bundle_id);
-                    Ok(())
-                }
-            }
+            // Use simctl for permission management
+            use agent_mobile_platform_ios::simctl::management;
+            management::privacy_grant(udid, permission, bundle_id)?;
+            println!("Granted {} to {}", permission, bundle_id);
+            Ok(())
         }
         Platform::Android => {
             use tokio::process::Command;
@@ -619,28 +555,11 @@ async fn execute_revoke(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            // Try idb gRPC first, fall back to simctl
-            use crate::helpers::client::with_client;
-
-            let result = with_client(Some(udid), |mut client| async move {
-                let perm_id = ios_permission_to_id(permission);
-                client.revoke(bundle_id, vec![perm_id], None).await
-            })
-            .await;
-
-            match result {
-                Ok(_) => {
-                    println!("Revoked {} from {}", permission, bundle_id);
-                    Ok(())
-                }
-                Err(_) => {
-                    // Fall back to simctl
-                    use agent_mobile_platform_ios::simctl::management;
-                    management::privacy_revoke(udid, permission, bundle_id)?;
-                    println!("Revoked {} from {} (via simctl)", permission, bundle_id);
-                    Ok(())
-                }
-            }
+            // Use simctl for permission management
+            use agent_mobile_platform_ios::simctl::management;
+            management::privacy_revoke(udid, permission, bundle_id)?;
+            println!("Revoked {} from {}", permission, bundle_id);
+            Ok(())
         }
         Platform::Android => {
             use tokio::process::Command;
@@ -680,21 +599,6 @@ async fn execute_reset(
             // Android doesn't have a reset concept, just revoke
             execute_revoke(platform, udid, bundle_id, permission).await
         }
-    }
-}
-
-/// Convert iOS permission name to idb permission ID.
-fn ios_permission_to_id(permission: &str) -> i32 {
-    // These IDs match the idb.proto Permission enum
-    match permission {
-        "photos" => 1,
-        "camera" => 2,
-        "contacts" => 3,
-        "url" => 4,
-        "location" => 5,
-        "notification" => 6,
-        "microphone" => 7,
-        _ => 0, // Unknown
     }
 }
 

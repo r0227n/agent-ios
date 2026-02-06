@@ -22,33 +22,52 @@ pub async fn stream_console_logs(
     }
 }
 
-/// Stream iOS console logs
+/// Stream iOS console logs using simctl
 async fn stream_ios_console(
     udid: Option<&str>,
     mut writer: OutputWriter,
     mut stop_rx: watch::Receiver<bool>,
 ) -> Result<()> {
-    use crate::IosDevice;
-    use agent_mobile_platform_ios::proto::idb::log_request::Source as LogSource;
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::process::Command;
 
-    // Connect via IosDevice
-    let mut device = IosDevice::connect(udid).await?;
+    let device_udid = if let Some(id) = udid {
+        id.to_string()
+    } else {
+        // Auto-select booted device
+        "booted".to_string()
+    };
 
-    // Stream logs
-    let mut response_stream: tonic::Streaming<agent_mobile_platform_ios::proto::idb::LogResponse> =
-        device.stream_logs(LogSource::Target, vec![]).await?;
+    // Start log stream using simctl
+    let mut child = Command::new("xcrun")
+        .args([
+            "simctl",
+            "spawn",
+            &device_udid,
+            "log",
+            "stream",
+            "--style",
+            "compact",
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let mut reader = BufReader::new(stdout).lines();
 
     loop {
         tokio::select! {
             _ = stop_rx.changed() => {
                 if *stop_rx.borrow() {
+                    child.kill().await.ok();
                     break;
                 }
             }
-            response = response_stream.message() => {
-                match response? {
-                    Some(log_response) => {
-                        writer.write_all(&log_response.output)?;
+            line = reader.next_line() => {
+                match line? {
+                    Some(line) => {
+                        writeln!(writer, "{}", line)?;
                         writer.flush()?;
                     }
                     None => break,

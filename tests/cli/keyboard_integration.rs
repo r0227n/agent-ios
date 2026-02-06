@@ -62,7 +62,7 @@ fn test_keyboard_button_lock() {
     assert_success(&output, "tap lock");
 }
 
-/// Test clear via idb command (backward compatibility).
+/// Test keyboard clear command.
 #[test]
 fn test_keyboard_clear() {
     let udid = get_available_udid();

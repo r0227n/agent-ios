@@ -13,7 +13,7 @@ pub enum TargetType {
 }
 
 impl TargetType {
-    /// Parse target type from proto string (handles various formats)
+    /// Parse target type from string (handles various formats)
     pub fn from_proto_string(s: &str) -> Self {
         let normalized = s.to_lowercase();
         if normalized.contains("sim") {
@@ -148,8 +148,8 @@ mod tests {
         assert_eq!(format!("{}", tcp), "localhost:10882");
 
         let uds = Address::DomainSocket {
-            path: "/tmp/idb.sock".to_string(),
+            path: "/tmp/test.sock".to_string(),
         };
-        assert_eq!(format!("{}", uds), "/tmp/idb.sock");
+        assert_eq!(format!("{}", uds), "/tmp/test.sock");
     }
 }

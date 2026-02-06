@@ -56,7 +56,7 @@ High-level unified API gateway for agent-mobile, providing platform-agnostic dev
 |-------|----------------|---------|
 | **CLI** | Parse arguments, dispatch commands | `agent-mobile tap @e1` |
 | **Gateway** | Platform routing, unified API | `IosDevice::connect()` |
-| **Platform** | Platform-specific implementation | `IdbClient::hid()` |
+| **Platform** | Platform-specific implementation | `XCUITestClient::tap()` |
 
 ## Key Components
 
@@ -85,7 +85,7 @@ impl DeviceResolver {
 ```
 
 **Detection Logic**:
-- **iOS**: Checks `/tmp/idb/state` for companion daemons
+- **iOS**: Uses `simctl list_simulators()` to find booted simulators
 - **Android**: Runs `adb devices -l` and parses output
 
 **Example**:
@@ -115,7 +115,7 @@ if DeviceResolver::has_ios_devices().await {
 
 ```rust
 pub struct IosDevice {
-    client: IdbClient,
+    client: XCUITestClient,
     udid: String,
 }
 
@@ -162,9 +162,8 @@ impl IosDevice {
 ```
 
 **Internal Implementation**:
-- Wraps `IdbClient` from `platform-ios`
-- Manages companion connection via `CompanionResolver`
-- Converts high-level calls to gRPC requests
+- Wraps `XCUITestClient` from `platform-ios`
+- Converts high-level calls to HTTP requests to XCUITest Runner
 
 **Example**:
 
@@ -302,19 +301,12 @@ The gateway automatically detects available platforms using environment clues:
 
 ### iOS Detection
 
-Checks for running idb_companion daemons:
+Uses `simctl list_simulators()` to find booted simulators:
 
 ```rust
-// Looks for: /tmp/idb/state
-// Format: JSON array of companion info
-// Example: [{"udid": "...", "address": {"domain_socket": {"path": "..."}}}]
-
 pub async fn has_ios_devices() -> bool {
-    let state_path = Path::new("/tmp/idb/state");
-    if !state_path.exists() {
-        return false;
-    }
-    // Parse JSON and check for non-empty array
+    // Uses simctl::list_simulators() to check for booted simulators
+    // Results are cached with 5-second TTL
 }
 ```
 
@@ -498,7 +490,6 @@ app::launch(Some("emulator-5554"), "com.example.app").await?;
 **Runtime**:
 - `tokio` 1.49 - Async runtime with process, fs, sync features
 - `tokio-stream` 0.1 - Stream utilities
-- `tonic` 0.12 - gRPC support (for iOS)
 
 **Utilities**:
 - `serde` + `serde_json` - Serialization

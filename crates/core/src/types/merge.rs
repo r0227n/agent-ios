@@ -5,7 +5,6 @@ use std::collections::HashMap;
 
 /// Merge local targets with connected targets.
 ///
-/// This follows Python idb's merge_connected_targets logic:
 /// - When the same UDID exists in both, prefer the connected target (with companion_info)
 /// - Add any remote targets that aren't in local targets
 pub fn merge_connected_targets(
@@ -56,7 +55,7 @@ mod tests {
                     is_local: true,
                     pid: Some(1234),
                     address: Address::DomainSocket {
-                        path: format!("/tmp/idb/{}_companion.sock", udid),
+                        path: format!("/tmp/{}_companion.sock", udid),
                     },
                 })
             } else {

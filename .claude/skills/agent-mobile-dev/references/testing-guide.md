@@ -25,7 +25,7 @@ agent-mobile CLI開発における3層テスト（ユニットテスト、統合
 
 **実行内容:**
 1. Xcode Command Line Tools確認
-2. idb_companionインストール確認
+2. XCUITest Runnerインストール確認
 3. シミュレータ起動（未起動の場合）
 4. agent-mobile接続確認
 
@@ -194,7 +194,7 @@ cargo test --verbose --bin agent-mobile test_parse_coordinates_valid
 
 - **場所**: `tests/cli/<name>_integration.rs`
 - **目的**: CLIコマンド全体の動作検証
-- **依存**: 実デバイス/シミュレータ、idb_companion
+- **依存**: 実デバイス/シミュレータ、XCUITest Runner
 - **実行**: `cargo test --test cli -- --test-threads=1`
 
 ### 基本構造
@@ -223,8 +223,8 @@ fn test_my_feature_success() {
     // 1. 利用可能なデバイス取得
     let udid = common::get_available_udid();
 
-    // 2. idb_companion起動確認
-    common::ensure_companion_running(&udid);
+    // 2. XCUITest Runner起動確認
+    common::ensure_device_ready(&udid);
 
     // 3. コマンド実行
     let output = run_command_with_udid(&[], &udid);
@@ -258,7 +258,7 @@ fn test_my_feature_invalid_device() {
 #[test]
 fn test_my_feature_with_args() {
     let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    common::ensure_device_ready(&udid);
 
     let output = run_command_with_udid(&["--arg", "value"], &udid);
 
@@ -274,7 +274,7 @@ fn test_my_feature_with_args() {
 #[test]
 fn test_tap_at_coords() {
     let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    common::ensure_device_ready(&udid);
 
     // 座標指定でタップ
     let output = run_command_with_udid(&["100,200"], &udid);
@@ -288,7 +288,7 @@ fn test_tap_at_coords() {
 #[test]
 fn test_tap_invalid_coords() {
     let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    common::ensure_device_ready(&udid);
 
     // 不正な座標
     let output = run_command_with_udid(&["invalid"], &udid);
@@ -302,7 +302,7 @@ fn test_tap_invalid_coords() {
 #[test]
 fn test_find_json_output() {
     let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    common::ensure_device_ready(&udid);
 
     let output = run_command_with_udid(&["Login", "--format", "json"], &udid);
     common::assert_success(&output, "find with JSON output");
@@ -320,7 +320,7 @@ fn test_find_json_output() {
 #[test]
 fn test_swipe_with_duration() {
     let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    common::ensure_device_ready(&udid);
 
     let output = run_command_with_udid(
         &["up", "--duration", "0.5"],
@@ -333,7 +333,7 @@ fn test_swipe_with_duration() {
 ### 実行コマンド
 
 ```bash
-# 前提: シミュレータ起動 + idb_companion起動
+# 前提: シミュレータ起動 + XCUITest Runner起動
 
 # 全統合テスト実行
 cargo test --test cli -- --test-threads=1
@@ -354,9 +354,9 @@ cargo test --test cli test_my_feature_success -- --test-threads=1
    xcrun simctl list devices | grep Booted
    ```
 
-2. idb_companionが起動しているか確認
+2. XCUITest Runnerが起動しているか確認
    ```bash
-   cat /tmp/idb/state
+   curl http://localhost:8200/health
    ```
 
 3. バイナリがビルドされているか確認
@@ -387,7 +387,7 @@ cargo test --test cli test_my_feature_success -- --test-threads=1
 **実行内容**:
 - 適切なシミュレータを起動（未起動の場合）
 - テストアプリをインストール（未インストールの場合）
-- idb_companionを起動（未起動の場合）
+- XCUITest Runnerを起動（未起動の場合）
 - 環境情報を表示（UDID、シミュレータ名など）
 
 #### 2. コマンド実行（正常系）
@@ -493,7 +493,6 @@ open /tmp/my_feature_android.png
 
 #### 追加確認（該当する場合）
 
-- [ ] Python idbとの動作差異なし
 - [ ] 複数デバイスで動作確認
 - [ ] 長時間実行時のメモリリークなし
 - [ ] ストリーミング時のCtrl+C処理が正常
@@ -522,8 +521,8 @@ CLI統合テスト用のヘルパー関数。
 /// 利用可能なUDIDを取得
 pub fn get_available_udid() -> String
 
-/// idb_companionが起動していることを確認
-pub fn ensure_companion_running(udid: &str)
+/// XCUITest Runnerが起動していることを確認
+pub fn ensure_device_ready(udid: &str)
 
 /// テストバンドルIDを取得
 pub fn get_test_bundle_id() -> String
@@ -532,7 +531,7 @@ pub fn get_test_bundle_id() -> String
 **使用例**:
 ```rust
 let udid = common::get_available_udid();
-common::ensure_companion_running(&udid);
+common::ensure_device_ready(&udid);
 ```
 
 #### コマンド実行
@@ -593,51 +592,38 @@ let stdout = common::get_stdout(&output);
 assert!(stdout.contains("expected text"));
 ```
 
-### tests/idb/common/mod.rs
+### tests/common/xcuitest_helpers.rs
 
-idb gRPC統合テスト用のヘルパー関数（CLIテストでも使用可能）。
+XCUITest Runner統合テスト用のヘルパー関数。
 
 #### クライアント管理
 
 ```rust
-/// IdbClient取得
-pub async fn get_client() -> Result<IdbClient>
+/// XCUITestClient取得
+pub async fn get_xcuitest_client() -> Result<XCUITestClient>
 
 /// 利用可能なUDID取得
 pub fn get_available_udid() -> String
 
-/// idb_companion起動確認
-pub fn ensure_companion_running(udid: &str)
+/// デバイスが利用可能であることを確認
+pub fn ensure_device_ready(udid: &str)
 ```
 
 #### テストアプリ操作
 
 ```rust
 /// テストアプリ起動
-pub async fn launch_test_app(client: &IdbClient) -> Result<()>
+pub async fn launch_test_app(udid: &str) -> Result<()>
 
 /// テストアプリ終了
-pub async fn terminate_test_app(client: &IdbClient) -> Result<()>
+pub async fn terminate_test_app(udid: &str) -> Result<()>
 ```
 
 #### メディア操作
 
 ```rust
 /// スクリーンショット取得
-pub async fn take_screenshot(client: &IdbClient) -> Result<Vec<u8>>
-
-/// Framebufferが準備完了していることを確認
-pub async fn ensure_framebuffer_ready(client: &IdbClient) -> Result<()>
-```
-
-#### ファイル操作
-
-```rust
-/// ファイルをプッシュ
-pub async fn push_file(client: &IdbClient, src: &str, dst: &str) -> Result<()>
-
-/// ファイルをプル
-pub async fn pull_file(client: &IdbClient, src: &str) -> Result<Vec<u8>>
+pub async fn take_screenshot(client: &XCUITestClient) -> Result<Vec<u8>>
 ```
 
 ## TDDサイクル
@@ -659,7 +645,7 @@ pub async fn pull_file(client: &IdbClient, src: &str) -> Result<Vec<u8>>
 #[test]
 fn test_vibrate_success() {
     let udid = common::get_available_udid();
-    common::ensure_companion_running(&udid);
+    common::ensure_device_ready(&udid);
 
     let output = run_command_with_udid(&[], &udid);
     common::assert_success(&output, "vibrate command");
@@ -755,17 +741,17 @@ xcrun simctl boot <udid>
 /mobile-e2e ios
 ```
 
-#### 症状: "Failed to connect to idb_companion"
+#### 症状: "Failed to connect to XCUITest Runner"
 
-**原因**: idb_companionが起動していない
+**原因**: XCUITest Runnerが起動していない
 
 **解決**:
 ```bash
-# companion状態確認
-cat /tmp/idb/state
+# シミュレータが起動しているか確認
+xcrun simctl list devices | grep Booted
 
-# companion起動
-idb_companion --udid <udid> &
+# agent-mobileでデバイスリストを確認
+agent-mobile device list
 
 # または
 /mobile-e2e ios
@@ -783,7 +769,7 @@ idb_companion --udid <udid> &
 **デバッグ**:
 ```bash
 # アクセシビリティ情報取得
-agent-mobile idb accessibility-describe-all --udid <udid>
+agent-mobile snapshot --udid <udid>
 
 # 要素の座標を確認
 agent-mobile find "Login" --format json --udid <udid>
@@ -818,5 +804,4 @@ RUST_BACKTRACE=1 agent-mobile my-command --udid <udid>
 
 **関連ファイル**:
 - `tests/cli/common/mod.rs`: CLIテストヘルパー
-- `tests/idb/common/mod.rs`: idbテストヘルパー
 - `assets/checklist.md`: 実装チェックリスト

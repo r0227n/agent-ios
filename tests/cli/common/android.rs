@@ -1,7 +1,7 @@
 //! Android-specific test utilities.
 //!
 //! Provides helper functions for Android device handling in integration tests.
-//! This is the Android equivalent of the idb_common module for iOS.
+//! This is the Android equivalent of the iOS common module.
 
 #![allow(dead_code)]
 

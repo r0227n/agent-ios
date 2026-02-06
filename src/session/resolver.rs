@@ -30,7 +30,7 @@ impl SessionResolver {
     /// Priority:
     /// 1. If session is specified, use session's UDID
     /// 2. If explicit UDID is specified, use it
-    /// 3. Return None (CompanionResolver will auto-detect)
+    /// 3. Return None (auto-detection via simctl)
     ///
     /// # Arguments
     /// * `session` - Optional session name
@@ -63,7 +63,7 @@ impl SessionResolver {
             return Ok(Some(udid.to_string()));
         }
 
-        // Priority 3: None (auto-detection by CompanionResolver)
+        // Priority 3: None (auto-detection via simctl)
         Ok(None)
     }
 

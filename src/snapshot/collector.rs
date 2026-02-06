@@ -10,6 +10,7 @@ use crate::helpers::client::CommandResult;
 use agent_mobile_core::snapshot::RawElement;
 use agent_mobile_platform_android::snapshot::extract_android_elements;
 use agent_mobile_platform_ios::snapshot::extract_ios_elements;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 /// Configuration for snapshot collection with scrolling.
 #[derive(Debug, Clone)]
@@ -27,8 +28,8 @@ pub struct SnapshotCollectorConfig {
 impl Default for SnapshotCollectorConfig {
     fn default() -> Self {
         Self {
-            max_scrolls: 5,
-            delay_ms: 500,
+            max_scrolls: 3,
+            delay_ms: 100,
             // Default iPhone screen dimensions (will be adjusted per device)
             screen_width: 390.0,
             screen_height: 844.0,
@@ -162,7 +163,7 @@ fn merge_element_into_tree(
     }
 }
 
-/// Snapshot collector using gRPC client.
+/// Snapshot collector using XCUITestClient.
 pub struct SnapshotCollector {
     config: SnapshotCollectorConfig,
 }
@@ -175,30 +176,20 @@ impl SnapshotCollector {
     /// Collect all elements with automatic scrolling.
     ///
     /// Returns the merged tree of RawElements from all scroll positions.
+    ///
+    /// Optimizations:
+    /// - If the initial tree contains no scrollable containers, returns immediately.
+    /// - Stops after a single scroll that yields no new elements.
     pub async fn collect_all(
         &self,
-        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
+        client: &XCUITestClient,
         progress_fn: Option<ProgressCallback>,
     ) -> CommandResult<Vec<RawElement>> {
         let mut all_elements: Vec<RawElement> = Vec::new();
         let mut seen_keys: HashSet<String> = HashSet::new();
-        let mut consecutive_no_new = 0;
 
-        // Scroll to top first to ensure we start from the beginning
-        if let Some(ref progress) = progress_fn {
-            progress(CollectionProgress {
-                scrolling_to_top: true,
-                scroll_number: 0,
-                total_elements: 0,
-                new_elements: 0,
-                completed: false,
-                completion_reason: None,
-            });
-        }
-        self.scroll_to_top(client).await?;
-
-        // Get initial elements (NESTED format for tree structure)
-        let json_str = client.accessibility_info(None, true).await?;
+        // Get initial elements FIRST (before any scrolling)
+        let json_str = client.accessibility_info(true).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
         let initial_elements = extract_ios_elements(&json);
         let initial_count =
@@ -215,30 +206,69 @@ impl SnapshotCollector {
             });
         }
 
-        // Scroll and collect
+        // Fast path: if no scrollable containers exist, skip scrolling entirely
+        if !has_scrollable_content(&all_elements) {
+            if let Some(ref progress) = progress_fn {
+                progress(CollectionProgress {
+                    scrolling_to_top: false,
+                    scroll_number: 0,
+                    total_elements: seen_keys.len(),
+                    new_elements: 0,
+                    completed: true,
+                    completion_reason: Some(CompletionReason::NoNewElements),
+                });
+            }
+            return Ok(all_elements);
+        }
+
+        // Scroll to top before collecting (only when scrollable content exists)
+        if let Some(ref progress) = progress_fn {
+            progress(CollectionProgress {
+                scrolling_to_top: true,
+                scroll_number: 0,
+                total_elements: seen_keys.len(),
+                new_elements: 0,
+                completed: false,
+                completion_reason: None,
+            });
+        }
+        self.scroll_to_top(client).await?;
+
+        // Re-fetch after scrolling to top (position may have changed)
+        let json_str = client.accessibility_info(true).await?;
+        let json: serde_json::Value = serde_json::from_str(&json_str)?;
+        let top_elements = extract_ios_elements(&json);
+        // Reset and use top-of-page elements as baseline
+        all_elements.clear();
+        seen_keys.clear();
+        merge_element_trees(&mut all_elements, top_elements, &mut seen_keys);
+
+        // Scroll and collect — errors in this loop are non-fatal; we return
+        // whatever elements have been collected so far.
         for scroll_num in 1..=self.config.max_scrolls {
             // Perform scroll down
-            self.scroll_down(client).await?;
+            if self.scroll_down(client).await.is_err() {
+                break;
+            }
 
             // Wait for UI to settle
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
             // Get elements after scroll (NESTED format)
-            let json_str = client.accessibility_info(None, true).await?;
-            let json: serde_json::Value = serde_json::from_str(&json_str)?;
-            let new_elements = extract_ios_elements(&json);
+            let json_str = match client.accessibility_info(true).await {
+                Ok(s) => s,
+                Err(_) => break,
+            };
+            let new_elements = match serde_json::from_str::<serde_json::Value>(&json_str) {
+                Ok(json) => extract_ios_elements(&json),
+                Err(_) => break,
+            };
             let new_count = merge_element_trees(&mut all_elements, new_elements, &mut seen_keys);
-
-            // Check for completion
-            if new_count == 0 {
-                consecutive_no_new += 1;
-            } else {
-                consecutive_no_new = 0;
-            }
 
             let (completed, reason) = if scroll_num >= self.config.max_scrolls {
                 (true, Some(CompletionReason::MaxScrollsReached))
-            } else if consecutive_no_new >= 2 {
+            } else if new_count == 0 {
+                // Stop immediately when a single scroll yields no new elements
                 (true, Some(CompletionReason::NoNewElements))
             } else {
                 (false, None)
@@ -263,77 +293,87 @@ impl SnapshotCollector {
         Ok(all_elements)
     }
 
-    /// Perform a scroll down gesture.
-    async fn scroll_down(
-        &self,
-        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
-    ) -> CommandResult<()> {
-        use agent_mobile_platform_ios::hid::events::swipe_to_events;
-
+    /// Perform a scroll down gesture via XCUITestClient.
+    async fn scroll_down(&self, client: &XCUITestClient) -> CommandResult<()> {
         // Scroll from middle-bottom to middle-top (vertical scroll down)
         let center_x = self.config.screen_width / 2.0;
         let start_y = self.config.screen_height * 0.7; // Start from 70% down
         let end_y = self.config.screen_height * 0.3; // End at 30% down
 
-        let events = swipe_to_events((center_x, start_y), (center_x, end_y), Some(0.3), None);
-
-        client.hid(events).await?;
+        client
+            .swipe((center_x, start_y), (center_x, end_y), 0.3)
+            .await?;
         Ok(())
     }
 
-    /// Perform a scroll up gesture (opposite of scroll_down).
-    async fn scroll_up(
-        &self,
-        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
-    ) -> CommandResult<()> {
-        use agent_mobile_platform_ios::hid::events::swipe_to_events;
-
+    /// Perform a scroll up gesture via XCUITestClient.
+    async fn scroll_up(&self, client: &XCUITestClient) -> CommandResult<()> {
         // Scroll from top to bottom (swipe downward to scroll content up)
         let center_x = self.config.screen_width / 2.0;
         let start_y = self.config.screen_height * 0.3; // Start from 30% down
         let end_y = self.config.screen_height * 0.7; // End at 70% down
 
-        let events = swipe_to_events((center_x, start_y), (center_x, end_y), Some(0.3), None);
-
-        client.hid(events).await?;
+        client
+            .swipe((center_x, start_y), (center_x, end_y), 0.3)
+            .await?;
         Ok(())
     }
 
     /// Scroll to the top of the content before collecting.
     ///
-    /// Performs repeated scroll-up gestures until reaching the top of the content.
-    /// The top is detected when the accessibility tree is unchanged for 2 consecutive scrolls.
-    async fn scroll_to_top(
-        &self,
-        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
-    ) -> CommandResult<()> {
-        const MAX_SCROLL_UP: u32 = 5;
-        let mut prev_snapshot: Option<String> = None;
-        let mut consecutive_same = 0;
+    /// Takes a snapshot **before** scrolling, then compares after each scroll.
+    /// If the tree is unchanged after the first scroll, the content is already
+    /// at the top and we return immediately (1 iteration instead of 3+).
+    ///
+    /// Accessibility errors (e.g. timeout) are treated as non-fatal — we simply
+    /// stop scrolling and proceed from the current position.
+    async fn scroll_to_top(&self, client: &XCUITestClient) -> CommandResult<()> {
+        const MAX_SCROLL_UP: u32 = 3;
+
+        // Capture state before any scrolling (shallow depth for speed)
+        let mut prev_snapshot = match client.accessibility_info_with_depth(true, Some(1)).await {
+            Ok(s) => s,
+            Err(_) => return Ok(()), // Runner unresponsive → skip scroll-to-top
+        };
 
         for _ in 0..MAX_SCROLL_UP {
-            // Scroll up
             self.scroll_up(client).await?;
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
-            // Get current snapshot (accessibility tree)
-            let json_str = client.accessibility_info(None, true).await?;
-
-            // Check if at top (same as previous)
-            if let Some(ref prev) = prev_snapshot {
-                if &json_str == prev {
-                    consecutive_same += 1;
-                    if consecutive_same >= 2 {
-                        break; // At top
-                    }
-                } else {
-                    consecutive_same = 0;
-                }
+            let json_str = match client.accessibility_info_with_depth(true, Some(1)).await {
+                Ok(s) => s,
+                Err(_) => break, // Timeout → stop scrolling
+            };
+            if json_str == prev_snapshot {
+                break; // No change → already at top
             }
-            prev_snapshot = Some(json_str);
+            prev_snapshot = json_str;
         }
         Ok(())
     }
+}
+
+/// Check if the element tree contains scrollable containers.
+///
+/// Returns `true` if any element in the tree is a ScrollView, Table,
+/// CollectionView, or WebView (which typically support scrolling).
+fn has_scrollable_content(elements: &[RawElement]) -> bool {
+    elements.iter().any(|e| {
+        is_scrollable_type(&e.element_type) || has_scrollable_content_recursive(&e.children)
+    })
+}
+
+fn has_scrollable_content_recursive(children: &[RawElement]) -> bool {
+    children.iter().any(|e| {
+        is_scrollable_type(&e.element_type) || has_scrollable_content_recursive(&e.children)
+    })
+}
+
+fn is_scrollable_type(element_type: &str) -> bool {
+    matches!(
+        element_type,
+        "ScrollView" | "Table" | "CollectionView" | "WebView"
+    )
 }
 
 /// Android snapshot collector using ADB.
@@ -653,8 +693,8 @@ mod tests {
     #[test]
     fn test_collector_config_default() {
         let config = SnapshotCollectorConfig::default();
-        assert_eq!(config.max_scrolls, 5);
-        assert_eq!(config.delay_ms, 500);
+        assert_eq!(config.max_scrolls, 3);
+        assert_eq!(config.delay_ms, 100);
         assert_eq!(config.screen_width, 390.0);
         assert_eq!(config.screen_height, 844.0);
     }
@@ -669,5 +709,51 @@ mod tests {
             CompletionReason::NoNewElements.to_string(),
             "no new elements found"
         );
+    }
+
+    #[test]
+    fn test_has_scrollable_content_false() {
+        let elements = vec![make_raw(
+            "Window",
+            Some("Main"),
+            Frame::zero(),
+            vec![
+                make_raw("Button", Some("Login"), Frame::zero(), vec![]),
+                make_raw("StaticText", Some("Hello"), Frame::zero(), vec![]),
+            ],
+        )];
+        assert!(!has_scrollable_content(&elements));
+    }
+
+    #[test]
+    fn test_has_scrollable_content_true() {
+        let elements = vec![make_raw(
+            "Window",
+            Some("Main"),
+            Frame::zero(),
+            vec![make_raw(
+                "ScrollView",
+                None,
+                Frame::zero(),
+                vec![make_raw("Button", Some("Item"), Frame::zero(), vec![])],
+            )],
+        )];
+        assert!(has_scrollable_content(&elements));
+    }
+
+    #[test]
+    fn test_has_scrollable_content_nested_table() {
+        let elements = vec![make_raw(
+            "Window",
+            Some("Main"),
+            Frame::zero(),
+            vec![make_raw(
+                "Other",
+                None,
+                Frame::zero(),
+                vec![make_raw("Table", None, Frame::zero(), vec![])],
+            )],
+        )];
+        assert!(has_scrollable_content(&elements));
     }
 }

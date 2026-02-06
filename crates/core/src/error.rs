@@ -54,21 +54,6 @@ impl From<&str> for Error {
     }
 }
 
-// tonic error conversions (only when tonic feature is enabled)
-#[cfg(feature = "tonic")]
-impl From<tonic::Status> for Error {
-    fn from(status: tonic::Status) -> Self {
-        Error::Grpc(status.message().to_string())
-    }
-}
-
-#[cfg(feature = "tonic")]
-impl From<tonic::transport::Error> for Error {
-    fn from(err: tonic::transport::Error) -> Self {
-        Error::Connection(err.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

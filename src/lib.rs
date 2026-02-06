@@ -5,7 +5,7 @@
 //!
 //! # Features
 //!
-//! - **CLI Tool**: Drop-in replacement for Python `idb` CLI
+//! - **CLI Tool**: AI-optimized CLI for iOS/Android device automation
 //! - **AI Commands**: Simplified commands for AI agent automation
 //! - **Library API**: Programmatic access for Rust projects
 //!
@@ -54,7 +54,6 @@ pub mod console;
 pub mod core;
 pub mod device;
 pub mod helpers;
-pub mod idb;
 pub mod record;
 pub mod session;
 pub mod snapshot;

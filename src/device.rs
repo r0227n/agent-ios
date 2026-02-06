@@ -95,19 +95,15 @@ pub async fn detect_platform_from_udid(
     udid: &str,
 ) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
     // Check iOS devices first
-    use agent_mobile_platform_ios::companion::CompanionLister;
     let mut last_err: Option<String> = None;
 
-    match CompanionLister::new() {
-        Ok(lister) => match lister.list_targets(None) {
-            Ok(targets) => {
-                if targets.iter().any(|t| t.udid == udid) {
-                    return Ok(Platform::Ios);
-                }
+    match agent_mobile_platform_ios::simctl::list_simulators() {
+        Ok(targets) => {
+            if targets.iter().any(|t| t.udid == udid) {
+                return Ok(Platform::Ios);
             }
-            Err(e) => last_err = Some(format!("Failed to list iOS devices: {e}")),
-        },
-        Err(e) => last_err = Some(format!("Failed to init iOS lister: {e}")),
+        }
+        Err(e) => last_err = Some(format!("Failed to list iOS devices: {e}")),
     }
 
     // Check Android devices
@@ -189,17 +185,13 @@ pub async fn run(args: DeviceArgs) -> CommandResult {
 /// If platform_filter is None, lists both iOS and Android devices.
 async fn execute_list(platform_filter: Option<Platform>, format: &OutputFormat) -> CommandResult {
     use agent_mobile_platform_android::adb;
-    use agent_mobile_platform_ios::companion::CompanionLister;
     use std::collections::HashSet;
 
     let mut all_devices: Vec<DeviceInfo> = Vec::new();
 
     // iOS devices (if no filter or ios filter)
     if platform_filter.is_none() || platform_filter == Some(Platform::Ios) {
-        let targets = match CompanionLister::new() {
-            Ok(lister) => lister.list_targets(None).unwrap_or_default(),
-            Err(_) => Vec::new(),
-        };
+        let targets = agent_mobile_platform_ios::simctl::list_simulators().unwrap_or_default();
         for t in targets {
             all_devices.push(DeviceInfo {
                 name: t.name.clone(),
@@ -297,7 +289,6 @@ async fn execute_list(platform_filter: Option<Platform>, format: &OutputFormat) 
 async fn execute_boot(platform: Platform, name: &str, headless: bool) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::companion::CompanionLister;
             use agent_mobile_platform_ios::simctl::management;
 
             // Check if name looks like a UDID or a device name
@@ -306,10 +297,8 @@ async fn execute_boot(platform: Platform, name: &str, headless: bool) -> Command
                 name.to_string()
             } else {
                 // Try to find by name
-                let targets = match CompanionLister::new() {
-                    Ok(lister) => lister.list_targets(None).unwrap_or_default(),
-                    Err(_) => Vec::new(),
-                };
+                let targets =
+                    agent_mobile_platform_ios::simctl::list_simulators().unwrap_or_default();
                 let matching = targets
                     .iter()
                     .find(|t| t.name.to_lowercase().contains(&name.to_lowercase()));
@@ -387,12 +376,7 @@ async fn get_default_udid(
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::companion::CompanionLister;
-
-            let targets = match CompanionLister::new() {
-                Ok(lister) => lister.list_targets(None).unwrap_or_default(),
-                Err(_) => Vec::new(),
-            };
+            let targets = agent_mobile_platform_ios::simctl::list_simulators().unwrap_or_default();
 
             // Find first booted simulator
             let booted = targets
@@ -416,30 +400,35 @@ async fn get_default_udid(
 }
 
 /// Execute copy to clipboard.
-async fn execute_pbcopy(platform: Platform, udid: &str, text: &str) -> CommandResult {
+async fn execute_pbcopy(platform: Platform, _udid: &str, text: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::simctl::management;
-            management::pbcopy(udid, text)?;
-            println!("Copied to clipboard");
-            Ok(())
+            use crate::helpers::client::with_xcuitest;
+
+            let text = text.to_string();
+            with_xcuitest(|client| async move {
+                client.clipboard_copy(&text).await?;
+                println!("Copied to clipboard");
+                Ok(())
+            })
+            .await
         }
-        Platform::Android => {
-            // Android doesn't have a direct clipboard API via adb
-            // We can use am broadcast but it's limited
-            Err("Android clipboard is not supported via adb".into())
-        }
+        Platform::Android => Err("Android clipboard is not supported via adb".into()),
     }
 }
 
 /// Execute paste from clipboard.
-async fn execute_pbpaste(platform: Platform, udid: &str) -> CommandResult {
+async fn execute_pbpaste(platform: Platform, _udid: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::simctl::management;
-            let text = management::pbpaste(udid)?;
-            print!("{}", text);
-            Ok(())
+            use crate::helpers::client::with_xcuitest;
+
+            with_xcuitest(|client| async move {
+                let text = client.clipboard_paste().await?;
+                print!("{}", text);
+                Ok(())
+            })
+            .await
         }
         Platform::Android => Err("Android clipboard is not supported via adb".into()),
     }

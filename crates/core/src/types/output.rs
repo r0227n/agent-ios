@@ -3,7 +3,7 @@
 use super::target::{Address, DeviceInfo};
 use serde_json::{json, Value};
 
-/// Human-readable format matching Python idb output:
+/// Human-readable format for device list output:
 /// "{name} | {udid} | {state} | {target_type} | {os_version} | {architecture} | {companion_address}"
 pub fn human_format_target(target: &DeviceInfo) -> String {
     let companion_str = match &target.companion_info {
@@ -23,7 +23,7 @@ pub fn human_format_target(target: &DeviceInfo) -> String {
     )
 }
 
-/// JSON format matching Python idb output
+/// JSON format for device list output
 pub fn json_format_target(target: &DeviceInfo) -> String {
     let mut data: Value = json!({
         "name": target.name,
@@ -72,7 +72,7 @@ mod tests {
                 is_local: true,
                 pid: None,
                 address: Address::DomainSocket {
-                    path: "/tmp/idb/some.sock".to_string(),
+                    path: "/tmp/test_companion.sock".to_string(),
                 },
             }),
         };
@@ -80,7 +80,7 @@ mod tests {
         let output = human_format_target(&target);
         assert_eq!(
             output,
-            "iPhone 14 Pro | AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE | Booted | simulator | iOS 17.0 | arm64 | /tmp/idb/some.sock"
+            "iPhone 14 Pro | AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE | Booted | simulator | iOS 17.0 | arm64 | /tmp/test_companion.sock"
         );
     }
 
@@ -114,7 +114,7 @@ mod tests {
                 is_local: true,
                 pid: None,
                 address: Address::DomainSocket {
-                    path: "/tmp/idb/some.sock".to_string(),
+                    path: "/tmp/test_companion.sock".to_string(),
                 },
             }),
         };
@@ -124,8 +124,8 @@ mod tests {
 
         assert_eq!(parsed["name"], "iPhone 14 Pro");
         assert_eq!(parsed["type"], "simulator");
-        assert_eq!(parsed["path"], "/tmp/idb/some.sock");
+        assert_eq!(parsed["path"], "/tmp/test_companion.sock");
         assert_eq!(parsed["is_local"], true);
-        assert_eq!(parsed["companion"], "/tmp/idb/some.sock");
+        assert_eq!(parsed["companion"], "/tmp/test_companion.sock");
     }
 }

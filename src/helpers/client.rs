@@ -1,59 +1,47 @@
 //! Client connection helpers for CLI commands
 //!
-//! This module provides utilities for connecting to idb_companion,
+//! This module provides utilities for connecting to the XCUITest Runner,
 //! reducing boilerplate across command implementations.
 
-use agent_mobile_platform_ios::companion::CompanionResolver;
-use agent_mobile_platform_ios::grpc::IdbClient;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 /// Standard result type for CLI commands
 pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-/// Execute a command with an IdbClient connection.
+/// Execute a command with an XCUITestClient connection.
 ///
 /// This helper function handles the common pattern of:
-/// 1. Creating a CompanionResolver
-/// 2. Connecting to a companion (with optional UDID)
+/// 1. Ensuring the XCUITest Runner is started (auto-start if needed)
+/// 2. Creating an XCUITestClient
 /// 3. Executing the provided closure with the client
 ///
-/// # UDID Resolution Priority
-///
-/// The UDID parameter passed here follows this priority order (enforced at CLI layer):
-/// 1. **Session UDID** (highest priority)
-///    - Set via `apply_session_udid_option!` macro in main.rs
-///    - SessionResolver converts session name → UDID
-///    - Main.rs macro applies resolved UDID before calling command
-/// 2. **Explicit UDID** (mid priority)
-///    - From --udid flag or -u short form
-///    - Passed directly to this helper
-/// 3. **Auto-detection** (lowest priority)
-///    - If no UDID: CompanionResolver auto-selects single companion
-///    - If multiple companions exist: error, user must specify UDID
+/// The Runner is started as a daemon process that persists after the CLI exits.
+/// If the Runner is already running, the health check returns immediately
+/// with minimal overhead.
 ///
 /// # Example
 ///
 /// ```ignore
-/// use crate::helpers::client::{with_client, CommandResult};
+/// use crate::helpers::client::{with_xcuitest, CommandResult};
 ///
-/// pub async fn run(udid: Option<&str>) -> CommandResult {
-///     with_client(udid, |mut client| async move {
-///         client.focus().await?;
+/// pub async fn run() -> CommandResult {
+///     with_xcuitest(|client| async move {
+///         client.tap(100.0, 200.0).await?;
 ///         Ok(())
 ///     }).await
 /// }
 /// ```
-///
-/// # See Also
-///
-/// - `apply_session_udid_option!` macro in main.rs: Applies session UDID before command execution
-/// - `CompanionResolver`: Handles actual UDID resolution and companion connection
-pub async fn with_client<F, Fut, T>(udid: Option<&str>, f: F) -> CommandResult<T>
+pub async fn with_xcuitest<F, Fut, T>(f: F) -> CommandResult<T>
 where
-    F: FnOnce(IdbClient) -> Fut,
+    F: FnOnce(XCUITestClient) -> Fut,
     Fut: std::future::Future<Output = CommandResult<T>>,
 {
-    let resolver = CompanionResolver::new();
-    let client = resolver.connect(udid).await?;
+    use agent_mobile_platform_ios::xcuitest::ensure_runner_started;
+
+    // Ensure the Runner is started (no-op if already running)
+    ensure_runner_started(XCUITestClient::DEFAULT_PORT).await?;
+
+    let client = XCUITestClient::default();
     f(client).await
 }
 

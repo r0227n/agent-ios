@@ -1,6 +1,6 @@
 ---
 name: agent-mobile-dev
-description: Guide for developing CLI commands in agent-mobile (Rust mobile E2E testing tool). Use when adding new commands, implementing features, or refactoring agent-mobile code. Enforces 4-layer architecture (CLI/Gateway/Platform/Core), platform decision-making (iOS: idb gRPC vs xcrun simctl), and mandatory real-device testing workflow (Phase 0 environment setup → design → implement → test → device verification → commit).
+description: Guide for developing CLI commands in agent-mobile (Rust mobile E2E testing tool). Use when adding new commands, implementing features, or refactoring agent-mobile code. Enforces 4-layer architecture (CLI/Gateway/Platform/Core), platform decision-making (iOS: XCUITest Runner (HTTP) vs xcrun simctl), and mandatory real-device testing workflow (Phase 0 environment setup → design → implement → test → device verification → commit).
 version: 2.0.0
 argument-hint: "[setup-ios|setup-android|<other-args>]"
 ---
@@ -17,13 +17,13 @@ agent-mobile CLI（Rust製モバイルE2Eテストツール）の新機能開発
 
 **主要特徴:**
 - **4層アーキテクチャ**: CLI → Gateway → Platform → Core
-- **iOS対応**: idb gRPC + xcrun simctl ハイブリッド
+- **iOS対応**: XCUITest Runner (HTTP) + xcrun simctl ハイブリッド
 - **Android対応**: adb wrapper
 - **AI最適化**: 簡潔なコマンド、JSON出力、エラーメッセージ明確化
 
 **技術スタック:**
 ```
-Rust 2021 | tokio 1.49 | tonic 0.12 + prost 0.13 | clap 4.5
+Rust 2021 | tokio 1.49 | reqwest (HTTP) | clap 4.5
 ```
 
 ### 4層アーキテクチャ
@@ -47,7 +47,7 @@ Rust 2021 | tokio 1.49 | tonic 0.12 + prost 0.13 | clap 4.5
      ↓ (iOS)                ↓ (Android)
 ┌──────────────┐      ┌─────────────────┐
 │ iOS Platform │      │ Android Platform│
-│ - gRPC       │      │ - adb wrapper   │
+│ - XCUITest   │      │ - adb wrapper   │
 │ - simctl     │      │                 │
 └──────────────┘      └─────────────────┘
 ┌─────────────────────────────────────────┐
@@ -60,7 +60,7 @@ Rust 2021 | tokio 1.49 | tonic 0.12 + prost 0.13 | clap 4.5
 **各層の責務:**
 - **CLI層**: コマンドパース、引数検証のみ
 - **Gateway層**: プラットフォーム抽象化、統一API提供
-- **Platform層**: iOS (gRPC/simctl)、Android (adb) 実装
+- **Platform層**: iOS (XCUITest Runner HTTP/simctl)、Android (adb) 実装
 - **Core層**: 共通型、OutputWriter
 
 ## Quick Start: 新機能追加の判断フロー
@@ -71,17 +71,17 @@ Rust 2021 | tokio 1.49 | tonic 0.12 + prost 0.13 | clap 4.5
 1. 機能の分類
    ├─ トップレベルコマンド？ (tap, swipe, find...)
    │  └─ src/core/<name>.rs に実装
-   └─ IDB互換コマンド？ (idb log, idb launch...)
-      └─ src/idb/<name>.rs に実装
+   └─ サブコマンド？
+      └─ 適切なモジュールに配置
 
 2. iOS実装判断
-   ├─ proto/idb.proto に RPC定義あり？
-   │  ├─ Yes → idb gRPC で実装
-   │  │  └─ with_client() パターン使用
+   ├─ XCUITest Runner (HTTP)で実装可能？
+   │  ├─ Yes → XCUITest Runner (HTTP) で実装
+   │  │  └─ with_xcuitest() パターン使用
    │  └─ No → xcrun simctl で実装
    │     └─ simctl::management モジュール拡張
    └─ 両方で可能？
-      └─ ハイブリッド (gRPC優先、fallback)
+      └─ ハイブリッド (XCUITest Runner優先、fallback)
 
 3. Android実装判断
    ├─ adb コマンドで実装可能？
@@ -97,10 +97,10 @@ Rust 2021 | tokio 1.49 | tonic 0.12 + prost 0.13 | clap 4.5
 
 ### 判断支援ツール
 
-**proto/idb.proto確認**（iOS実装判断用）:
+**実装方法判断**（iOS実装判断用）:
 ```bash
 ./scripts/platform-check.sh <feature-name>
-# → RPC定義の有無を確認、推奨実装を提示
+# → XCUITest Runner or simctl の推奨実装を提示
 ```
 
 **コマンドテンプレート生成**:
@@ -121,7 +121,7 @@ Rust 2021 | tokio 1.49 | tonic 0.12 + prost 0.13 | clap 4.5
 
 **実行内容:**
 1. Xcode & xcrun simctl確認
-2. idb_companionインストール確認
+2. XCUITest Runnerインストール確認
 3. シミュレータ起動（未起動の場合）
 4. agent-mobile接続確認
 
@@ -155,11 +155,10 @@ Rust 2021 | tokio 1.49 | tonic 0.12 + prost 0.13 | clap 4.5
 ### ステップ1: 設計
 
 **プラットフォーム実装判断:**
-1. iOS: `proto/idb.proto` を確認
+1. iOS: XCUITest Runner or simctl の判断
    ```bash
-   grep -i "rpc <feature>" proto/idb.proto
-   # または
    ./scripts/platform-check.sh <feature>
+   # → XCUITest Runner (HTTP) or xcrun simctl の推奨を提示
    ```
 2. Android: adbコマンドで実現可能か確認
 
@@ -192,7 +191,7 @@ pub struct MyCommandArgs {
 use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
-use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::cli::helpers::{with_xcuitest, CommandResult, DeviceArgs};
 
 #[derive(Args, Debug)]
 pub struct MyFeatureArgs {
@@ -212,8 +211,8 @@ pub async fn run(args: MyFeatureArgs) -> CommandResult {
 }
 
 async fn run_ios(udid: Option<&str>) -> CommandResult {
-    with_client(udid, |mut client| async move {
-        // idb gRPC実装
+    with_xcuitest(udid, |mut client| async move {
+        // XCUITest Runner (HTTP)実装
         Ok(())
     }).await
 }
@@ -275,14 +274,14 @@ cargo test --test cli -- --test-threads=1
 ```rust
 // tests/cli/my_feature_integration.rs
 use crate::common::{
-    assert_success, ensure_companion_running, get_available_udid,
+    assert_success, ensure_device_ready, get_available_udid,
     run_cli_command_with_udid,
 };
 
 #[test]
 fn test_my_feature_success() {
     let udid = get_available_udid();
-    ensure_companion_running(&udid);
+    ensure_device_ready(&udid);
 
     let output = run_cli_command_with_udid("my-feature", &[], &udid);
     assert_success(&output, "my-feature command");
@@ -334,7 +333,6 @@ agent-mobile screenshot /tmp/evidence.png
 - [ ] エラーメッセージが適切（異常系）
 - [ ] UI操作結果が視覚的に確認可能
 - [ ] スクリーンショットで証跡保存
-- [ ] Python idbとの動作差異なし（該当する場合）
 
 **実機確認なしでのコミットは禁止**: ビルドが通っても、実際の動作確認までコミットしないでください。
 
@@ -347,15 +345,15 @@ git commit -m "feat: add my-feature command"
 
 ## 頻出パターン (Quick Reference)
 
-### with_client() パターン
+### with_xcuitest() パターン
 
-最も頻繁に使用するパターン。idb_companionへの接続を抽象化します。
+最も頻繁に使用するパターン。XCUITest Runnerへの接続を抽象化します。
 
 **基本形:**
 ```rust
 pub async fn run(udid: Option<String>) -> CommandResult {
-    with_client(udid.as_deref(), |mut client| async move {
-        // idb gRPC操作
+    with_xcuitest(udid.as_deref(), |mut client| async move {
+        // XCUITest Runner (HTTP)操作
         client.accessibility_info(None, true).await?;
         Ok(())
     }).await
@@ -364,10 +362,10 @@ pub async fn run(udid: Option<String>) -> CommandResult {
 
 **ストリーミング用:**
 ```rust
-use crate::cli::helpers::with_client_streaming;
+use crate::cli::helpers::with_xcuitest_streaming;
 
 pub async fn run(udid: Option<String>) -> CommandResult {
-    with_client_streaming(udid.as_deref(), |mut client| async move {
+    with_xcuitest_streaming(udid.as_deref(), |mut client| async move {
         let mut stream = client.log(LogSource::Target, vec![]).await?;
         // ストリーム処理...
         Ok(())
@@ -404,7 +402,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
         .await?;  // ?演算子でエラー伝播
 
     if platform == Platform::Ios {
-        with_client(args.device.udid.as_deref(), |mut client| async move {
+        with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
             client.focus().await?;
             Ok(())
         }).await
@@ -447,36 +445,36 @@ pub async fn run(args: MyCommandArgs) -> CommandResult {
 ### 判断フローチャート
 
 ```text
-proto/idb.proto に RPC定義あり？
-├─ Yes → idb gRPC実装
-│  └─ with_client() 使用
-├─ No  → xcrun simctl実装
+XCUITest Runner (HTTP) で実装可能？
+├─ Yes → XCUITest Runner (HTTP) 実装
+│  └─ with_xcuitest() 使用
+├─ No  → xcrun simctl 実装
 │  └─ simctl::management 拡張
 └─ 両方？→ ハイブリッド
-   └─ gRPC優先、fallback で simctl
+   └─ XCUITest Runner優先、fallback で simctl
 ```
 
 ### 機能別推奨実装
 
 | 機能カテゴリ | 推奨実装 | 理由 |
 |------------|---------|------|
-| HID入力 (tap/swipe/text) | **idb gRPC** | 精密な制御、ストリーミング対応 |
-| アクセシビリティ | **idb gRPC** | simctlでは不可 |
-| スクリーンショット | **idb gRPC** | Framebuffer直接アクセス |
-| アプリ操作 (launch/terminate) | **idb gRPC** | 進捗ストリーミング |
-| ファイル操作 | **idb gRPC** | 統一インターフェース |
-| シミュレータ起動/停止 | **xcrun simctl** | protoに boot RPC なし |
-| シミュレータ作成/削除 | **xcrun simctl** | ライフサイクル管理 |
-| クリップボード | **xcrun simctl** | protoに API なし |
+| HID入力 (tap/swipe/text) | **XCUITest Runner (HTTP)** | 精密な制御、ストリーミング対応 |
+| アクセシビリティ | **XCUITest Runner (HTTP)** | simctlでは不可 |
+| スクリーンショット | **XCUITest Runner (HTTP)** | Framebuffer直接アクセス |
+| アプリ操作 (launch/terminate) | **XCUITest Runner (HTTP)** | 進捗ストリーミング |
+| ファイル操作 | **XCUITest Runner (HTTP)** | 統一インターフェース |
+| シミュレータ起動/停止 | **xcrun simctl** | デバイスライフサイクル管理 |
+| シミュレータ作成/削除 | **xcrun simctl** | デバイスライフサイクル管理 |
+| クリップボード | **XCUITest Runner (HTTP)** | UIPasteboard.general 経由 |
 
 ### ハイブリッド実装例
 
-gRPCを試して、失敗時にsimctlにフォールバック:
+XCUITest Runnerを試して、失敗時にsimctlにフォールバック:
 
 ```rust
 pub async fn grant_permission(bundle: &str, perm: Permission) -> Result<()> {
-    // 1. まず idb gRPC を試す
-    match idb_client.approve(bundle, perm).await {
+    // 1. まず XCUITest Runner (HTTP) を試す
+    match xcuitest_client.approve(bundle, perm).await {
         Ok(_) => Ok(()),
         Err(e) if e.is_schema_error() => {
             // 2. 失敗時は simctl にフォールバック
@@ -520,25 +518,24 @@ pub async fn grant_permission(bundle: &str, perm: Permission) -> Result<()> {
 
 ### scripts/platform-check.sh
 
-iOS実装判断を支援します（proto/idb.proto検索）。
+iOS実装判断を支援します（XCUITest Runner or simctl の推奨判定）。
 
 **使用方法:**
 ```bash
 ./scripts/platform-check.sh accessibility
 
 # 出力:
-# Found RPC: accessibility_info(AccessibilityInfoRequest) returns (AccessibilityInfoResponse)
-# Recommendation: Use idb gRPC
-# Implementation: with_client() pattern
+# Recommendation: Use XCUITest Runner (HTTP)
+# Implementation: with_xcuitest() pattern
+# API: accessibility_info()
 ```
 
 ```bash
 ./scripts/platform-check.sh clipboard
 
 # 出力:
-# No RPC found for "clipboard"
-# Recommendation: Use xcrun simctl
-# Example: xcrun simctl pbcopy <udid> "text"
+# Recommendation: Use XCUITest Runner (HTTP)
+# Implementation: UIPasteboard.general 経由
 ```
 
 ### scripts/run-tests.sh
@@ -583,16 +580,8 @@ iOS実装判断を支援します（proto/idb.proto検索）。
 
 詳細情報は以下のリファレンスファイルを参照してください:
 
-### references/platform-decisions.md
-- iOS実装判断基準の詳細版（`.claude/rules/cli-feature.md`を統合）
-- idb.proto RPC一覧（カテゴリ別）
-- xcrun simctl コマンド一覧
-- ハイブリッド実装パターン（複数例）
-- 機能別実装状況表
-- 判断履歴（既存機能の選択理由）
-
 ### references/implementation-patterns.md
-- `with_client()` の複数バリエーション
+- `with_xcuitest()` の複数バリエーション
   - 基本形
   - ストリーミング用
   - 複数クライアント操作
@@ -607,7 +596,6 @@ iOS実装判断を支援します（proto/idb.proto検索）。
   - 統合テスト戦略
   - 実機確認詳細手順
 - `tests/cli/common/mod.rs` ヘルパー関数リスト
-- `tests/idb/common/mod.rs` ヘルパー関数リスト
 - **実機確認詳細手順（/mobile-e2eスキル使用）**
 - TDDサイクル実践例
 
@@ -623,7 +611,7 @@ iOS実装判断を支援します（proto/idb.proto検索）。
 - **CLAUDE.md**: AI開発者向けクイックスタート
 - **README.md**: ユーザー向け使用方法
 - **docs/ARCHITECTURE.md**: アーキテクチャ詳細
-- **proto/idb.proto**: gRPC API定義
+- **crates/xcuitest-runner/**: XCUITest Runner (Swift) プロジェクト
 
 ## まとめ
 

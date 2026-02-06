@@ -4,7 +4,7 @@ agent-mobile CLI開発における頻出パターンとベストプラクティ�
 
 ## 目次
 
-- [with_client() パターン](#with_client-パターン)
+- [with_xcuitest() パターン](#with_xcuitest-パターン)
 - [引数パターン](#引数パターン)
 - [エラーハンドリング](#エラーハンドリング)
 - [JSON出力パターン](#json出力パターン)
@@ -12,30 +12,30 @@ agent-mobile CLI開発における頻出パターンとベストプラクティ�
 - [プラットフォーム分岐パターン](#プラットフォーム分岐パターン)
 - [ストリーミングパターン](#ストリーミングパターン)
 
-## with_client() パターン
+## with_xcuitest() パターン
 
-`with_client()` は idb_companion への接続を抽象化するヘルパー関数です。
+`with_xcuitest()` は XCUITest Runner への接続を抽象化するヘルパー関数です。
 
 ### 基本形
 
 **最も頻繁に使用するパターン**:
 
 ```rust
-use crate::cli::helpers::{with_client, CommandResult, DeviceArgs};
+use crate::cli::helpers::{with_xcuitest, CommandResult, DeviceArgs};
 
 pub async fn run(args: MyArgs) -> CommandResult {
-    with_client(args.device.udid.as_deref(), |mut client| async move {
-        // idb gRPC操作
-        client.focus().await?;
+    with_xcuitest(args.device.udid.as_deref(), |client| async move {
+        // XCUITest Runner HTTP操作
+        client.tap(100.0, 200.0).await?;
         Ok(())
     }).await
 }
 ```
 
 **処理フロー**:
-1. `CompanionResolver` を作成
-2. UDIDでcompanionに接続（Noneの場合は最初の利用可能デバイス）
-3. クロージャ内でgRPC操作
+1. デバイスUDIDを解決（Noneの場合は最初の利用可能デバイス）
+2. XCUITestClient (HTTP) に接続
+3. クロージャ内でHTTP操作
 4. 接続は自動的にクローズ
 
 ### ストリーミング用
@@ -43,10 +43,10 @@ pub async fn run(args: MyArgs) -> CommandResult {
 **長時間実行RPCの場合** (log、video、tail など):
 
 ```rust
-use crate::cli::helpers::{with_client_streaming, CommandResult};
+use crate::cli::helpers::{with_xcuitest_streaming, CommandResult};
 
 pub async fn run(args: MyArgs) -> CommandResult {
-    with_client_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
         let mut stream = client.log(LogSource::Target, vec![]).await?;
 
         while let Some(log_entry) = stream.message().await? {
@@ -58,13 +58,13 @@ pub async fn run(args: MyArgs) -> CommandResult {
 }
 ```
 
-**違い**: `with_client_streaming()` はリクエストタイムアウトなし（デフォルトは30秒）。
+**違い**: `with_xcuitest_streaming()` はリクエストタイムアウトなし（デフォルトは30秒）。
 
-### 複数gRPC操作
+### 複数HTTP操作
 
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    with_client(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
         // 1. アクセシビリティ情報取得
         let json_str = client.accessibility_info(None, true).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
@@ -85,7 +85,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 
 ```rust
 pub async fn get_screen_size(udid: Option<&str>) -> CommandResult<(u32, u32)> {
-    with_client(udid, |mut client| async move {
+    with_xcuitest(udid, |mut client| async move {
         let desc = client.describe(false).await?;
         let dims = desc.screen_dimensions;
         Ok((dims.width as u32, dims.height as u32))
@@ -97,7 +97,7 @@ pub async fn get_screen_size(udid: Option<&str>) -> CommandResult<(u32, u32)> {
 
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    with_client(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
         match client.accessibility_info(None, true).await {
             Ok(json_str) => {
                 process_json(&json_str)?;
@@ -244,7 +244,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
     let platform = DeviceResolver::resolve_platform(args.device.platform.as_deref())
         .await?;  // エラーはそのまま伝播
 
-    with_client(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
         client.focus().await?;  // エラーはそのまま伝播
         Ok(())
     }).await
@@ -280,7 +280,7 @@ pub async fn run(args: TapArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: MyArgs) -> CommandResult {
-    match with_client(args.device.udid.as_deref(), |mut client| async move {
+    match with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
         client.accessibility_info(None, true).await
     }).await {
         Ok(json_str) => {
@@ -288,7 +288,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
             Ok(())
         }
         Err(e) if is_connection_error(&e) => {
-            Err("Failed to connect to idb_companion. Ensure the simulator is running.".into())
+            Err("Failed to connect to XCUITest Runner. Ensure the simulator is running and XCUITest Runner is started.".into())
         }
         Err(e) if is_framebuffer_error(&e) => {
             Err("Framebuffer not ready. Wait a few seconds after boot and retry.".into())
@@ -308,7 +308,7 @@ Err("Failed".into())
 
 **良い例**:
 ```rust
-Err("Device not found. Run 'agent-mobile idb list-targets' to see available devices.".into())
+Err("Device not found. Run 'agent-mobile device list' to see available devices.".into())
 Err("Screenshot failed: Framebuffer not ready. Wait 5 seconds after boot and retry.".into())
 Err("Invalid element ref '@e999'. Run 'agent-mobile find <text>' to find elements.".into())
 ```
@@ -432,7 +432,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
     // Ctrl+Cハンドラー設定
     setup_ctrl_c_handler(stop_tx.clone());
 
-    with_client_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
         let mut stream = client.log(LogSource::Target, vec![]).await?;
 
         loop {
@@ -464,7 +464,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: InstallArgs) -> CommandResult {
-    with_client_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
         let mut stream = client.install(&args.path).await?;
 
         while let Some(response) = stream.message().await? {
@@ -509,13 +509,13 @@ pub async fn run(args: MyArgs) -> CommandResult {
 }
 
 async fn take_screenshot(udid: Option<&str>) -> CommandResult<Vec<u8>> {
-    with_client(udid, |mut client| async move {
+    with_xcuitest(udid, |mut client| async move {
         client.screenshot().await
     }).await
 }
 
 async fn get_accessibility_info(udid: Option<&str>) -> CommandResult<String> {
-    with_client(udid, |mut client| async move {
+    with_xcuitest(udid, |mut client| async move {
         client.accessibility_info(None, true).await
     }).await
 }
@@ -541,7 +541,7 @@ pub async fn run(args: MyArgs) -> CommandResult {
 }
 
 async fn run_ios(udid: Option<&str>) -> CommandResult {
-    with_client(udid, |mut client| async move {
+    with_xcuitest(udid, |mut client| async move {
         // iOS実装
         Ok(())
     }).await
@@ -588,7 +588,7 @@ pub async fn run(args: TapArgs) -> CommandResult {
 async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
-            with_client(udid, |mut client| async move {
+            with_xcuitest(udid, |mut client| async move {
                 let events = tap_events(x, y);
                 client.hid(events).await?;
                 Ok(())
@@ -609,7 +609,7 @@ async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> 
 
 ```rust
 pub async fn run(args: LogArgs) -> CommandResult {
-    with_client_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
         let mut stream = client.log(LogSource::Target, vec![]).await?;
 
         while let Some(log_entry) = stream.message().await? {
@@ -625,7 +625,7 @@ pub async fn run(args: LogArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: PushArgs) -> CommandResult {
-    with_client(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(args.device.udid.as_deref(), |mut client| async move {
         let file_data = std::fs::read(&args.local_path)?;
 
         // ストリーミング送信
@@ -644,7 +644,7 @@ pub async fn run(args: PushArgs) -> CommandResult {
 
 ```rust
 pub async fn run(args: LaunchArgs) -> CommandResult {
-    with_client_streaming(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest_streaming(args.device.udid.as_deref(), |mut client| async move {
         let (mut tx, mut rx) = client.launch_bidirectional().await?;
 
         // 起動リクエスト送信
@@ -666,7 +666,7 @@ pub async fn run(args: LaunchArgs) -> CommandResult {
 ## まとめ
 
 **最頻出パターン**:
-1. `with_client()` + `DeviceArgs` flatten
+1. `with_xcuitest()` + `DeviceArgs` flatten
 2. `CommandResult` + `?` 演算子
 3. プラットフォーム分岐（`match Platform`）
 4. アクション可能なエラーメッセージ
@@ -675,11 +675,11 @@ pub async fn run(args: LaunchArgs) -> CommandResult {
 **ベストプラクティス**:
 - エラーメッセージは明確かつアクション可能に
 - 引数検証は早期に行う
-- ストリーミングは `with_client_streaming()` を使用
+- ストリーミングは `with_xcuitest_streaming()` を使用
 - Ctrl+Cハンドリングはtokio::select!で実装
 - JSON出力時はエラーも構造化する
 
 **関連ファイル**:
-- `src/helpers/client.rs`: with_client実装
+- `src/helpers/client.rs`: with_xcuitest実装
 - `src/helpers/common_args.rs`: DeviceArgs定義
 - `src/core/`: 実装例

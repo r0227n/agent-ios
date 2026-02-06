@@ -30,19 +30,29 @@ impl DeviceResolver {
 
     /// Check if iOS devices are available
     pub async fn has_ios_devices() -> bool {
-        use std::path::Path;
-        let state_path = Path::new("/tmp/idb/state");
-        if !state_path.exists() {
-            return false;
-        }
-        if let Ok(content) = std::fs::read_to_string(state_path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(arr) = json.as_array() {
-                    return !arr.is_empty();
+        use tokio::process::Command;
+        let output = Command::new("xcrun")
+            .args(["simctl", "list", "devices", "-j"])
+            .output()
+            .await;
+        match output {
+            Ok(o) if o.status.success() => {
+                let stdout = String::from_utf8_lossy(&o.stdout);
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                    if let Some(devices) = json.get("devices").and_then(|d| d.as_object()) {
+                        return devices.values().any(|list| {
+                            list.as_array().is_some_and(|arr| {
+                                arr.iter().any(|d| {
+                                    d.get("state").and_then(|s| s.as_str()) == Some("Booted")
+                                })
+                            })
+                        });
+                    }
                 }
+                false
             }
+            _ => false,
         }
-        false
     }
 
     /// Check if Android devices are available

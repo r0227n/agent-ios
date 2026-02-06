@@ -6,7 +6,7 @@
 #![allow(dead_code)]
 
 use super::android;
-use crate::idb_common;
+use super::ios;
 
 /// Supported test platforms
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,7 +41,7 @@ impl DeviceIdentifier {
     /// ```
     pub fn get_any_available() -> Result<Self, String> {
         // Try iOS first
-        match std::panic::catch_unwind(idb_common::get_available_udid) {
+        match std::panic::catch_unwind(ios::get_available_udid) {
             Ok(udid) => {
                 return Ok(Self {
                     id: udid,
@@ -82,7 +82,7 @@ impl DeviceIdentifier {
     /// Get the test app bundle ID/package name for this platform
     pub fn get_test_bundle_id(&self) -> String {
         match self.platform {
-            TestPlatform::Ios => idb_common::get_test_bundle_id(),
+            TestPlatform::Ios => ios::get_test_bundle_id(),
             TestPlatform::Android => android::get_test_package_name(),
         }
     }
@@ -93,7 +93,7 @@ impl DeviceIdentifier {
     /// - Android: Ensures device is connected and responsive
     pub fn ensure_ready(&self) {
         match self.platform {
-            TestPlatform::Ios => idb_common::ensure_companion_running(&self.id),
+            TestPlatform::Ios => ios::ensure_companion_running(&self.id),
             TestPlatform::Android => android::ensure_device_ready(&self.id),
         }
     }

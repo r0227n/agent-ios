@@ -83,10 +83,4 @@ pub enum Commands {
 
     /// Session management (list, show, create, destroy)
     Session(crate::session::SessionArgs),
-
-    /// IDB-compatible commands (full idb CLI compatibility)
-    Idb {
-        #[command(subcommand)]
-        command: Box<crate::idb::IdbCommands>,
-    },
 }

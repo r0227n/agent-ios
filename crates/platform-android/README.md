@@ -18,7 +18,7 @@ Android platform implementation for agent-mobile, providing device and emulator 
 - Element finding by text, ID, and type
 
 **Architecture Differences from iOS**:
-- No gRPC daemon (unlike iOS's idb_companion)
+- No daemon required (direct ADB commands)
 - Synchronous command execution via `adb` CLI
 - XML-based UI hierarchy (unlike iOS's native accessibility API)
 - Limited streaming capabilities (no real-time log streaming like iOS)
