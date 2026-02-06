@@ -48,29 +48,10 @@ pub fn get_test_bundle_id() -> String {
     "com.apple.mobilesafari".to_string()
 }
 
-/// Ensure the idb companion is running for the given device.
+/// Ensure the device is ready for testing.
 ///
-/// This starts the companion if not already running.
-pub fn ensure_companion_running(udid: &str) {
-    // Check if companion is already running by trying to connect
-    let socket_path = format!(
-        "{}/Library/Developer/idb/idb_companion_{}.sock",
-        std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string()),
-        udid
-    );
-
-    if std::path::Path::new(&socket_path).exists() {
-        return; // Companion already running
-    }
-
-    // Start companion
-    let output = Command::new("idb_companion").args(["--udid", udid]).spawn();
-
-    if output.is_err() {
-        // Companion might not be installed, which is OK for simctl-based tests
-        eprintln!("Note: idb_companion not available, tests will use simctl directly");
-    }
-
-    // Give companion time to start
-    std::thread::sleep(std::time::Duration::from_millis(500));
+/// Previously started idb_companion, now a no-op since we use
+/// simctl and XCUITest Runner directly.
+pub fn ensure_companion_running(_udid: &str) {
+    // No-op: idb_companion is no longer needed.
 }

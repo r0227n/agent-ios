@@ -473,6 +473,92 @@ pub fn list_apps(udid: &str) -> Result<Vec<SimctlAppInfo>> {
     Ok(apps)
 }
 
+/// List all simulators as DeviceInfo structs.
+///
+/// Runs `xcrun simctl list devices --json` and converts each device
+/// into a `DeviceInfo` with `target_type` set to `Simulator`.
+///
+/// The OS version is extracted from the runtime identifier
+/// (e.g., `com.apple.CoreSimulator.SimRuntime.iOS-17-0` → `iOS 17.0`).
+pub fn list_simulators() -> Result<Vec<agent_mobile_core::types::DeviceInfo>> {
+    use agent_mobile_core::types::{DeviceInfo, TargetType};
+
+    let json_str = list_devices_json()?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json_str).map_err(|e| SimctlError::InvalidOutput(e.to_string()))?;
+
+    let devices = parsed
+        .get("devices")
+        .and_then(|d| d.as_object())
+        .ok_or_else(|| SimctlError::InvalidOutput("Missing 'devices' key".to_string()))?;
+
+    let mut result = Vec::new();
+
+    for (runtime, device_list) in devices {
+        let os_version = parse_runtime_version(runtime);
+
+        if let Some(arr) = device_list.as_array() {
+            for device in arr {
+                let udid = device
+                    .get("udid")
+                    .and_then(|u| u.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if udid.is_empty() {
+                    continue;
+                }
+
+                let name = device
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let state = device
+                    .get("state")
+                    .and_then(|s| s.as_str())
+                    .map(|s| s.to_string())
+                    .filter(|s| !s.is_empty());
+
+                result.push(DeviceInfo {
+                    name,
+                    udid,
+                    state,
+                    target_type: TargetType::Simulator,
+                    os_version: os_version.clone(),
+                    architecture: None,
+                    companion_info: None,
+                });
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// Extract OS version from a simctl runtime identifier.
+///
+/// e.g. `com.apple.CoreSimulator.SimRuntime.iOS-17-0` → `Some("iOS 17.0")`
+fn parse_runtime_version(runtime: &str) -> Option<String> {
+    // Runtime format: com.apple.CoreSimulator.SimRuntime.<OS>-<Major>-<Minor>
+    let prefix = "com.apple.CoreSimulator.SimRuntime.";
+    let suffix = runtime.strip_prefix(prefix)?;
+    // suffix is like "iOS-17-0" or "tvOS-17-0"
+    let version = suffix.replace('-', " ");
+    // Insert dot between major and minor: "iOS 17 0" → "iOS 17.0"
+    // Split into parts and rejoin
+    let parts: Vec<&str> = version.split(' ').collect();
+    if parts.len() >= 3 {
+        // e.g. ["iOS", "17", "0"] → "iOS 17.0"
+        let os_name = parts[0];
+        let version_parts = &parts[1..];
+        Some(format!("{} {}", os_name, version_parts.join(".")))
+    } else if parts.len() == 2 {
+        Some(version)
+    } else {
+        Some(version)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -481,5 +567,18 @@ mod tests {
     fn test_simctl_error_display() {
         let err = SimctlError::CommandFailed("test error".to_string());
         assert!(err.to_string().contains("test error"));
+    }
+
+    #[test]
+    fn test_parse_runtime_version() {
+        assert_eq!(
+            parse_runtime_version("com.apple.CoreSimulator.SimRuntime.iOS-17-0"),
+            Some("iOS 17.0".to_string())
+        );
+        assert_eq!(
+            parse_runtime_version("com.apple.CoreSimulator.SimRuntime.tvOS-18-2"),
+            Some("tvOS 18.2".to_string())
+        );
+        assert_eq!(parse_runtime_version("unknown-runtime"), None);
     }
 }

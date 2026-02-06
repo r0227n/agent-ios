@@ -163,14 +163,10 @@ async fn show_session(current_session: Option<&str>, format: OutputFormat) -> Co
 async fn detect_platform_from_udid(
     udid: &str,
 ) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
-    use agent_mobile_platform_ios::companion::CompanionLister;
-
     // Check iOS devices first
-    if let Ok(lister) = CompanionLister::new() {
-        if let Ok(targets) = lister.list_targets(None) {
-            if targets.iter().any(|t| t.udid == udid) {
-                return Ok(Platform::Ios);
-            }
+    if let Ok(targets) = agent_mobile_platform_ios::simctl::list_simulators() {
+        if targets.iter().any(|t| t.udid == udid) {
+            return Ok(Platform::Ios);
         }
     }
 
