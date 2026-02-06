@@ -93,7 +93,7 @@ final class HTTPRequestParseTests: XCTestCase {
     }
 
     func testParseSingleByteReturnsNil() {
-        let data = Data([0x47]) // 'G'
+        let data = Data([0x47])  // 'G'
         let request = HTTPRequest.parse(from: data)
         XCTAssertNil(request)
     }

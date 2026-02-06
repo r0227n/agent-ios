@@ -71,112 +71,126 @@ final class AutomationServer: XCTestCase {
         // Screenshot
         server.get("/screenshot") { [weak self] _, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            self.onMain({
-                guard let pngData = self.screenshotHandler.captureScreenshot() else {
-                    return .error("Failed to capture screenshot", status: 500)
-                }
-                return .data(pngData, contentType: "image/png")
-            }, completion: completion)
+            self.onMain(
+                {
+                    guard let pngData = self.screenshotHandler.captureScreenshot() else {
+                        return .error("Failed to capture screenshot", status: 500)
+                    }
+                    return .data(pngData, contentType: "image/png")
+                }, completion: completion)
         }
 
         // Tap
         server.post("/tap") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let x = json["x"] as? Double,
-                  let y = json["y"] as? Double else {
+                let x = json["x"] as? Double,
+                let y = json["y"] as? Double
+            else {
                 return completion(.error("Missing required fields: x, y"))
             }
-            self.onMain({
-                self.touchHandler.tap(x: x, y: y)
-                return .ok(["success": true])
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.touchHandler.tap(x: x, y: y)
+                    return .ok(["success": true])
+                }, completion: completion)
         }
 
         // Long press
         server.post("/longpress") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let x = json["x"] as? Double,
-                  let y = json["y"] as? Double else {
+                let x = json["x"] as? Double,
+                let y = json["y"] as? Double
+            else {
                 return completion(.error("Missing required fields: x, y"))
             }
             let duration = json["duration"] as? Double ?? 1.0
-            self.onMain({
-                self.touchHandler.longPress(x: x, y: y, duration: duration)
-                return .ok(["success": true])
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.touchHandler.longPress(x: x, y: y, duration: duration)
+                    return .ok(["success": true])
+                }, completion: completion)
         }
 
         // Swipe
         server.post("/swipe") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let startX = json["startX"] as? Double,
-                  let startY = json["startY"] as? Double,
-                  let endX = json["endX"] as? Double,
-                  let endY = json["endY"] as? Double else {
+                let startX = json["startX"] as? Double,
+                let startY = json["startY"] as? Double,
+                let endX = json["endX"] as? Double,
+                let endY = json["endY"] as? Double
+            else {
                 return completion(.error("Missing required fields: startX, startY, endX, endY"))
             }
             let duration = json["duration"] as? Double ?? 0.3
-            self.onMain({
-                self.touchHandler.swipe(startX: startX, startY: startY, endX: endX, endY: endY, duration: duration)
-                return .ok(["success": true])
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.touchHandler.swipe(startX: startX, startY: startY, endX: endX, endY: endY, duration: duration)
+                    return .ok(["success": true])
+                }, completion: completion)
         }
 
         // Type text
         server.post("/type") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let text = json["text"] as? String else {
+                let text = json["text"] as? String
+            else {
                 return completion(.error("Missing required field: text"))
             }
-            self.onMain({
-                self.inputHandler.typeText(text)
-                return .ok(["success": true])
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.inputHandler.typeText(text)
+                    return .ok(["success": true])
+                }, completion: completion)
         }
 
         // Key press
         server.post("/keypress") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let key = json["key"] as? String else {
+                let key = json["key"] as? String
+            else {
                 return completion(.error("Missing required field: key"))
             }
-            self.onMain({
-                if self.inputHandler.keyPress(key) {
-                    return .ok(["success": true])
-                } else {
-                    return .error("Unknown key: \(key)")
-                }
-            }, completion: completion)
+            self.onMain(
+                {
+                    if self.inputHandler.keyPress(key) {
+                        return .ok(["success": true])
+                    } else {
+                        return .error("Unknown key: \(key)")
+                    }
+                }, completion: completion)
         }
 
         // Clear text (Select All + Delete)
         server.post("/clear-text") { [weak self] _, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            self.onMain({
-                self.inputHandler.clearText()
-                return .ok(["success": true])
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.inputHandler.clearText()
+                    return .ok(["success": true])
+                }, completion: completion)
         }
 
         // Hardware button press
         server.post("/button") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let button = json["button"] as? String else {
+                let button = json["button"] as? String
+            else {
                 return completion(.error("Missing required field: button"))
             }
-            self.onMain({
-                if self.touchHandler.pressButton(button) {
-                    return .ok(["success": true])
-                } else {
-                    return .error("Unknown button: \(button). Valid: home, volume_up, volume_down")
-                }
-            }, completion: completion)
+            self.onMain(
+                {
+                    if self.touchHandler.pressButton(button) {
+                        return .ok(["success": true])
+                    } else {
+                        return .error("Unknown button: \(button). Valid: home, volume_up, volume_down")
+                    }
+                }, completion: completion)
         }
 
         // Accessibility tree
@@ -191,129 +205,145 @@ final class AutomationServer: XCTestCase {
                 let valueStr = afterDepth.prefix(while: { $0.isNumber })
                 maxDepth = Int(valueStr)
             }
-            self.onMain({
-                let tree = self.accessibilityHandler.getAccessibilityTree(nested: isNested, maxDepth: maxDepth)
-                return .ok(tree)
-            }, completion: completion)
+            self.onMain(
+                {
+                    let tree = self.accessibilityHandler.getAccessibilityTree(nested: isNested, maxDepth: maxDepth)
+                    return .ok(tree)
+                }, completion: completion)
         }
 
         // Launch app
         server.post("/launch") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let bundleId = json["bundleId"] as? String else {
+                let bundleId = json["bundleId"] as? String
+            else {
                 return completion(.error("Missing required field: bundleId"))
             }
-            self.onMain({
-                self.appHandler.launch(bundleIdentifier: bundleId)
+            self.onMain(
+                {
+                    self.appHandler.launch(bundleIdentifier: bundleId)
 
-                // After launching, update the accessibility handler to use the new app
-                let newApp = XCUIApplication(bundleIdentifier: bundleId)
-                self.accessibilityHandler = AccessibilityHandler(app: newApp)
-                self.touchHandler = TouchHandler(app: newApp)
-                self.inputHandler = InputHandler(app: newApp)
+                    // After launching, update the accessibility handler to use the new app
+                    let newApp = XCUIApplication(bundleIdentifier: bundleId)
+                    self.accessibilityHandler = AccessibilityHandler(app: newApp)
+                    self.touchHandler = TouchHandler(app: newApp)
+                    self.inputHandler = InputHandler(app: newApp)
 
-                return .ok(["success": true, "bundleId": bundleId])
-            }, completion: completion)
+                    return .ok(["success": true, "bundleId": bundleId])
+                }, completion: completion)
         }
 
         // Terminate app
         server.post("/terminate") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let bundleId = json["bundleId"] as? String else {
+                let bundleId = json["bundleId"] as? String
+            else {
                 return completion(.error("Missing required field: bundleId"))
             }
-            self.onMain({
-                self.appHandler.terminate(bundleIdentifier: bundleId)
+            self.onMain(
+                {
+                    self.appHandler.terminate(bundleIdentifier: bundleId)
 
-                // Revert handlers to Springboard
-                let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-                self.accessibilityHandler = AccessibilityHandler(app: springboard)
-                self.touchHandler = TouchHandler(app: springboard)
-                self.inputHandler = InputHandler(app: springboard)
+                    // Revert handlers to Springboard
+                    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+                    self.accessibilityHandler = AccessibilityHandler(app: springboard)
+                    self.touchHandler = TouchHandler(app: springboard)
+                    self.inputHandler = InputHandler(app: springboard)
 
-                return .ok(["success": true])
-            }, completion: completion)
+                    return .ok(["success": true])
+                }, completion: completion)
         }
 
         // Install app
         server.post("/install") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let path = json["path"] as? String else {
+                let path = json["path"] as? String
+            else {
                 return completion(.error("Missing required field: path"))
             }
-            self.onMain({
-                return self.appHandler.install(path: path)
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.appHandler.install(path: path)
+                }, completion: completion)
         }
 
         // Uninstall app
         server.post("/uninstall") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let bundleId = json["bundleId"] as? String else {
+                let bundleId = json["bundleId"] as? String
+            else {
                 return completion(.error("Missing required field: bundleId"))
             }
-            self.onMain({
-                return self.appHandler.uninstall(bundleId: bundleId)
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.appHandler.uninstall(bundleId: bundleId)
+                }, completion: completion)
         }
 
         // List installed apps
         server.get("/list-apps") { [weak self] _, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            self.onMain({
-                return self.appHandler.listApps()
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.appHandler.listApps()
+                }, completion: completion)
         }
 
         // Set active app (switch context without launching)
         server.post("/set-app") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let bundleId = json["bundleId"] as? String else {
+                let bundleId = json["bundleId"] as? String
+            else {
                 return completion(.error("Missing required field: bundleId"))
             }
-            self.onMain({
-                let newApp = XCUIApplication(bundleIdentifier: bundleId)
-                self.accessibilityHandler = AccessibilityHandler(app: newApp)
-                self.touchHandler = TouchHandler(app: newApp)
-                self.inputHandler = InputHandler(app: newApp)
-                return .ok(["success": true, "bundleId": bundleId])
-            }, completion: completion)
+            self.onMain(
+                {
+                    let newApp = XCUIApplication(bundleIdentifier: bundleId)
+                    self.accessibilityHandler = AccessibilityHandler(app: newApp)
+                    self.touchHandler = TouchHandler(app: newApp)
+                    self.inputHandler = InputHandler(app: newApp)
+                    return .ok(["success": true, "bundleId": bundleId])
+                }, completion: completion)
         }
 
         // Clipboard copy
         server.post("/clipboard/copy") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             guard let json = request.json(),
-                  let text = json["text"] as? String else {
+                let text = json["text"] as? String
+            else {
                 return completion(.error("Missing required field: text"))
             }
-            self.onMain({
-                self.clipboardHandler.copy(text: text)
-                return .ok(["success": true])
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.clipboardHandler.copy(text: text)
+                    return .ok(["success": true])
+                }, completion: completion)
         }
 
         // Clipboard paste
         server.get("/clipboard/paste") { [weak self] _, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            self.onMain({
-                let text = self.clipboardHandler.paste()
-                return .ok(["text": text ?? ""])
-            }, completion: completion)
+            self.onMain(
+                {
+                    let text = self.clipboardHandler.paste()
+                    return .ok(["text": text ?? ""])
+                }, completion: completion)
         }
 
         // Clipboard clear
         server.post("/clipboard/clear") { [weak self] _, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            self.onMain({
-                self.clipboardHandler.clear()
-                return .ok(["success": true])
-            }, completion: completion)
+            self.onMain(
+                {
+                    self.clipboardHandler.clear()
+                    return .ok(["success": true])
+                }, completion: completion)
         }
     }
 }

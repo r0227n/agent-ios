@@ -16,7 +16,7 @@ impl DeviceResolver {
 
     /// Detect platform based on available devices
     pub async fn detect_platform() -> Result<Platform> {
-        if Self::has_ios_devices().await {
+        if Self::has_booted_ios_simulators().await {
             return Ok(Platform::Ios);
         }
         if Self::has_android_devices().await {
@@ -28,8 +28,8 @@ impl DeviceResolver {
         )
     }
 
-    /// Check if iOS devices are available
-    pub async fn has_ios_devices() -> bool {
+    /// Check if any iOS simulators are currently booted
+    pub async fn has_booted_ios_simulators() -> bool {
         use tokio::process::Command;
         let output = Command::new("xcrun")
             .args(["simctl", "list", "devices", "-j"])

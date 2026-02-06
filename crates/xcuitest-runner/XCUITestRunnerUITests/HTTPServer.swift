@@ -125,12 +125,14 @@ final class HTTPServer {
 
     private func sendResponse(_ response: HTTPResponse, on connection: NWConnection) {
         let data = response.serialize()
-        connection.send(content: data, completion: .contentProcessed { error in
-            if let error = error {
-                NSLog("[XCUITestRunner] Send error: \(error)")
-            }
-            connection.cancel()
-        })
+        connection.send(
+            content: data,
+            completion: .contentProcessed { error in
+                if let error = error {
+                    NSLog("[XCUITestRunner] Send error: \(error)")
+                }
+                connection.cancel()
+            })
     }
 }
 
@@ -155,14 +157,15 @@ struct HTTPRequest {
     /// Parse HTTP request from raw data.
     static func parse(from data: Data) -> HTTPRequest? {
         // Find header/body separator (\r\n\r\n) in raw bytes
-        let separator: [UInt8] = [0x0D, 0x0A, 0x0D, 0x0A] // \r\n\r\n
+        let separator: [UInt8] = [0x0D, 0x0A, 0x0D, 0x0A]  // \r\n\r\n
         var separatorIndex: Int? = nil
         if data.count >= 4 {
             for i in 0...(data.count - 4) {
                 if data[data.startIndex + i] == separator[0]
                     && data[data.startIndex + i + 1] == separator[1]
                     && data[data.startIndex + i + 2] == separator[2]
-                    && data[data.startIndex + i + 3] == separator[3] {
+                    && data[data.startIndex + i + 3] == separator[3]
+                {
                     separatorIndex = i
                     break
                 }
@@ -254,7 +257,8 @@ struct HTTPResponse {
         default: statusText = "Unknown"
         }
 
-        let header = "HTTP/1.1 \(statusCode) \(statusText)\r\nContent-Type: \(contentType)\r\nContent-Length: \(bodyData.count)\r\nConnection: close\r\n\r\n"
+        let header =
+            "HTTP/1.1 \(statusCode) \(statusText)\r\nContent-Type: \(contentType)\r\nContent-Length: \(bodyData.count)\r\nConnection: close\r\n\r\n"
 
         var result = header.data(using: .utf8)!
         result.append(bodyData)

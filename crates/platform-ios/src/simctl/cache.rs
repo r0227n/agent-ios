@@ -1,6 +1,6 @@
 //! Device list cache for reducing repeated simctl invocations.
 //!
-//! Caches the result of `list_simulators()` with a configurable TTL (default 5 seconds).
+//! Caches the result of `list_simulators()` with a fixed TTL of 5 seconds.
 //! The cache is automatically invalidated by lifecycle operations (boot, shutdown, etc.).
 
 use std::sync::Mutex;
@@ -83,17 +83,17 @@ mod tests {
 
     #[test]
     fn test_cache_miss_when_empty() {
-        invalidate_cache();
-        assert!(get_cached_devices().is_none());
+        let cache = CacheInner::new();
+        assert!(cache.get().is_none());
     }
 
     #[test]
     fn test_cache_hit_after_set() {
-        invalidate_cache();
+        let mut cache = CacheInner::new();
         let devices = vec![make_device("iPhone 15", "AAAA-BBBB")];
-        cache_devices(devices.clone());
+        cache.set(devices.clone());
 
-        let cached = get_cached_devices();
+        let cached = cache.get();
         assert!(cached.is_some());
         let cached = cached.unwrap();
         assert_eq!(cached.len(), 1);
@@ -102,11 +102,11 @@ mod tests {
 
     #[test]
     fn test_cache_invalidation() {
-        invalidate_cache();
+        let mut cache = CacheInner::new();
         let devices = vec![make_device("iPhone 15", "AAAA-BBBB")];
-        cache_devices(devices);
+        cache.set(devices);
 
-        invalidate_cache();
-        assert!(get_cached_devices().is_none());
+        cache.invalidate();
+        assert!(cache.get().is_none());
     }
 }

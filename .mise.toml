@@ -13,6 +13,11 @@ lint = "cargo clippy -- -D warnings"
 format = "cargo fmt --all"
 format-check = "cargo fmt --all -- --check"
 
+# Swift tasks (xcuitest-runner)
+"swift:lint" = "cd crates/xcuitest-runner && swift-format lint -r --strict ."
+"swift:format" = "cd crates/xcuitest-runner && swift-format format -i -r ."
+"swift:format:check" = "cd crates/xcuitest-runner && swift-format lint -r --strict ."
+
 setup = """
 git config gtr.defaultBranch develop
 claude mcp reset-project-choices

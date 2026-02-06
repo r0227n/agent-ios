@@ -5,6 +5,7 @@ on:
     branches: [ main, develop]
     paths:
       - 'src/**'
+      - 'crates/**'
       - 'tests/cli/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -13,6 +14,7 @@ on:
     branches: [ main, develop ]
     paths:
       - 'src/**'
+      - 'crates/**'
       - 'tests/cli/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -35,7 +37,10 @@ jobs:
 
     - name: Build
       run: cargo build --verbose
-    
+
+    - name: Run tests
+      run: cargo test --verbose --bins
+
 
   lint:
     runs-on: macos-15-intel
