@@ -20,9 +20,10 @@ impl AndroidDevice {
     /// Otherwise, auto-selects an available device.
     pub async fn connect(udid: Option<&str>) -> Result<Self> {
         // Verify ADB server is reachable (use spawn_blocking to avoid blocking the runtime)
-        let available = tokio::task::spawn_blocking(agent_mobile_platform_android::is_adb_available)
-            .await
-            .map_err(|e| format!("Failed to check ADB availability: {}", e))?;
+        let available =
+            tokio::task::spawn_blocking(agent_mobile_platform_android::is_adb_available)
+                .await
+                .map_err(|e| format!("Failed to check ADB availability: {}", e))?;
         if !available {
             return Err(
                 "ADB server not reachable at 127.0.0.1:5037. Please start the ADB server with 'adb start-server'.".into()
