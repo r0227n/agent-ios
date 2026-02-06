@@ -4,6 +4,8 @@
 //! - XCUITest Runner HTTP communication
 //! - Simulator management via simctl
 
+#[cfg(target_os = "macos")]
+pub mod coresim;
 pub mod simctl;
 pub mod snapshot;
 pub mod xcuitest;
