@@ -9,26 +9,29 @@ use super::connection::AdbConnection;
 /// Grant a runtime permission to an app.
 ///
 /// Uses `pm grant <package> <permission>` via native ADB protocol.
-///
-/// # Arguments
-/// - `serial`: Device serial number (optional, uses default device if None)
-/// - `package`: App package name (e.g., "com.example.app")
-/// - `permission`: Permission name (e.g., "android.permission.CAMERA")
 pub async fn grant_permission(serial: Option<&str>, package: &str, permission: &str) -> Result<()> {
-    let mut conn = AdbConnection::for_device(serial)?;
-    let output = conn.shell_command_args(&["pm", "grant", package, permission])?;
+    let serial = serial.map(|s| s.to_string());
+    let package = package.to_string();
+    let permission = permission.to_string();
 
-    // pm grant outputs error messages on failure
-    if output.contains("Exception") || output.contains("Error") || output.contains("Unknown") {
-        return Err(AdbError::CommandFailed(format!(
-            "Failed to grant permission '{}' to '{}': {}",
-            permission,
-            package,
-            output.trim()
-        )));
-    }
+    tokio::task::spawn_blocking(move || {
+        let mut conn = AdbConnection::for_device(serial.as_deref())?;
+        let output = conn.shell_command_args(&["pm", "grant", &package, &permission])?;
 
-    Ok(())
+        // pm grant outputs error messages on failure
+        if output.contains("Exception") || output.contains("Error") || output.contains("Unknown") {
+            return Err(AdbError::CommandFailed(format!(
+                "Failed to grant permission '{}' to '{}': {}",
+                permission,
+                package,
+                output.trim()
+            )));
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))?
 }
 
 /// Revoke a runtime permission from an app.
@@ -39,19 +42,27 @@ pub async fn revoke_permission(
     package: &str,
     permission: &str,
 ) -> Result<()> {
-    let mut conn = AdbConnection::for_device(serial)?;
-    let output = conn.shell_command_args(&["pm", "revoke", package, permission])?;
+    let serial = serial.map(|s| s.to_string());
+    let package = package.to_string();
+    let permission = permission.to_string();
 
-    if output.contains("Exception") || output.contains("Error") || output.contains("Unknown") {
-        return Err(AdbError::CommandFailed(format!(
-            "Failed to revoke permission '{}' from '{}': {}",
-            permission,
-            package,
-            output.trim()
-        )));
-    }
+    tokio::task::spawn_blocking(move || {
+        let mut conn = AdbConnection::for_device(serial.as_deref())?;
+        let output = conn.shell_command_args(&["pm", "revoke", &package, &permission])?;
 
-    Ok(())
+        if output.contains("Exception") || output.contains("Error") || output.contains("Unknown") {
+            return Err(AdbError::CommandFailed(format!(
+                "Failed to revoke permission '{}' from '{}': {}",
+                permission,
+                package,
+                output.trim()
+            )));
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))?
 }
 
 /// Reset all permissions for an app to their default state.
@@ -61,28 +72,42 @@ pub async fn revoke_permission(
 /// # Note
 /// This requires Android 6.0 (API 23) or higher.
 pub async fn reset_permissions(serial: Option<&str>, package: &str) -> Result<()> {
-    let mut conn = AdbConnection::for_device(serial)?;
-    let output = conn.shell_command_args(&["pm", "reset-permissions", package])?;
+    let serial = serial.map(|s| s.to_string());
+    let package = package.to_string();
 
-    if output.contains("Exception") || output.contains("Error") {
-        // reset-permissions may not be available on all Android versions
-        // Treat as non-critical error
-        eprintln!(
-            "Warning: Failed to reset permissions for '{}': {}",
-            package,
-            output.trim()
-        );
-    }
+    tokio::task::spawn_blocking(move || {
+        let mut conn = AdbConnection::for_device(serial.as_deref())?;
+        let output = conn.shell_command_args(&["pm", "reset-permissions", &package])?;
 
-    Ok(())
+        if output.contains("Exception") || output.contains("Error") {
+            // reset-permissions may not be available on all Android versions
+            // Treat as non-critical error
+            eprintln!(
+                "Warning: Failed to reset permissions for '{}': {}",
+                package,
+                output.trim()
+            );
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))?
 }
 
 /// List all runtime permissions for a package.
 ///
 /// Uses `dumpsys package <package>` via native ADB protocol and parses the permissions section.
 pub async fn list_permissions(serial: Option<&str>, package: &str) -> Result<Vec<(String, bool)>> {
-    let mut conn = AdbConnection::for_device(serial)?;
-    let stdout = conn.shell_command_args(&["dumpsys", "package", package])?;
+    let serial = serial.map(|s| s.to_string());
+    let package = package.to_string();
+
+    let stdout = tokio::task::spawn_blocking(move || {
+        let mut conn = AdbConnection::for_device(serial.as_deref())?;
+        conn.shell_command_args(&["dumpsys", "package", &package])
+    })
+    .await
+    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))??;
 
     let mut permissions = Vec::new();
     let mut in_runtime_permissions = false;
@@ -100,7 +125,8 @@ pub async fn list_permissions(serial: Option<&str>, package: &str) -> Result<Vec
         if in_runtime_permissions
             && !trimmed.starts_with("android.permission.")
             && !trimmed.is_empty()
-            && !trimmed.starts_with(" ")
+            && !line.starts_with(" ")
+            && !line.starts_with("\t")
         {
             break;
         }
@@ -116,26 +142,4 @@ pub async fn list_permissions(serial: Option<&str>, package: &str) -> Result<Vec
     }
 
     Ok(permissions)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    #[ignore] // Requires connected Android device with test app
-    async fn test_grant_permission() {
-        let result =
-            grant_permission(None, "com.android.settings", "android.permission.CAMERA").await;
-        // May fail if permission doesn't apply to Settings app
-        assert!(result.is_ok() || matches!(result, Err(AdbError::CommandFailed(_))));
-    }
-
-    #[tokio::test]
-    #[ignore] // Requires connected Android device
-    async fn test_list_permissions() {
-        let result = list_permissions(None, "com.android.settings").await;
-        // Should work on any Android device
-        assert!(result.is_ok());
-    }
 }

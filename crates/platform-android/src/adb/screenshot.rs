@@ -1,15 +1,16 @@
 //! Screenshot capture module for Android devices.
 //!
 //! This module provides functions to capture screenshots from Android devices
-//! using the native ADB protocol (framebuffer or exec-out screencap).
+//! using the native ADB protocol by writing a temporary file on-device and
+//! pulling it, avoiding stdout corruption from `screencap -p`.
 
 use super::commands::{AdbError, Result};
 use super::connection::AdbConnection;
 
 /// Take a screenshot and save to the specified path.
 ///
-/// Uses `screencap` to save a PNG to device storage, then pulls the file via ADB protocol.
-/// This avoids binary corruption issues caused by shell pipe LF→CRLF conversion.
+/// Uses `screencap <path>` to write a PNG to device storage, then pulls the file via ADB.
+/// This avoids binary corruption issues caused by `screencap -p` stdout pipe LF→CRLF conversion.
 ///
 /// # Arguments
 /// - `serial`: Device serial number (optional, uses default device if None)
@@ -26,7 +27,7 @@ pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
 
 /// Capture a screenshot and return the raw PNG bytes.
 ///
-/// Uses `screencap` to save a PNG to device storage, then pulls it via ADB.
+/// Uses `screencap <path>` to save a PNG to device storage, then pulls it via ADB.
 /// This avoids binary corruption issues that can occur with `screencap -p` piped through shell.
 pub fn screenshot_bytes(serial: Option<&str>) -> Result<Vec<u8>> {
     let mut conn = AdbConnection::for_device(serial)?;
@@ -36,7 +37,8 @@ pub fn screenshot_bytes(serial: Option<&str>) -> Result<Vec<u8>> {
 
     // Capture screenshot to file (without -p flag to avoid stdout corruption)
     let output = conn.shell_command_args(&["screencap", remote_path])?;
-    if output.contains("error") || output.contains("failed") {
+    let output_lower = output.to_lowercase();
+    if output_lower.contains("error") || output_lower.contains("failed") {
         return Err(AdbError::CommandFailed(format!(
             "screencap failed: {}",
             output

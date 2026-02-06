@@ -9,7 +9,7 @@ final class ClipboardHandler {
 
     /// Paste text from the clipboard.
     func paste() -> String? {
-        return UIPasteboard.general.string
+        UIPasteboard.general.string
     }
 
     /// Clear the clipboard.

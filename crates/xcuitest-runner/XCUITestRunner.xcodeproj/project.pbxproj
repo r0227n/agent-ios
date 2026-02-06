@@ -168,6 +168,7 @@
 			buildPhases = (
 				AA700002 /* Sources */,
 				AA500002 /* Frameworks */,
+				AAD00001 /* Swift Format Lint */,
 			);
 			buildRules = (
 			);
@@ -264,6 +265,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		AAD00001 /* Swift Format Lint */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Swift Format Lint";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if command -v swift-format >/dev/null 2>&1; then\n    swift-format lint -r --strict \"${SRCROOT}/XCUITestRunnerUITests\"\nelse\n    echo \"warning: swift-format not installed.\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		AA200002 /* PBXTargetDependency */ = {

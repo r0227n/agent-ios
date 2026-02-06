@@ -32,7 +32,7 @@ final class TouchHandler {
         let dx = endX - startX
         let dy = endY - startY
         let distance = sqrt(dx * dx + dy * dy)
-        let velocity = max(distance / duration, 50) // minimum velocity
+        let velocity = max(distance / duration, 50)  // minimum velocity
 
         start.press(forDuration: 0.05, thenDragTo: end, withVelocity: XCUIGestureVelocity(rawValue: velocity), thenHoldForDuration: 0)
     }

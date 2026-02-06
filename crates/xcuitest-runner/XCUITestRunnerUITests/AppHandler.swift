@@ -1,5 +1,5 @@
-import XCTest
 import Foundation
+import XCTest
 
 /// Handles app launch, terminate, install, uninstall, and list operations.
 final class AppHandler {
@@ -20,20 +20,20 @@ final class AppHandler {
     /// Note: Process (Foundation) is not available on iOS. Install operations
     /// must be performed from the host side using `xcrun simctl install`.
     func install(path: String) -> HTTPResponse {
-        return .error("Install is not supported from within the XCUITest runner. Use xcrun simctl install from the host.", status: 501)
+        .error("Install is not supported from within the XCUITest runner. Use xcrun simctl install from the host.", status: 501)
     }
 
     /// Uninstall an app by bundle ID.
     /// Note: Process (Foundation) is not available on iOS. Uninstall operations
     /// must be performed from the host side using `xcrun simctl uninstall`.
     func uninstall(bundleId: String) -> HTTPResponse {
-        return .error("Uninstall is not supported from within the XCUITest runner. Use xcrun simctl uninstall from the host.", status: 501)
+        .error("Uninstall is not supported from within the XCUITest runner. Use xcrun simctl uninstall from the host.", status: 501)
     }
 
     /// List installed apps.
     /// Note: Process (Foundation) is not available on iOS. List operations
     /// must be performed from the host side using `xcrun simctl listapps`.
     func listApps() -> HTTPResponse {
-        return .error("List apps is not supported from within the XCUITest runner. Use xcrun simctl listapps from the host.", status: 501)
+        .error("List apps is not supported from within the XCUITest runner. Use xcrun simctl listapps from the host.", status: 501)
     }
 }
