@@ -1,17 +1,16 @@
 //! Screenshot capture module for Android devices.
 //!
 //! This module provides functions to capture screenshots from Android devices
-//! using the `adb shell screencap` command.
+//! using the native ADB protocol by writing a temporary file on-device and
+//! pulling it, avoiding stdout corruption from `screencap -p`.
 
 use super::commands::{AdbError, Result};
-use tokio::process::Command;
+use super::connection::AdbConnection;
 
 /// Take a screenshot and save to the specified path.
 ///
-/// This function executes the following steps:
-/// 1. Capture screenshot to device storage: `adb shell screencap /sdcard/screenshot.png`
-/// 2. Pull the screenshot to host: `adb pull /sdcard/screenshot.png <output_path>`
-/// 3. Clean up device storage: `adb shell rm /sdcard/screenshot.png`
+/// Uses `screencap <path>` to write a PNG to device storage, then pulls the file via ADB.
+/// This avoids binary corruption issues caused by `screencap -p` stdout pipe LF→CRLF conversion.
 ///
 /// # Arguments
 /// - `serial`: Device serial number (optional, uses default device if None)
@@ -19,71 +18,57 @@ use tokio::process::Command;
 ///
 /// # Returns
 /// - `Ok(())` on success
-/// - `Err(AdbError)` if any step fails
-///
-/// # Example
-/// ```
-/// use platform_android::adb::screenshot::screenshot;
-///
-/// screenshot(Some("emulator-5554"), "/tmp/screenshot.png").await?;
-/// ```
+/// - `Err(AdbError)` if capture fails
 pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
-    let temp_path = "/sdcard/agent_mobile_screenshot.png";
+    let serial = serial.map(|s| s.to_string());
+    let output_path = output_path.to_string();
 
-    // Step 1: Take screenshot on device
-    let mut screencap_cmd = Command::new("adb");
-    if let Some(s) = serial {
-        screencap_cmd.args(["-s", s]);
-    }
-    screencap_cmd.args(["shell", "screencap", temp_path]);
+    tokio::task::spawn_blocking(move || {
+        let png_bytes = screenshot_bytes(serial.as_deref())?;
+        std::fs::write(&output_path, &png_bytes).map_err(AdbError::ExecutionError)?;
+        Ok::<(), AdbError>(())
+    })
+    .await
+    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))??;
 
-    let output = screencap_cmd.output().await.map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
+    Ok(())
+}
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+/// Capture a screenshot and return the raw PNG bytes.
+///
+/// Uses `screencap <path>` to save a PNG to device storage, then pulls it via ADB.
+/// This avoids binary corruption issues that can occur with `screencap -p` piped through shell.
+pub fn screenshot_bytes(serial: Option<&str>) -> Result<Vec<u8>> {
+    let mut conn = AdbConnection::for_device(serial)?;
+
+    // Use a unique temporary file on device to avoid concurrent execution conflicts
+    let uuid = uuid::Uuid::new_v4();
+    let remote_path = format!("/sdcard/agent_mobile_screenshot_{}.png", uuid);
+
+    // Capture screenshot to file (without -p flag to avoid stdout corruption)
+    let output = conn.shell_command_args(&["screencap", &remote_path])?;
+    let output_lower = output.to_lowercase();
+    if output_lower.contains("error") || output_lower.contains("failed") {
         return Err(AdbError::CommandFailed(format!(
             "screencap failed: {}",
-            stderr
+            output
         )));
     }
 
-    // Step 2: Pull screenshot from device to host
-    let mut pull_cmd = Command::new("adb");
-    if let Some(s) = serial {
-        pull_cmd.args(["-s", s]);
-    }
-    pull_cmd.args(["pull", temp_path, output_path]);
+    // Pull the file
+    let mut png_bytes = Vec::new();
+    conn.pull(&remote_path, &mut png_bytes)?;
 
-    let output = pull_cmd.output().await.map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
+    // Clean up temporary file
+    let _ = conn.shell_command_args(&["rm", &remote_path]);
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AdbError::CommandFailed(format!("pull failed: {}", stderr)));
+    if png_bytes.is_empty() {
+        return Err(AdbError::CommandFailed(
+            "screencap produced empty file".to_string(),
+        ));
     }
 
-    // Step 3: Clean up temporary file on device
-    let mut rm_cmd = Command::new("adb");
-    if let Some(s) = serial {
-        rm_cmd.args(["-s", s]);
-    }
-    rm_cmd.args(["shell", "rm", temp_path]);
-
-    // Ignore cleanup errors (non-critical)
-    let _ = rm_cmd.output().await;
-
-    Ok(())
+    Ok(png_bytes)
 }
 
 #[cfg(test)]

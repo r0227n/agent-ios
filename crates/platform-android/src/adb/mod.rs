@@ -1,10 +1,11 @@
 //! ADB (Android Debug Bridge) command interface.
 //!
 //! This module provides functions for communicating with Android devices
-//! and emulators via ADB.
+//! and emulators via the native ADB protocol (TCP :5037).
 
 pub mod app;
-mod commands;
+pub mod commands;
+pub mod connection;
 pub mod input;
 pub mod permission;
 pub mod screenshot;

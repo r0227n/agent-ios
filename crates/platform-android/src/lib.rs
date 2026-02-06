@@ -11,6 +11,7 @@ pub mod snapshot;
 
 // Re-export main types
 pub use adb::app::AppInfo;
+pub use adb::connection::AdbConnection;
 pub use adb::uiautomator::{
     dump_ui, find_by_id, find_by_text, find_by_type, parse_ui_hierarchy, AccessibilityElement,
 };
@@ -24,4 +25,4 @@ pub use snapshot::extract_android_elements;
 pub use adb::permission::{
     grant_permission, list_permissions, reset_permissions, revoke_permission,
 };
-pub use adb::screenshot::screenshot;
+pub use adb::screenshot::{screenshot, screenshot_bytes};

@@ -113,22 +113,14 @@ async fn has_ios_simulator() -> bool {
     agent_mobile_platform_ios::simctl::get_booted_simulator().is_ok()
 }
 
-/// Check if Android device is available via ADB.
+/// Check if Android device is available via native ADB protocol.
 async fn has_android_device() -> bool {
-    use tokio::process::Command;
-
-    let output = Command::new("adb").args(["devices", "-l"]).output().await;
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let stdout = String::from_utf8_lossy(&o.stdout);
-            // Check if there's at least one device listed (not just "List of devices attached")
-            stdout.lines().skip(1).any(|line| {
-                let line = line.trim();
-                !line.is_empty() && (line.contains("device") || line.contains("emulator"))
-            })
-        }
-        _ => false,
+    if !agent_mobile_platform_android::is_adb_available() {
+        return false;
+    }
+    match agent_mobile_platform_android::list_devices() {
+        Ok(devices) => devices.iter().any(|(_, state)| state == "device"),
+        Err(_) => false,
     }
 }
 

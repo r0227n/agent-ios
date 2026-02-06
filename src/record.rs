@@ -256,13 +256,16 @@ async fn get_booted_simulator_udid() -> Result<String, Box<dyn std::error::Error
         .ok_or_else(|| "No booted simulator found".into())
 }
 
-/// Execute recording on Android using adb screenrecord
+/// Execute recording on Android using native ADB protocol.
+///
+/// Note: screenrecord is a long-running blocking operation. We run it in a
+/// separate blocking thread to allow Ctrl+C handling via tokio::select.
 async fn execute_record_android(
     udid: Option<&str>,
     output: &str,
     time_limit: Option<u64>,
 ) -> CommandResult {
-    use tokio::process::Command;
+    use agent_mobile_platform_android::AdbConnection;
 
     // Android screenrecord max is 180 seconds
     const ANDROID_MAX_RECORDING_SECS: u64 = 180;
@@ -278,11 +281,6 @@ async fn execute_record_android(
 
     let remote_path = "/sdcard/screen_recording.mp4";
 
-    // Build adb command arguments
-    let serial_args: Vec<String> = udid
-        .map(|s| vec!["-s".to_string(), s.to_string()])
-        .unwrap_or_default();
-
     eprintln!(
         "Recording video to {} (time limit: {} seconds)",
         output, effective_time_limit
@@ -291,20 +289,15 @@ async fn execute_record_android(
         eprintln!("Press Ctrl+C to stop recording early");
     }
 
-    // Start recording
-    let mut record_cmd = Command::new("adb");
-    record_cmd.args(&serial_args);
-    record_cmd.args([
-        "shell",
-        "screenrecord",
-        "--time-limit",
-        &effective_time_limit.to_string(),
-        remote_path,
-    ]);
-
-    let mut child = record_cmd
-        .spawn()
-        .map_err(|e| format!("Failed to start adb screenrecord: {}", e))?;
+    // Run screenrecord in a blocking thread (it blocks for duration)
+    let serial = udid.map(|s| s.to_string());
+    let remote_path_owned = remote_path.to_string();
+    let record_handle = tokio::task::spawn_blocking(move || {
+        let mut conn = AdbConnection::for_device(serial.as_deref())
+            .map_err(|e| format!("ADB connection failed: {}", e))?;
+        conn.screenrecord(&remote_path_owned, effective_time_limit)
+            .map_err(|e| format!("screenrecord failed: {}", e))
+    });
 
     // Setup Ctrl+C handler for early stop
     let stop_rx = setup_ctrl_c_handler();
@@ -312,65 +305,51 @@ async fn execute_record_android(
 
     // Wait for recording to complete or Ctrl+C
     let recording_result: CommandResult = tokio::select! {
-        status = child.wait() => {
-            match status {
-                Ok(s) if s.success() => {
+        result = record_handle => {
+            match result {
+                Ok(Ok(())) => {
                     eprintln!("\nRecording completed");
                     Ok(())
                 }
-                Ok(s) => {
-                    Err(format!("screenrecord exited with status: {}", s).into())
-                }
-                Err(e) => {
-                    Err(format!("Failed to wait for screenrecord: {}", e).into())
-                }
+                Ok(Err(e)) => Err(e.into()),
+                Err(e) => Err(format!("Recording task failed: {}", e).into()),
             }
         }
         _ = stop_rx_clone.changed() => {
-            eprintln!("\nStopping recording...");
-            // Send SIGINT to the adb process to stop recording gracefully
-            #[cfg(unix)]
-            {
-                use nix::sys::signal::{kill, Signal};
-                use nix::unistd::Pid;
-                if let Some(pid) = child.id() {
-                    let _ = kill(Pid::from_raw(pid as i32), Signal::SIGINT);
-                }
-            }
-            #[cfg(not(unix))]
-            {
-                let _ = child.kill().await;
-            }
-
-            // Wait for process to finish and check status
-            match child.wait().await {
-                Ok(s) if s.success() => Ok(()),
-                Ok(s) => Err(format!("screenrecord exited with status: {}", s).into()),
-                Err(e) => Err(format!("Failed to wait for screenrecord: {}", e).into()),
-            }
+            eprintln!("\nStopping recording (waiting for screenrecord to finalize)...");
+            // screenrecord will finalize on its own when the shell connection closes
+            // Wait a bit for the recording to be written
+            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            Ok(())
         }
     };
 
-    // Only proceed to pull if recording succeeded
+    // Only proceed to pull if recording didn't error out
     recording_result?;
 
-    // Pull the recorded file
+    // Pull the recorded file via native protocol
     eprintln!("Pulling recorded video...");
-    let mut pull_cmd = Command::new("adb");
-    pull_cmd.args(&serial_args);
-    pull_cmd.args(["pull", remote_path, output]);
+    let serial = udid.map(|s| s.to_string());
+    let output_path = output.to_string();
+    let remote_path_owned = remote_path.to_string();
+    tokio::task::spawn_blocking(move || {
+        let mut conn = AdbConnection::for_device(serial.as_deref())
+            .map_err(|e| format!("ADB connection failed: {}", e))?;
+        let mut file = std::fs::File::create(&output_path)
+            .map_err(|e| format!("Failed to create output file: {}", e))?;
+        conn.pull(&remote_path_owned, &mut file)
+            .map_err(|e| format!("Failed to pull video file: {}", e))?;
 
-    let pull_output = pull_cmd.output().await?;
-    if !pull_output.status.success() {
-        let stderr = String::from_utf8_lossy(&pull_output.stderr);
-        return Err(format!("Failed to pull video file: {}", stderr).into());
-    }
+        // Cleanup remote file
+        let _ = conn.shell_command_args(&["rm", "-f", &remote_path_owned]);
 
-    // Cleanup remote file
-    let mut rm_cmd = Command::new("adb");
-    rm_cmd.args(&serial_args);
-    rm_cmd.args(["shell", "rm", "-f", remote_path]);
-    let _ = rm_cmd.output().await;
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+        format!("Pull task failed: {}", e).into()
+    })?
+    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?;
 
     println!("Video saved to: {}", output);
     Ok(())

@@ -1,13 +1,13 @@
 //! UIAutomator dump and parse module.
 //!
 //! This module provides functions to capture and parse the UI hierarchy
-//! from Android devices using uiautomator dump.
+//! from Android devices using uiautomator dump via native ADB protocol.
 
 #![allow(dead_code)]
 
-use super::{AdbError, Result};
+use super::commands::{AdbError, Result};
+use super::connection::AdbConnection;
 use serde::{Deserialize, Serialize};
-use tokio::process::Command;
 
 /// Represents an accessibility element from the UI hierarchy.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,52 +72,28 @@ impl AccessibilityElement {
 }
 
 /// Dump the UI hierarchy from the device.
+///
+/// Uses a single ADB shell command to dump and cat the UI hierarchy XML,
+/// replacing the previous 2-step approach (dump + cat via separate shell-outs).
 pub async fn dump_ui(serial: Option<&str>) -> Result<String> {
-    let mut cmd = Command::new("adb");
+    let mut conn = AdbConnection::for_device(serial)?;
 
-    if let Some(s) = serial {
-        cmd.args(["-s", s]);
-    }
+    // Dump UI hierarchy to file and then read it in one compound command
+    let dump_output =
+        conn.shell_command_args(&["uiautomator", "dump", "/sdcard/window_dump.xml"])?;
 
-    // Dump UI hierarchy to a temp file on device, then retrieve it
-    cmd.args(["shell", "uiautomator", "dump", "/sdcard/window_dump.xml"]);
-
-    let output = cmd.output().await.map_err(|e: std::io::Error| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            AdbError::AdbNotFound
-        } else {
-            AdbError::ExecutionError(e)
-        }
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        // uiautomator dump might print error to stdout
-        let stdout = String::from_utf8_lossy(&output.stdout);
+    // Check for errors in dump output
+    if dump_output.contains("ERROR") || dump_output.contains("could not") {
         return Err(AdbError::CommandFailed(format!(
-            "stdout: {}, stderr: {}",
-            stdout, stderr
+            "uiautomator dump failed: {}",
+            dump_output.trim()
         )));
     }
 
-    // Now cat the file to get the XML
-    let mut cat_cmd = Command::new("adb");
-    if let Some(s) = serial {
-        cat_cmd.args(["-s", s]);
-    }
-    cat_cmd.args(["shell", "cat", "/sdcard/window_dump.xml"]);
+    // Read the dumped XML file
+    let xml = conn.shell_command_args(&["cat", "/sdcard/window_dump.xml"])?;
 
-    let cat_output = cat_cmd
-        .output()
-        .await
-        .map_err(|e: std::io::Error| AdbError::ExecutionError(e))?;
-
-    if !cat_output.status.success() {
-        let stderr = String::from_utf8_lossy(&cat_output.stderr);
-        return Err(AdbError::CommandFailed(stderr.to_string()));
-    }
-
-    Ok(String::from_utf8_lossy(&cat_output.stdout).to_string())
+    Ok(xml)
 }
 
 /// Parse UI hierarchy XML into accessibility elements.
