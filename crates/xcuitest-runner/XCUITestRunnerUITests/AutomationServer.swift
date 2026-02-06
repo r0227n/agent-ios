@@ -8,6 +8,8 @@ final class AutomationServer: XCTestCase {
     private var inputHandler: InputHandler!
     private var accessibilityHandler: AccessibilityHandler!
     private var appHandler: AppHandler!
+    private var screenshotHandler: ScreenshotHandler!
+    private var clipboardHandler: ClipboardHandler!
 
     /// The target app (Springboard as default - allows controlling any app).
     private var app: XCUIApplication!
@@ -24,6 +26,8 @@ final class AutomationServer: XCTestCase {
         inputHandler = InputHandler(app: app)
         accessibilityHandler = AccessibilityHandler(app: app)
         appHandler = AppHandler()
+        screenshotHandler = ScreenshotHandler()
+        clipboardHandler = ClipboardHandler()
 
         server = HTTPServer(port: 8200)
         registerRoutes()
@@ -62,6 +66,17 @@ final class AutomationServer: XCTestCase {
         // Health check (no XCUITest API needed)
         server.get("/health") { _, completion in
             completion(.ok(["status": "ok", "runner": "xcuitest"]))
+        }
+
+        // Screenshot
+        server.get("/screenshot") { [weak self] _, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            self.onMain({
+                guard let pngData = self.screenshotHandler.captureScreenshot() else {
+                    return .error("Failed to capture screenshot", status: 500)
+                }
+                return .data(pngData, contentType: "image/png")
+            }, completion: completion)
         }
 
         // Tap
@@ -169,8 +184,15 @@ final class AutomationServer: XCTestCase {
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
             // Parse nested flag from query string (default: true)
             let isNested = !request.path.contains("nested=false")
+            // Parse optional depth parameter (e.g. depth=1)
+            var maxDepth: Int? = nil
+            if let range = request.path.range(of: "depth=") {
+                let afterDepth = request.path[range.upperBound...]
+                let valueStr = afterDepth.prefix(while: { $0.isNumber })
+                maxDepth = Int(valueStr)
+            }
             self.onMain({
-                let tree = self.accessibilityHandler.getAccessibilityTree(nested: isNested)
+                let tree = self.accessibilityHandler.getAccessibilityTree(nested: isNested, maxDepth: maxDepth)
                 return .ok(tree)
             }, completion: completion)
         }
@@ -260,6 +282,37 @@ final class AutomationServer: XCTestCase {
                 self.touchHandler = TouchHandler(app: newApp)
                 self.inputHandler = InputHandler(app: newApp)
                 return .ok(["success": true, "bundleId": bundleId])
+            }, completion: completion)
+        }
+
+        // Clipboard copy
+        server.post("/clipboard/copy") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            guard let json = request.json(),
+                  let text = json["text"] as? String else {
+                return completion(.error("Missing required field: text"))
+            }
+            self.onMain({
+                self.clipboardHandler.copy(text: text)
+                return .ok(["success": true])
+            }, completion: completion)
+        }
+
+        // Clipboard paste
+        server.get("/clipboard/paste") { [weak self] _, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            self.onMain({
+                let text = self.clipboardHandler.paste()
+                return .ok(["text": text ?? ""])
+            }, completion: completion)
+        }
+
+        // Clipboard clear
+        server.post("/clipboard/clear") { [weak self] _, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            self.onMain({
+                self.clipboardHandler.clear()
+                return .ok(["success": true])
             }, completion: completion)
         }
     }

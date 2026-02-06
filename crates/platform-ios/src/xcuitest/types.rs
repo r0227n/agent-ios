@@ -61,6 +61,16 @@ pub struct UninstallRequest {
     pub bundle_id: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ClipboardCopyRequest {
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ClipboardPasteResponse {
+    pub text: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct HealthResponse {
     pub status: String,

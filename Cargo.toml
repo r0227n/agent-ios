@@ -60,6 +60,9 @@ async-trait = "0.1"
 # DateTime handling
 chrono = { version = "0.4", features = ["serde"] }
 
+# Image format conversion (PNG → JPEG)
+image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
+
 # Unique ID generation
 nanoid = "0.4"
 

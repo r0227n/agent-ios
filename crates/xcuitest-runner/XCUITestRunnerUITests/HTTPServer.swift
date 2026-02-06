@@ -203,10 +203,23 @@ struct HTTPRequest {
 struct HTTPResponse {
     let statusCode: Int
     let body: Any?
+    /// Optional raw binary data with custom content type (overrides JSON body).
+    private let rawData: Data?
+    private let contentType: String
 
     init(status: Int, body: Any? = nil) {
         self.statusCode = status
         self.body = body
+        self.rawData = nil
+        self.contentType = "application/json"
+    }
+
+    /// Create a response with raw binary data and a custom content type.
+    init(status: Int, data: Data, contentType: String) {
+        self.statusCode = status
+        self.body = nil
+        self.rawData = data
+        self.contentType = contentType
     }
 
     static func ok(_ body: Any? = nil) -> HTTPResponse {
@@ -217,12 +230,19 @@ struct HTTPResponse {
         HTTPResponse(status: status, body: ["error": message])
     }
 
+    /// Create a binary data response (e.g. PNG image).
+    static func data(_ data: Data, contentType: String, status: Int = 200) -> HTTPResponse {
+        HTTPResponse(status: status, data: data, contentType: contentType)
+    }
+
     func serialize() -> Data {
-        let jsonData: Data
-        if let body = body {
-            jsonData = (try? JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])) ?? Data()
+        let bodyData: Data
+        if let raw = rawData {
+            bodyData = raw
+        } else if let body = body {
+            bodyData = (try? JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])) ?? Data()
         } else {
-            jsonData = "{}".data(using: .utf8)!
+            bodyData = "{}".data(using: .utf8)!
         }
 
         let statusText: String
@@ -234,10 +254,10 @@ struct HTTPResponse {
         default: statusText = "Unknown"
         }
 
-        let header = "HTTP/1.1 \(statusCode) \(statusText)\r\nContent-Type: application/json\r\nContent-Length: \(jsonData.count)\r\nConnection: close\r\n\r\n"
+        let header = "HTTP/1.1 \(statusCode) \(statusText)\r\nContent-Type: \(contentType)\r\nContent-Length: \(bodyData.count)\r\nConnection: close\r\n\r\n"
 
         var result = header.data(using: .utf8)!
-        result.append(jsonData)
+        result.append(bodyData)
         return result
     }
 }

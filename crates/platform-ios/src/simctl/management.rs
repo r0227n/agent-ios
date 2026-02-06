@@ -22,40 +22,6 @@ pub enum SimctlError {
 
 pub type Result<T> = std::result::Result<T, SimctlError>;
 
-/// Image format for screenshots
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ImageFormat {
-    Png,
-    Jpeg,
-    Bmp,
-    Gif,
-    Tiff,
-}
-
-impl ImageFormat {
-    /// Get the file extension for this format
-    pub fn extension(&self) -> &'static str {
-        match self {
-            Self::Png => "png",
-            Self::Jpeg => "jpeg",
-            Self::Bmp => "bmp",
-            Self::Gif => "gif",
-            Self::Tiff => "tiff",
-        }
-    }
-
-    /// Get the simctl type parameter for this format
-    pub fn simctl_type(&self) -> &'static str {
-        match self {
-            Self::Png => "png",
-            Self::Jpeg => "jpeg",
-            Self::Bmp => "bmp",
-            Self::Gif => "gif",
-            Self::Tiff => "tiff",
-        }
-    }
-}
-
 /// Boot a simulator
 pub fn boot(udid: &str) -> Result<()> {
     let output = Command::new("xcrun")
@@ -71,6 +37,7 @@ pub fn boot(udid: &str) -> Result<()> {
         return Err(SimctlError::CommandFailed(stderr.to_string()));
     }
 
+    super::cache::invalidate_cache();
     Ok(())
 }
 
@@ -89,6 +56,7 @@ pub fn shutdown(udid: &str) -> Result<()> {
         return Err(SimctlError::CommandFailed(stderr.to_string()));
     }
 
+    super::cache::invalidate_cache();
     Ok(())
 }
 
@@ -103,6 +71,7 @@ pub fn erase(udid: &str) -> Result<()> {
         return Err(SimctlError::CommandFailed(stderr.to_string()));
     }
 
+    super::cache::invalidate_cache();
     Ok(())
 }
 
@@ -125,6 +94,7 @@ pub fn create(name: &str, device_type: &str, runtime: &str) -> Result<String> {
         ));
     }
 
+    super::cache::invalidate_cache();
     Ok(udid)
 }
 
@@ -149,6 +119,7 @@ pub fn clone(udid: &str) -> Result<String> {
         ));
     }
 
+    super::cache::invalidate_cache();
     Ok(new_udid)
 }
 
@@ -163,6 +134,7 @@ pub fn delete(udid: &str) -> Result<()> {
         return Err(SimctlError::CommandFailed(stderr.to_string()));
     }
 
+    super::cache::invalidate_cache();
     Ok(())
 }
 
@@ -177,6 +149,7 @@ pub fn delete_all() -> Result<()> {
         return Err(SimctlError::CommandFailed(stderr.to_string()));
     }
 
+    super::cache::invalidate_cache();
     Ok(())
 }
 
@@ -192,42 +165,6 @@ pub fn list_devices_json() -> Result<String> {
     }
 
     String::from_utf8(output.stdout).map_err(|e| SimctlError::InvalidOutput(e.to_string()))
-}
-
-/// Copy text to simulator clipboard.
-pub fn pbcopy(udid: &str, text: &str) -> Result<()> {
-    use std::io::Write;
-    use std::process::Stdio;
-
-    let mut child = Command::new("xcrun")
-        .args(["simctl", "pbcopy", udid])
-        .stdin(Stdio::piped())
-        .spawn()?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(text.as_bytes())?;
-    }
-
-    let status = child.wait()?;
-    if !status.success() {
-        return Err(SimctlError::CommandFailed("pbcopy failed".to_string()));
-    }
-
-    Ok(())
-}
-
-/// Paste text from simulator clipboard.
-pub fn pbpaste(udid: &str) -> Result<String> {
-    let output = Command::new("xcrun")
-        .args(["simctl", "pbpaste", udid])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 /// Grant privacy permission using simctl.
@@ -270,51 +207,6 @@ pub fn privacy_reset(udid: &str, service: &str, bundle_id: &str) -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Take a screenshot of a simulator using xcrun simctl io with specified format.
-pub fn io_screenshot(udid: &str, output_path: &str, format: ImageFormat) -> Result<()> {
-    let output = Command::new("xcrun")
-        .args([
-            "simctl",
-            "io",
-            udid,
-            "screenshot",
-            &format!("--type={}", format.simctl_type()),
-            output_path,
-        ])
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
-    }
-
-    Ok(())
-}
-
-/// Take a screenshot and return bytes with specified format.
-pub fn io_screenshot_bytes(udid: &str, format: ImageFormat) -> Result<Vec<u8>> {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let temp_path = format!(
-        "/tmp/agent_mobile_screenshot_{}_{}.{}",
-        std::process::id(),
-        nanos,
-        format.extension()
-    );
-
-    io_screenshot(udid, &temp_path, format)?;
-
-    let data = std::fs::read(&temp_path);
-    let _ = std::fs::remove_file(&temp_path); // Cleanup regardless of read success
-
-    let data =
-        data.map_err(|e| SimctlError::InvalidOutput(format!("Failed to read screenshot: {}", e)))?;
-
-    Ok(data)
 }
 
 /// Information about a booted simulator.
@@ -475,13 +367,22 @@ pub fn list_apps(udid: &str) -> Result<Vec<SimctlAppInfo>> {
 
 /// List all simulators as DeviceInfo structs.
 ///
+/// Results are cached with a 5-second TTL to avoid repeated `simctl` invocations.
+/// The cache is automatically invalidated by lifecycle operations (boot, shutdown, etc.).
+///
 /// Runs `xcrun simctl list devices --json` and converts each device
 /// into a `DeviceInfo` with `target_type` set to `Simulator`.
 ///
 /// The OS version is extracted from the runtime identifier
 /// (e.g., `com.apple.CoreSimulator.SimRuntime.iOS-17-0` → `iOS 17.0`).
 pub fn list_simulators() -> Result<Vec<agent_mobile_core::types::DeviceInfo>> {
+    use super::cache;
     use agent_mobile_core::types::{DeviceInfo, TargetType};
+
+    // Check cache first
+    if let Some(cached) = cache::get_cached_devices() {
+        return Ok(cached);
+    }
 
     let json_str = list_devices_json()?;
     let parsed: serde_json::Value =
@@ -531,6 +432,9 @@ pub fn list_simulators() -> Result<Vec<agent_mobile_core::types::DeviceInfo>> {
             }
         }
     }
+
+    // Store in cache
+    cache::cache_devices(result.clone());
 
     Ok(result)
 }

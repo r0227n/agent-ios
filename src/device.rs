@@ -400,30 +400,35 @@ async fn get_default_udid(
 }
 
 /// Execute copy to clipboard.
-async fn execute_pbcopy(platform: Platform, udid: &str, text: &str) -> CommandResult {
+async fn execute_pbcopy(platform: Platform, _udid: &str, text: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::simctl::management;
-            management::pbcopy(udid, text)?;
-            println!("Copied to clipboard");
-            Ok(())
+            use crate::helpers::client::with_xcuitest;
+
+            let text = text.to_string();
+            with_xcuitest(|client| async move {
+                client.clipboard_copy(&text).await?;
+                println!("Copied to clipboard");
+                Ok(())
+            })
+            .await
         }
-        Platform::Android => {
-            // Android doesn't have a direct clipboard API via adb
-            // We can use am broadcast but it's limited
-            Err("Android clipboard is not supported via adb".into())
-        }
+        Platform::Android => Err("Android clipboard is not supported via adb".into()),
     }
 }
 
 /// Execute paste from clipboard.
-async fn execute_pbpaste(platform: Platform, udid: &str) -> CommandResult {
+async fn execute_pbpaste(platform: Platform, _udid: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::simctl::management;
-            let text = management::pbpaste(udid)?;
-            print!("{}", text);
-            Ok(())
+            use crate::helpers::client::with_xcuitest;
+
+            with_xcuitest(|client| async move {
+                let text = client.clipboard_paste().await?;
+                print!("{}", text);
+                Ok(())
+            })
+            .await
         }
         Platform::Android => Err("Android clipboard is not supported via adb".into()),
     }

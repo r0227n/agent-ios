@@ -51,12 +51,12 @@ pub struct SnapshotArgs {
     #[arg(long)]
     pub no_scroll: bool,
 
-    /// Maximum number of scroll operations (default: 5)
-    #[arg(long, default_value = "5")]
+    /// Maximum number of scroll operations (default: 3)
+    #[arg(long, default_value = "3")]
     pub max_scrolls: u32,
 
-    /// Delay between scroll operations in milliseconds (default: 500)
-    #[arg(long, default_value = "500")]
+    /// Delay between scroll operations in milliseconds (default: 100)
+    #[arg(long, default_value = "100")]
     pub scroll_delay: u64,
 
     #[command(flatten)]

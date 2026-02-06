@@ -11,6 +11,11 @@ final class AccessibilityHandler {
 
     /// Get the accessibility tree as idb-compatible JSON.
     ///
+    /// - Parameters:
+    ///   - nested: When `true`, include children recursively.
+    ///   - maxDepth: Optional limit on recursion depth (0 = root only, 1 = root + direct children, …).
+    ///              `nil` means unlimited.
+    ///
     /// The output format matches idb's accessibility_info response:
     /// ```json
     /// {
@@ -21,9 +26,9 @@ final class AccessibilityHandler {
     ///   "children": [...]
     /// }
     /// ```
-    func getAccessibilityTree(nested: Bool) -> Any {
+    func getAccessibilityTree(nested: Bool, maxDepth: Int? = nil) -> Any {
         if nested {
-            return buildElementTree(from: app)
+            return buildElementTree(from: app, currentDepth: 0, maxDepth: maxDepth)
         } else {
             return buildFlatElement(from: app)
         }
@@ -31,20 +36,22 @@ final class AccessibilityHandler {
 
     // MARK: - Tree Building (nested=true)
 
-    private func buildElementTree(from element: XCUIElement) -> [String: Any] {
+    private func buildElementTree(from element: XCUIElement, currentDepth: Int, maxDepth: Int?) -> [String: Any] {
         var dict = buildElementDict(from: element)
 
-        // Recursively build children
-        var children: [[String: Any]] = []
-        let childCount = element.children(matching: .any).count
-        for i in 0..<childCount {
-            let child = element.children(matching: .any).element(boundBy: i)
-            if child.exists {
-                children.append(buildElementTree(from: child))
-            }
+        // Stop recursion if maxDepth reached
+        if let max = maxDepth, currentDepth >= max {
+            return dict
         }
 
-        if !children.isEmpty {
+        // Use allElementsBoundByIndex for batch access (avoids per-element lazy resolution)
+        let childElements = element.children(matching: .any).allElementsBoundByIndex
+        if !childElements.isEmpty {
+            var children: [[String: Any]] = []
+            children.reserveCapacity(childElements.count)
+            for child in childElements {
+                children.append(buildElementTree(from: child, currentDepth: currentDepth + 1, maxDepth: maxDepth))
+            }
             dict["children"] = children
         }
 
@@ -82,13 +89,13 @@ final class AccessibilityHandler {
             dict["AXPlaceholderValue"] = placeholder
         }
 
-        // Frame
+        // Frame (sanitize infinite/NaN values to avoid JSON serialization crash)
         let frame = element.frame
         dict["frame"] = [
-            "x": frame.origin.x,
-            "y": frame.origin.y,
-            "width": frame.size.width,
-            "height": frame.size.height
+            "x": frame.origin.x.isFinite ? frame.origin.x : 0,
+            "y": frame.origin.y.isFinite ? frame.origin.y : 0,
+            "width": frame.size.width.isFinite ? frame.size.width : 0,
+            "height": frame.size.height.isFinite ? frame.size.height : 0
         ]
 
         // Enabled

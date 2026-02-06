@@ -10,9 +10,8 @@ pub mod xcuitest;
 
 // Re-export main types
 pub use simctl::{
-    boot, clone, create, delete, delete_all, erase, get_booted_simulator, install_app,
-    io_screenshot_bytes, list_apps, list_simulators, shutdown, uninstall_app, BootedSimulator,
-    ImageFormat, SimctlAppInfo,
+    boot, clone, create, delete, delete_all, erase, get_booted_simulator, install_app, list_apps,
+    list_simulators, shutdown, uninstall_app, BootedSimulator, SimctlAppInfo,
 };
 pub use snapshot::extract_ios_elements;
 pub use xcuitest::{ensure_runner_started, XCUITestClient};

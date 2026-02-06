@@ -14,6 +14,8 @@
 		AA000013 /* InputHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100013 /* InputHandler.swift */; };
 		AA000014 /* AccessibilityHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100014 /* AccessibilityHandler.swift */; };
 		AA000015 /* AppHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100015 /* AppHandler.swift */; };
+		AA000016 /* ScreenshotHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100017 /* ScreenshotHandler.swift */; };
+		AA000017 /* ClipboardHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100018 /* ClipboardHandler.swift */; };
 		AAC00001 /* HTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011 /* HTTPServer.swift */; };
 		AAC00002 /* HTTPRequestParseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC10001 /* HTTPRequestParseTests.swift */; };
 		AAC00003 /* HTTPRequestJSONTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC10002 /* HTTPRequestJSONTests.swift */; };
@@ -42,6 +44,8 @@
 		AA100013 /* InputHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputHandler.swift; sourceTree = "<group>"; };
 		AA100014 /* AccessibilityHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHandler.swift; sourceTree = "<group>"; };
 		AA100015 /* AppHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHandler.swift; sourceTree = "<group>"; };
+		AA100017 /* ScreenshotHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHandler.swift; sourceTree = "<group>"; };
+		AA100018 /* ClipboardHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHandler.swift; sourceTree = "<group>"; };
 		AA100016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA400001 /* XCUITestRunner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XCUITestRunner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA400002 /* XCUITestRunnerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XCUITestRunnerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -108,6 +112,8 @@
 				AA100013 /* InputHandler.swift */,
 				AA100014 /* AccessibilityHandler.swift */,
 				AA100015 /* AppHandler.swift */,
+				AA100017 /* ScreenshotHandler.swift */,
+				AA100018 /* ClipboardHandler.swift */,
 				AA100016 /* Info.plist */,
 			);
 			path = XCUITestRunnerUITests;
@@ -238,6 +244,8 @@
 				AA000013 /* InputHandler.swift in Sources */,
 				AA000014 /* AccessibilityHandler.swift in Sources */,
 				AA000015 /* AppHandler.swift in Sources */,
+				AA000016 /* ScreenshotHandler.swift in Sources */,
+				AA000017 /* ClipboardHandler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

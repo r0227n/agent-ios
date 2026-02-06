@@ -8,7 +8,6 @@
 use clap::Args;
 
 use agent_mobile_core::Platform;
-use agent_mobile_platform_ios::simctl::management as simctl;
 
 use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
@@ -35,14 +34,6 @@ impl ImageFormat {
     /// Check if format is supported on Android
     pub fn is_android_supported(&self) -> bool {
         matches!(self, Self::Png)
-    }
-
-    /// Convert to platform-ios ImageFormat
-    pub fn to_platform_format(self) -> agent_mobile_platform_ios::ImageFormat {
-        match self {
-            Self::Png => agent_mobile_platform_ios::ImageFormat::Png,
-            Self::Jpeg => agent_mobile_platform_ios::ImageFormat::Jpeg,
-        }
     }
 }
 
@@ -201,51 +192,35 @@ pub async fn run(args: ScreenshotArgs) -> CommandResult {
     }
 }
 
-/// Execute screenshot on iOS using xcrun simctl
+/// Execute screenshot on iOS using XCUITest Runner.
 async fn execute_screenshot_ios(
-    udid: Option<&str>,
+    _udid: Option<&str>,
     path: &str,
     format: ImageFormat,
 ) -> CommandResult {
-    // Determine UDID
-    let udid = match udid {
-        Some(u) => u.to_string(),
-        None => get_booted_simulator_udid().await?,
+    use crate::helpers::client::with_xcuitest;
+
+    let png_bytes = with_xcuitest(|client| async move { client.screenshot().await }).await?;
+
+    let final_bytes = match format {
+        ImageFormat::Png => png_bytes,
+        ImageFormat::Jpeg => convert_png_to_jpeg(&png_bytes)?,
     };
 
-    // File mode
-    simctl::io_screenshot(&udid, path, format.to_platform_format())?;
+    std::fs::write(path, &final_bytes)?;
     println!("Screenshot saved to: {}", path);
 
     Ok(())
 }
 
-/// Get the UDID of a booted simulator
-async fn get_booted_simulator_udid() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    use tokio::process::Command;
-
-    let output = Command::new("xcrun")
-        .args(["simctl", "list", "devices", "booted", "-j"])
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("xcrun simctl list devices booted failed: {}", stderr).into());
-    }
-
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-    json["devices"]
-        .as_object()
-        .and_then(|devices| {
-            devices.values().find_map(|sims| {
-                sims.as_array()
-                    .and_then(|arr| arr.first())
-                    .and_then(|sim| sim["udid"].as_str())
-                    .map(|s| s.to_string())
-            })
-        })
-        .ok_or_else(|| "No booted simulator found".into())
+/// Convert PNG bytes to JPEG bytes.
+fn convert_png_to_jpeg(
+    png_bytes: &[u8],
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let img = image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png)?;
+    let mut buf = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut buf, image::ImageFormat::Jpeg)?;
+    Ok(buf.into_inner())
 }
 
 /// Execute screenshot on Android

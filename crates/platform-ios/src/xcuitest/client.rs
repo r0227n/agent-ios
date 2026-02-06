@@ -8,7 +8,10 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 /// Communicates with the Swift-based XCUITest server running on the simulator.
 pub struct XCUITestClient {
     base_url: String,
+    /// General-purpose HTTP client (30 s timeout).
     http: reqwest::Client,
+    /// HTTP client with a long timeout for full accessibility tree traversal.
+    http_long: reqwest::Client,
 }
 
 impl XCUITestClient {
@@ -23,9 +26,16 @@ impl XCUITestClient {
             .build()
             .expect("Failed to create HTTP client");
 
+        let http_long = reqwest::Client::builder()
+            .timeout(Duration::from_secs(120))
+            .connect_timeout(Duration::from_secs(5))
+            .build()
+            .expect("Failed to create long-timeout HTTP client");
+
         Self {
             base_url: format!("http://localhost:{}", port),
             http,
+            http_long,
         }
     }
 
@@ -170,15 +180,32 @@ impl XCUITestClient {
 
     /// Get the accessibility tree as JSON string (idb-compatible format).
     pub async fn accessibility_info(&self, nested: bool) -> Result<String> {
-        let url = if nested {
-            format!("{}/accessibility?nested=true", self.base_url)
+        self.accessibility_info_with_depth(nested, None).await
+    }
+
+    /// Get the accessibility tree with an optional depth limit.
+    ///
+    /// When `max_depth` is `Some(n)`, only `n` levels of children are returned.
+    /// This is useful for change-detection where the full tree is unnecessary.
+    pub async fn accessibility_info_with_depth(
+        &self,
+        nested: bool,
+        max_depth: Option<u32>,
+    ) -> Result<String> {
+        let mut url = format!(
+            "{}/accessibility?nested={}",
+            self.base_url,
+            if nested { "true" } else { "false" }
+        );
+        if let Some(depth) = max_depth {
+            url.push_str(&format!("&depth={}", depth));
+        }
+        // Shallow queries use the standard client (30 s); full traversal needs the long client (120 s).
+        let client = if max_depth.is_some() {
+            &self.http
         } else {
-            format!("{}/accessibility?nested=false", self.base_url)
+            &self.http_long
         };
-        // Accessibility tree traversal can take a long time, so use a longer timeout
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(120))
-            .build()?;
         let resp = client.get(&url).send().await?;
         let body = resp.text().await?;
         Ok(body)
@@ -249,6 +276,18 @@ impl XCUITestClient {
         }
     }
 
+    /// Capture a screenshot and return PNG bytes.
+    pub async fn screenshot(&self) -> Result<Vec<u8>> {
+        let url = format!("{}/screenshot", self.base_url);
+        let resp = self.http.get(&url).send().await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(format!("Screenshot failed: HTTP {} - {}", status, body).into());
+        }
+        Ok(resp.bytes().await?.to_vec())
+    }
+
     /// Set the active app context (for accessibility queries) without launching.
     pub async fn set_app(&self, bundle_id: &str) -> Result<()> {
         self.post(
@@ -258,6 +297,45 @@ impl XCUITestClient {
             },
         )
         .await
+    }
+
+    /// Copy text to the device clipboard.
+    pub async fn clipboard_copy(&self, text: &str) -> Result<()> {
+        self.post(
+            "/clipboard/copy",
+            &ClipboardCopyRequest {
+                text: text.to_string(),
+            },
+        )
+        .await
+    }
+
+    /// Paste text from the device clipboard.
+    pub async fn clipboard_paste(&self) -> Result<String> {
+        let url = format!("{}/clipboard/paste", self.base_url);
+        let resp = self.http.get(&url).send().await?;
+        let status = resp.status();
+        let body: ClipboardPasteResponse = resp.json().await?;
+        if !status.is_success() {
+            return Err(format!("Clipboard paste failed: HTTP {}", status).into());
+        }
+        Ok(body.text)
+    }
+
+    /// Clear the device clipboard.
+    pub async fn clipboard_clear(&self) -> Result<()> {
+        let url = format!("{}/clipboard/clear", self.base_url);
+        let resp = self
+            .http
+            .post(&url)
+            .json(&serde_json::json!({}))
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(format!("Clipboard clear failed: HTTP {}", status).into());
+        }
+        Ok(())
     }
 
     /// Internal: send a POST request and check for success.
