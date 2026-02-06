@@ -14,11 +14,12 @@ use serde::Serialize;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
 
 use super::ref_resolver::{self, ElementTarget};
+use super::swipe::execute_swipe_ios;
 use super::tap::{execute_tap, take_snapshot};
 
 /// Arguments for the select command
@@ -132,7 +133,6 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
         // Alternate between up and down to cover both directions
         let swipe_direction = if attempt % 2 == 0 { -50.0 } else { 50.0 };
         execute_swipe_ios(
-            udid,
             picker_x,
             picker_y,
             picker_x,
@@ -223,25 +223,6 @@ async fn run_android(args: SelectArgs) -> CommandResult {
         args.value, args.max_swipes
     )
     .into())
-}
-
-/// Execute swipe on iOS
-async fn execute_swipe_ios(
-    udid: Option<&str>,
-    x1: f64,
-    y1: f64,
-    x2: f64,
-    y2: f64,
-    duration: Option<f64>,
-) -> CommandResult {
-    use agent_mobile_platform_ios::hid::events;
-
-    with_client(udid, |mut client| async move {
-        let events = events::swipe_to_events((x1, y1), (x2, y2), duration, None);
-        client.hid(events).await?;
-        Ok(())
-    })
-    .await
 }
 
 /// Execute swipe on Android

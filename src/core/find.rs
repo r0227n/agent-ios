@@ -27,7 +27,7 @@ use serde::Serialize;
 use agent_mobile_core::snapshot::Frame;
 use agent_mobile_core::Platform;
 
-use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 use crate::snapshot::types::{Snapshot, SnapshotElement};
 
@@ -468,14 +468,7 @@ async fn execute_action(
                 .unwrap_or(DEFAULT_MAX_TEXT_LENGTH);
             execute_fill(platform, udid, x, y, text, clear_len).await
         }
-        FindAction::Clear => {
-            let clear_len = element
-                .value
-                .as_ref()
-                .map(|v| v.chars().count())
-                .unwrap_or(DEFAULT_MAX_TEXT_LENGTH);
-            execute_clear(platform, udid, x, y, clear_len).await
-        }
+        FindAction::Clear => execute_clear(platform, udid, x, y).await,
     }
 }
 
@@ -490,26 +483,20 @@ async fn execute_fill(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::hid::events;
             let text = text.to_string();
 
-            with_client(udid, |mut client| async move {
+            with_xcuitest(|client| async move {
                 // 1. Tap to focus
-                let tap_events = events::tap_to_events(x, y, None);
-                client.hid(tap_events).await?;
+                client.tap(x, y).await?;
 
                 // Small delay to ensure focus
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-                // 2. Clear existing text
-                for _ in 0..clear_len {
-                    let del_events = events::key_to_events(42, None); // BACKSPACE = 42
-                    client.hid(del_events).await?;
-                }
+                // 2. Clear existing text (Select All + Delete)
+                client.clear_text().await?;
 
                 // 3. Type new text
-                let text_events = events::text_to_events(&text)?;
-                client.hid(text_events).await?;
+                client.type_text(&text).await?;
 
                 Ok(())
             })
@@ -539,30 +526,18 @@ async fn execute_fill(
 }
 
 /// Execute clear (tap + select all + delete)
-async fn execute_clear(
-    platform: Platform,
-    udid: Option<&str>,
-    x: f64,
-    y: f64,
-    clear_len: usize,
-) -> CommandResult {
+async fn execute_clear(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::hid::events;
-
-            with_client(udid, |mut client| async move {
+            with_xcuitest(|client| async move {
                 // 1. Tap to focus
-                let tap_events = events::tap_to_events(x, y, None);
-                client.hid(tap_events).await?;
+                client.tap(x, y).await?;
 
                 // Small delay to ensure focus
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-                // 2. Clear existing text
-                for _ in 0..clear_len {
-                    let del_events = events::key_to_events(42, None); // BACKSPACE = 42
-                    client.hid(del_events).await?;
-                }
+                // 2. Clear existing text (Select All + Delete)
+                client.clear_text().await?;
 
                 Ok(())
             })
@@ -579,7 +554,7 @@ async fn execute_clear(
 
             // 2. Clear existing text
             input::keyevent_by_name(udid, "KEYCODE_MOVE_END").await?;
-            for _ in 0..clear_len {
+            for _ in 0..DEFAULT_MAX_TEXT_LENGTH {
                 input::keyevent(udid, input::keycodes::DEL).await?;
             }
 

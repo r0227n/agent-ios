@@ -8,7 +8,7 @@ use clap::Args;
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
 use agent_mobile_gateway::DeviceResolver;
@@ -31,20 +31,17 @@ pub async fn run(args: TypeArgs) -> CommandResult {
     };
 
     match platform {
-        Platform::Ios => execute_type_ios(args.device.udid.as_deref(), &args.text).await,
+        Platform::Ios => execute_type_ios(&args.text).await,
         Platform::Android => execute_type_android(args.device.udid.as_deref(), &args.text).await,
     }
 }
 
 /// Execute type on iOS
-async fn execute_type_ios(udid: Option<&str>, text: &str) -> CommandResult {
-    use agent_mobile_platform_ios::hid::events;
-
+async fn execute_type_ios(text: &str) -> CommandResult {
     let text = text.to_string();
 
-    with_client(udid, |mut client| async move {
-        let text_events = events::text_to_events(&text)?;
-        client.hid(text_events).await?;
+    with_xcuitest(|client| async move {
+        client.type_text(&text).await?;
         Ok(())
     })
     .await

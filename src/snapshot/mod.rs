@@ -3,7 +3,7 @@
 //! Provides a snapshot of the current UI state with reference IDs (`@e1`, `@e2`, etc.)
 //! for efficient AI agent interaction.
 //!
-//! Supports both iOS (via idb gRPC) and Android (via ADB/UIAutomator).
+//! Supports both iOS (via XCUITest Runner) and Android (via ADB/UIAutomator).
 
 mod collector;
 pub mod ref_generator;
@@ -15,7 +15,7 @@ use agent_mobile_platform_ios::snapshot::extract_ios_elements;
 use chrono::Utc;
 use clap::Args;
 
-use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
 use types::Snapshot;
@@ -92,8 +92,8 @@ pub async fn run(args: SnapshotArgs) -> CommandResult {
 
 /// Auto-detect platform from connected devices.
 async fn resolve_platform() -> CommandResult<Platform> {
-    // Auto-detect: check for iOS companion state first
-    if has_ios_companion().await {
+    // Auto-detect: check for booted iOS simulator first
+    if has_ios_simulator().await {
         return Ok(Platform::Ios);
     }
 
@@ -108,26 +108,9 @@ async fn resolve_platform() -> CommandResult<Platform> {
     )
 }
 
-/// Check if iOS companion is available.
-async fn has_ios_companion() -> bool {
-    use std::path::Path;
-
-    // Check for companion state file
-    let state_path = Path::new("/tmp/idb/state");
-    if !state_path.exists() {
-        return false;
-    }
-
-    // Try to read the state file and check if there are any companions
-    if let Ok(content) = std::fs::read_to_string(state_path) {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(arr) = json.as_array() {
-                return !arr.is_empty();
-            }
-        }
-    }
-
-    false
+/// Check if a booted iOS simulator is available.
+async fn has_ios_simulator() -> bool {
+    agent_mobile_platform_ios::simctl::get_booted_simulator().is_ok()
 }
 
 /// Check if Android device is available via ADB.
@@ -161,11 +144,11 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
     let max_scrolls = args.max_scrolls;
     let scroll_delay = args.scroll_delay;
 
-    with_client(args.device.udid.as_deref(), |mut client| async move {
+    with_xcuitest(|client| async move {
         // Collect raw elements (with or without scrolling)
         let raw_elements = if no_scroll {
             // --no-scroll: Single accessibility info fetch (original behavior)
-            let json_str = client.accessibility_info(None, true).await?;
+            let json_str = client.accessibility_info(true).await?;
             let json: serde_json::Value = serde_json::from_str(&json_str)?;
             extract_ios_elements(&json)
         } else {
@@ -176,7 +159,7 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
                 ..Default::default()
             };
             let snapshot_collector = collector::SnapshotCollector::new(config);
-            snapshot_collector.collect_all(&mut client, None).await?
+            snapshot_collector.collect_all(&client, None).await?
         };
 
         // Generate refs

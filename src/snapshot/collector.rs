@@ -10,6 +10,7 @@ use crate::helpers::client::CommandResult;
 use agent_mobile_core::snapshot::RawElement;
 use agent_mobile_platform_android::snapshot::extract_android_elements;
 use agent_mobile_platform_ios::snapshot::extract_ios_elements;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 /// Configuration for snapshot collection with scrolling.
 #[derive(Debug, Clone)]
@@ -162,7 +163,7 @@ fn merge_element_into_tree(
     }
 }
 
-/// Snapshot collector using gRPC client.
+/// Snapshot collector using XCUITestClient.
 pub struct SnapshotCollector {
     config: SnapshotCollectorConfig,
 }
@@ -177,7 +178,7 @@ impl SnapshotCollector {
     /// Returns the merged tree of RawElements from all scroll positions.
     pub async fn collect_all(
         &self,
-        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
+        client: &XCUITestClient,
         progress_fn: Option<ProgressCallback>,
     ) -> CommandResult<Vec<RawElement>> {
         let mut all_elements: Vec<RawElement> = Vec::new();
@@ -198,7 +199,7 @@ impl SnapshotCollector {
         self.scroll_to_top(client).await?;
 
         // Get initial elements (NESTED format for tree structure)
-        let json_str = client.accessibility_info(None, true).await?;
+        let json_str = client.accessibility_info(true).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
         let initial_elements = extract_ios_elements(&json);
         let initial_count =
@@ -224,7 +225,7 @@ impl SnapshotCollector {
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
             // Get elements after scroll (NESTED format)
-            let json_str = client.accessibility_info(None, true).await?;
+            let json_str = client.accessibility_info(true).await?;
             let json: serde_json::Value = serde_json::from_str(&json_str)?;
             let new_elements = extract_ios_elements(&json);
             let new_count = merge_element_trees(&mut all_elements, new_elements, &mut seen_keys);
@@ -263,39 +264,29 @@ impl SnapshotCollector {
         Ok(all_elements)
     }
 
-    /// Perform a scroll down gesture.
-    async fn scroll_down(
-        &self,
-        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
-    ) -> CommandResult<()> {
-        use agent_mobile_platform_ios::hid::events::swipe_to_events;
-
+    /// Perform a scroll down gesture via XCUITestClient.
+    async fn scroll_down(&self, client: &XCUITestClient) -> CommandResult<()> {
         // Scroll from middle-bottom to middle-top (vertical scroll down)
         let center_x = self.config.screen_width / 2.0;
         let start_y = self.config.screen_height * 0.7; // Start from 70% down
         let end_y = self.config.screen_height * 0.3; // End at 30% down
 
-        let events = swipe_to_events((center_x, start_y), (center_x, end_y), Some(0.3), None);
-
-        client.hid(events).await?;
+        client
+            .swipe((center_x, start_y), (center_x, end_y), 0.3)
+            .await?;
         Ok(())
     }
 
-    /// Perform a scroll up gesture (opposite of scroll_down).
-    async fn scroll_up(
-        &self,
-        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
-    ) -> CommandResult<()> {
-        use agent_mobile_platform_ios::hid::events::swipe_to_events;
-
+    /// Perform a scroll up gesture via XCUITestClient.
+    async fn scroll_up(&self, client: &XCUITestClient) -> CommandResult<()> {
         // Scroll from top to bottom (swipe downward to scroll content up)
         let center_x = self.config.screen_width / 2.0;
         let start_y = self.config.screen_height * 0.3; // Start from 30% down
         let end_y = self.config.screen_height * 0.7; // End at 70% down
 
-        let events = swipe_to_events((center_x, start_y), (center_x, end_y), Some(0.3), None);
-
-        client.hid(events).await?;
+        client
+            .swipe((center_x, start_y), (center_x, end_y), 0.3)
+            .await?;
         Ok(())
     }
 
@@ -303,10 +294,7 @@ impl SnapshotCollector {
     ///
     /// Performs repeated scroll-up gestures until reaching the top of the content.
     /// The top is detected when the accessibility tree is unchanged for 2 consecutive scrolls.
-    async fn scroll_to_top(
-        &self,
-        client: &mut agent_mobile_platform_ios::grpc::IdbClient,
-    ) -> CommandResult<()> {
+    async fn scroll_to_top(&self, client: &XCUITestClient) -> CommandResult<()> {
         const MAX_SCROLL_UP: u32 = 5;
         let mut prev_snapshot: Option<String> = None;
         let mut consecutive_same = 0;
@@ -317,7 +305,7 @@ impl SnapshotCollector {
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
             // Get current snapshot (accessibility tree)
-            let json_str = client.accessibility_info(None, true).await?;
+            let json_str = client.accessibility_info(true).await?;
 
             // Check if at top (same as previous)
             if let Some(ref prev) = prev_snapshot {

@@ -16,6 +16,12 @@ final class InputHandler {
         app.typeText(text)
     }
 
+    /// Select all text in the focused element (Cmd+A) and delete it.
+    func clearText() {
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey(.delete, modifierFlags: [])
+    }
+
     /// Press a keyboard key by name.
     func keyPress(_ keyName: String) -> Bool {
         switch keyName.lowercased() {

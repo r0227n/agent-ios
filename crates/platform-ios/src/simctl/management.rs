@@ -317,6 +317,162 @@ pub fn io_screenshot_bytes(udid: &str, format: ImageFormat) -> Result<Vec<u8>> {
     Ok(data)
 }
 
+/// Information about a booted simulator.
+#[derive(Debug, Clone)]
+pub struct BootedSimulator {
+    pub udid: String,
+    pub name: String,
+}
+
+/// Find the first booted simulator.
+///
+/// Parses `xcrun simctl list devices --json` output and returns the
+/// first device whose state is "Booted".
+pub fn get_booted_simulator() -> Result<BootedSimulator> {
+    let json_str = list_devices_json()?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json_str).map_err(|e| SimctlError::InvalidOutput(e.to_string()))?;
+
+    let devices = parsed
+        .get("devices")
+        .and_then(|d| d.as_object())
+        .ok_or_else(|| SimctlError::InvalidOutput("Missing 'devices' key".to_string()))?;
+
+    for (_runtime, device_list) in devices {
+        if let Some(arr) = device_list.as_array() {
+            for device in arr {
+                let state = device.get("state").and_then(|s| s.as_str());
+                if state == Some("Booted") {
+                    let udid = device
+                        .get("udid")
+                        .and_then(|u| u.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let name = device
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if !udid.is_empty() {
+                        return Ok(BootedSimulator { udid, name });
+                    }
+                }
+            }
+        }
+    }
+
+    Err(SimctlError::CommandFailed(
+        "No booted simulator found".to_string(),
+    ))
+}
+
+/// Install an app on a simulator via simctl.
+pub fn install_app(udid: &str, path: &str) -> Result<()> {
+    let output = Command::new("xcrun")
+        .args(["simctl", "install", udid, path])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(SimctlError::CommandFailed(stderr.to_string()));
+    }
+
+    Ok(())
+}
+
+/// Uninstall an app from a simulator via simctl.
+pub fn uninstall_app(udid: &str, bundle_id: &str) -> Result<()> {
+    let output = Command::new("xcrun")
+        .args(["simctl", "uninstall", udid, bundle_id])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(SimctlError::CommandFailed(stderr.to_string()));
+    }
+
+    Ok(())
+}
+
+/// Simplified app info from simctl listapps.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SimctlAppInfo {
+    pub bundle_id: String,
+    pub name: String,
+    pub version: String,
+    pub app_type: String,
+}
+
+/// List installed apps on a simulator via simctl.
+///
+/// Runs `xcrun simctl listapps` (plist output) and pipes through
+/// `plutil -convert json` to get JSON, then parses into structured data.
+pub fn list_apps(udid: &str) -> Result<Vec<SimctlAppInfo>> {
+    use std::process::Stdio;
+
+    // Run simctl listapps and pipe through plutil for JSON conversion
+    let simctl = Command::new("xcrun")
+        .args(["simctl", "listapps", udid])
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    let plutil = Command::new("plutil")
+        .args(["-convert", "json", "-o", "-", "--", "-"])
+        .stdin(simctl.stdout.ok_or_else(|| {
+            SimctlError::CommandFailed("Failed to capture simctl stdout".to_string())
+        })?)
+        .output()?;
+
+    if !plutil.status.success() {
+        let stderr = String::from_utf8_lossy(&plutil.stderr);
+        return Err(SimctlError::CommandFailed(format!(
+            "plutil conversion failed: {}",
+            stderr
+        )));
+    }
+
+    let json_str =
+        String::from_utf8(plutil.stdout).map_err(|e| SimctlError::InvalidOutput(e.to_string()))?;
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json_str).map_err(|e| SimctlError::InvalidOutput(e.to_string()))?;
+
+    let obj = parsed
+        .as_object()
+        .ok_or_else(|| SimctlError::InvalidOutput("Expected JSON object".to_string()))?;
+
+    let mut apps = Vec::new();
+    for (bundle_id, info) in obj {
+        let name = info
+            .get("CFBundleDisplayName")
+            .or_else(|| info.get("CFBundleName"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let version = info
+            .get("CFBundleShortVersionString")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let app_type = info
+            .get("ApplicationType")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        apps.push(SimctlAppInfo {
+            bundle_id: bundle_id.clone(),
+            name,
+            version,
+            app_type,
+        });
+    }
+
+    // Sort by bundle_id for consistent output
+    apps.sort_by(|a, b| a.bundle_id.cmp(&b.bundle_id));
+    Ok(apps)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

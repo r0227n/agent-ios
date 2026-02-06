@@ -10,7 +10,7 @@ use clap::Args;
 
 use agent_mobile_core::{Platform, ScrollDirection};
 
-use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
@@ -65,9 +65,7 @@ pub async fn run(args: SwipeArgs) -> CommandResult {
 
     // Execute swipe
     match platform {
-        Platform::Ios => {
-            execute_swipe_ios(args.device.udid.as_deref(), x1, y1, x2, y2, args.duration).await
-        }
+        Platform::Ios => execute_swipe_ios(x1, y1, x2, y2, args.duration).await,
         Platform::Android => {
             execute_swipe_android(args.device.udid.as_deref(), x1, y1, x2, y2, args.duration).await
         }
@@ -138,19 +136,16 @@ async fn get_screen_center(platform: Platform, udid: Option<&str>) -> CommandRes
 }
 
 /// Execute swipe on iOS
-async fn execute_swipe_ios(
-    udid: Option<&str>,
+pub(crate) async fn execute_swipe_ios(
     x1: f64,
     y1: f64,
     x2: f64,
     y2: f64,
     duration: Option<f64>,
 ) -> CommandResult {
-    use agent_mobile_platform_ios::hid::events;
-
-    with_client(udid, |mut client| async move {
-        let events = events::swipe_to_events((x1, y1), (x2, y2), duration, None);
-        client.hid(events).await?;
+    let duration = duration.unwrap_or(0.3);
+    with_xcuitest(|client| async move {
+        client.swipe((x1, y1), (x2, y2), duration).await?;
         Ok(())
     })
     .await

@@ -2,7 +2,7 @@
 //!
 //! This module provides common utilities for CLI command implementations:
 //!
-//! - [`client`]: Connection helpers (`with_client`, `CommandResult`)
+//! - [`client`]: Connection helpers (`with_xcuitest`, `CommandResult`)
 //! - [`common_args`]: Shared argument structs (`DeviceArgs`, `DeviceFormatArgs`)
 //! - [`format`]: Output format options (`OutputFormat`)
 //! - [`signal`]: Ctrl+C signal handling

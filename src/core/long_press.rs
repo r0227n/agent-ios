@@ -12,7 +12,7 @@ use clap::Args;
 
 use agent_mobile_core::Platform;
 
-use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::ElementTarget;
@@ -65,13 +65,8 @@ pub(crate) async fn execute_long_press(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::hid::events;
-
-            with_client(udid, |mut client| async move {
-                // Passing Some(duration) to tap_to_events inserts a delay between DOWN and UP,
-                // turning a regular tap (immediate DOWN+UP) into a long press (DOWN + DELAY + UP).
-                let events = events::tap_to_events(x, y, Some(duration));
-                client.hid(events).await?;
+            with_xcuitest(|client| async move {
+                client.long_press(x, y, duration).await?;
                 Ok(())
             })
             .await

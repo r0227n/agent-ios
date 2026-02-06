@@ -9,7 +9,7 @@ use clap::Args;
 
 use agent_mobile_core::{Platform, ScrollDirection};
 
-use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
@@ -66,9 +66,7 @@ pub async fn run(args: ScrollArgs) -> CommandResult {
 
     // Execute scroll (same as swipe but with shorter distance and duration)
     match platform {
-        Platform::Ios => {
-            execute_scroll_ios(args.device.udid.as_deref(), x1, y1, x2, y2, duration).await
-        }
+        Platform::Ios => execute_scroll_ios(x1, y1, x2, y2, duration).await,
         Platform::Android => {
             execute_scroll_android(args.device.udid.as_deref(), x1, y1, x2, y2, duration).await
         }
@@ -121,19 +119,9 @@ async fn get_screen_center(platform: Platform, udid: Option<&str>) -> CommandRes
 }
 
 /// Execute scroll on iOS
-async fn execute_scroll_ios(
-    udid: Option<&str>,
-    x1: f64,
-    y1: f64,
-    x2: f64,
-    y2: f64,
-    duration: f64,
-) -> CommandResult {
-    use agent_mobile_platform_ios::hid::events;
-
-    with_client(udid, |mut client| async move {
-        let events = events::swipe_to_events((x1, y1), (x2, y2), Some(duration), None);
-        client.hid(events).await?;
+async fn execute_scroll_ios(x1: f64, y1: f64, x2: f64, y2: f64, duration: f64) -> CommandResult {
+    with_xcuitest(|client| async move {
+        client.swipe((x1, y1), (x2, y2), duration).await?;
         Ok(())
     })
     .await

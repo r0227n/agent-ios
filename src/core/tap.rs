@@ -15,7 +15,7 @@ use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::client::{with_client, CommandResult};
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
@@ -103,11 +103,9 @@ pub async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandR
 }
 
 /// Get iOS screen size from snapshot's root element
-async fn get_ios_screen_size_from_snapshot(udid: Option<&str>) -> CommandResult<(f64, f64)> {
-    use crate::helpers::client::with_client;
-
-    with_client(udid, |mut client| async move {
-        let json_str = client.accessibility_info(None, false).await?;
+async fn get_ios_screen_size_from_snapshot(_udid: Option<&str>) -> CommandResult<(f64, f64)> {
+    with_xcuitest(|client| async move {
+        let json_str = client.accessibility_info(false).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
 
         // The root element's frame represents the screen bounds
@@ -137,9 +135,8 @@ pub async fn take_snapshot(
 
     match platform {
         Platform::Ios => {
-            let udid = udid.map(|s| s.to_string());
-            with_client(udid.as_deref(), |mut client| async move {
-                let json_str = client.accessibility_info(None, true).await?;
+            with_xcuitest(|client| async move {
+                let json_str = client.accessibility_info(true).await?;
                 let json: serde_json::Value = serde_json::from_str(&json_str)?;
                 let raw_elements = agent_mobile_platform_ios::snapshot::extract_ios_elements(&json);
                 let elements = crate::snapshot::ref_generator::generate_refs(&raw_elements);
@@ -173,12 +170,8 @@ pub async fn take_snapshot(
 pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::hid::events;
-
-            with_client(udid, |mut client| async move {
-                // Pass None explicitly for an instant tap
-                let events = events::tap_to_events(x, y, None);
-                client.hid(events).await?;
+            with_xcuitest(|client| async move {
+                client.tap(x, y).await?;
                 Ok(())
             })
             .await
@@ -195,38 +188,29 @@ pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64)
 async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            use agent_mobile_platform_ios::hid::events;
-            use agent_mobile_platform_ios::proto::idb::hid_event::HidButtonType;
-
-            // Check if it's a button (home, lock, etc.) or a keyboard key
             let key_lower = key.to_lowercase();
 
             // Hardware buttons
-            if let Some(button_type) = match key_lower.as_str() {
-                "home" => Some(HidButtonType::Home),
-                "lock" | "power" => Some(HidButtonType::Lock),
-                "siri" => Some(HidButtonType::Siri),
-                _ => None,
-            } {
-                return with_client(udid, |mut client| async move {
-                    let events = events::button_to_events(button_type, None);
-                    client.hid(events).await?;
+            if matches!(key_lower.as_str(), "home" | "lock" | "power" | "siri") {
+                let button = key_lower.clone();
+                return with_xcuitest(|client| async move {
+                    client.button_press(&button).await?;
                     Ok(())
                 })
                 .await;
             }
 
             // Keyboard keys
-            let keycode = match key_lower.as_str() {
-                "enter" | "return" => 40,
-                "escape" | "esc" => 41,
-                "delete" | "backspace" => 42,
-                "tab" => 43,
-                "space" => 44,
-                "up" => 82,
-                "down" => 81,
-                "left" => 80,
-                "right" => 79,
+            let key_name = match key_lower.as_str() {
+                "enter" | "return" => "return",
+                "escape" | "esc" => "escape",
+                "delete" | "backspace" => "delete",
+                "tab" => "tab",
+                "space" => "space",
+                "up" => "up",
+                "down" => "down",
+                "left" => "left",
+                "right" => "right",
                 _ => {
                     return Err(format!(
                         "Unknown key: {}. Valid keys: home, lock, siri, enter, tab, space, escape, delete, up, down, left, right",
@@ -236,9 +220,9 @@ async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> Comma
                 }
             };
 
-            with_client(udid, |mut client| async move {
-                let events = events::key_to_events(keycode, None);
-                client.hid(events).await?;
+            let key_name = key_name.to_string();
+            with_xcuitest(|client| async move {
+                client.key_press(&key_name).await?;
                 Ok(())
             })
             .await
