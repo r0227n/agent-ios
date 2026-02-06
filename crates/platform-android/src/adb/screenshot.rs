@@ -8,9 +8,8 @@ use super::connection::AdbConnection;
 
 /// Take a screenshot and save to the specified path.
 ///
-/// Uses ADB protocol to capture the screenshot directly without file staging on device.
-/// The screenshot is captured via `screencap -p` shell command and the PNG bytes
-/// are transferred in a single operation.
+/// Uses `screencap` to save a PNG to device storage, then pulls the file via ADB protocol.
+/// This avoids binary corruption issues caused by shell pipe LF→CRLF conversion.
 ///
 /// # Arguments
 /// - `serial`: Device serial number (optional, uses default device if None)

@@ -54,7 +54,14 @@ pub async fn launch_activity(
 ) -> Result<()> {
     let mut conn = AdbConnection::for_device(serial)?;
     let component = format!("{}/{}", package_name, activity);
-    conn.shell_command_args(&["am", "start", "-n", &component])?;
+    let output = conn.shell_command_args(&["am", "start", "-n", &component])?;
+    if output.contains("Error") || output.contains("Exception") {
+        return Err(AdbError::CommandFailed(format!(
+            "Failed to launch activity '{}': {}",
+            component,
+            output.trim()
+        )));
+    }
     Ok(())
 }
 
@@ -165,7 +172,14 @@ pub async fn get_package_info(serial: Option<&str>, package_name: &str) -> Resul
 /// Clear app data.
 pub async fn clear_data(serial: Option<&str>, package_name: &str) -> Result<()> {
     let mut conn = AdbConnection::for_device(serial)?;
-    conn.shell_command_args(&["pm", "clear", package_name])?;
+    let output = conn.shell_command_args(&["pm", "clear", package_name])?;
+    if output.contains("Failed") || output.contains("Exception") {
+        return Err(AdbError::CommandFailed(format!(
+            "Failed to clear data for '{}': {}",
+            package_name,
+            output.trim()
+        )));
+    }
     Ok(())
 }
 

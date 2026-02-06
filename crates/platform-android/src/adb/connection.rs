@@ -50,7 +50,7 @@ impl AdbConnection {
     /// Execute a shell command and capture stdout as String.
     ///
     /// The command string is split into parts by whitespace.
-    /// For commands that need literal spaces in arguments, use `shell_command_raw`.
+    /// For commands that need literal spaces in arguments, use `shell_command_args`.
     pub fn shell_command(&mut self, command: &str) -> Result<String> {
         let parts: Vec<&str> = command.split_whitespace().collect();
         let mut output = Vec::new();
@@ -98,7 +98,7 @@ impl AdbConnection {
     /// Push data from a reader to a device path.
     pub fn push<R: std::io::Read>(&mut self, reader: R, remote_path: &str) -> Result<()> {
         self.device
-            .push(reader, &remote_path)
+            .push(reader, remote_path)
             .map_err(|e| AdbError::CommandFailed(format!("push failed: {}", e)))
     }
 
@@ -241,6 +241,7 @@ fn dirs_avd_path() -> Option<std::path::PathBuf> {
     std::env::var("HOME")
         .ok()
         .map(|h| std::path::PathBuf::from(h).join(".android").join("avd"))
+        .filter(|p| p.is_dir())
 }
 
 /// Get a device property via ADB protocol (shell getprop).

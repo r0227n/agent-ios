@@ -119,7 +119,7 @@ async fn has_android_device() -> bool {
         return false;
     }
     match agent_mobile_platform_android::list_devices() {
-        Ok(devices) => !devices.is_empty(),
+        Ok(devices) => devices.iter().any(|(_, state)| state == "device"),
         Err(_) => false,
     }
 }
