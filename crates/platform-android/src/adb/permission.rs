@@ -18,13 +18,16 @@ pub async fn grant_permission(serial: Option<&str>, package: &str, permission: &
         let mut conn = AdbConnection::for_device(serial.as_deref())?;
         let output = conn.shell_command_args(&["pm", "grant", &package, &permission])?;
 
-        // pm grant outputs error messages on failure
-        if output.contains("Exception") || output.contains("Error") || output.contains("Unknown") {
+        // pm grant outputs error messages on failure (successful grants produce empty output)
+        let trimmed = output.trim();
+        if !trimmed.is_empty()
+            && (trimmed.contains("Exception")
+                || trimmed.contains("Error")
+                || trimmed.contains("Unknown"))
+        {
             return Err(AdbError::CommandFailed(format!(
                 "Failed to grant permission '{}' to '{}': {}",
-                permission,
-                package,
-                output.trim()
+                permission, package, trimmed
             )));
         }
 
@@ -50,12 +53,16 @@ pub async fn revoke_permission(
         let mut conn = AdbConnection::for_device(serial.as_deref())?;
         let output = conn.shell_command_args(&["pm", "revoke", &package, &permission])?;
 
-        if output.contains("Exception") || output.contains("Error") || output.contains("Unknown") {
+        // pm revoke outputs error messages on failure (successful revokes produce empty output)
+        let trimmed = output.trim();
+        if !trimmed.is_empty()
+            && (trimmed.contains("Exception")
+                || trimmed.contains("Error")
+                || trimmed.contains("Unknown"))
+        {
             return Err(AdbError::CommandFailed(format!(
                 "Failed to revoke permission '{}' from '{}': {}",
-                permission,
-                package,
-                output.trim()
+                permission, package, trimmed
             )));
         }
 

@@ -12,6 +12,13 @@ use super::commands::{AdbError, Result};
 /// Default ADB server address.
 const DEFAULT_ADB_ADDR: &str = "127.0.0.1:5037";
 
+/// Parse the default ADB server address.
+fn default_addr() -> Result<SocketAddrV4> {
+    DEFAULT_ADB_ADDR
+        .parse()
+        .map_err(|e| AdbError::CommandFailed(format!("Invalid ADB server address: {}", e)))
+}
+
 /// ADB native protocol connection.
 ///
 /// Wraps `adb_client::ADBServerDevice` for direct TCP communication
@@ -23,18 +30,14 @@ pub struct AdbConnection {
 impl AdbConnection {
     /// Create a connection to a specific device by serial.
     pub fn new(serial: &str) -> Result<Self> {
-        let addr: SocketAddrV4 = DEFAULT_ADB_ADDR
-            .parse()
-            .map_err(|e| AdbError::CommandFailed(format!("Invalid ADB server address: {}", e)))?;
+        let addr = default_addr()?;
         let device = ADBServerDevice::new(serial.to_string(), Some(addr));
         Ok(Self { device })
     }
 
     /// Create a connection that auto-detects a single device.
     pub fn autodetect() -> Result<Self> {
-        let addr: SocketAddrV4 = DEFAULT_ADB_ADDR
-            .parse()
-            .map_err(|e| AdbError::CommandFailed(format!("Invalid ADB server address: {}", e)))?;
+        let addr = default_addr()?;
         let device = ADBServerDevice::autodetect(Some(addr));
         Ok(Self { device })
     }
@@ -158,9 +161,7 @@ impl AdbConnection {
 
 /// Get an ADB server instance.
 fn get_server() -> Result<ADBServer> {
-    let addr: SocketAddrV4 = DEFAULT_ADB_ADDR
-        .parse()
-        .map_err(|e| AdbError::CommandFailed(format!("Invalid ADB server address: {}", e)))?;
+    let addr = default_addr()?;
     Ok(ADBServer::new(addr))
 }
 

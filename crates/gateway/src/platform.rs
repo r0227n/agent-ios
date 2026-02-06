@@ -21,7 +21,10 @@ impl DeviceResolver {
         if Self::has_booted_ios_simulators().await {
             return Ok(Platform::Ios);
         }
-        if Self::has_android_devices() {
+        let has_android = tokio::task::spawn_blocking(Self::has_android_devices)
+            .await
+            .unwrap_or(false);
+        if has_android {
             return Ok(Platform::Android);
         }
         Err(

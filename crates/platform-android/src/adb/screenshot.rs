@@ -20,8 +20,17 @@ use super::connection::AdbConnection;
 /// - `Ok(())` on success
 /// - `Err(AdbError)` if capture fails
 pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
-    let png_bytes = screenshot_bytes(serial)?;
-    std::fs::write(output_path, &png_bytes).map_err(AdbError::ExecutionError)?;
+    let serial = serial.map(|s| s.to_string());
+    let output_path = output_path.to_string();
+
+    tokio::task::spawn_blocking(move || {
+        let png_bytes = screenshot_bytes(serial.as_deref())?;
+        std::fs::write(&output_path, &png_bytes).map_err(AdbError::ExecutionError)?;
+        Ok::<(), AdbError>(())
+    })
+    .await
+    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))??;
+
     Ok(())
 }
 
@@ -32,11 +41,12 @@ pub async fn screenshot(serial: Option<&str>, output_path: &str) -> Result<()> {
 pub fn screenshot_bytes(serial: Option<&str>) -> Result<Vec<u8>> {
     let mut conn = AdbConnection::for_device(serial)?;
 
-    // Use a temporary file on device to avoid shell pipe corruption
-    let remote_path = "/sdcard/agent_mobile_screenshot.png";
+    // Use a unique temporary file on device to avoid concurrent execution conflicts
+    let uuid = uuid::Uuid::new_v4();
+    let remote_path = format!("/sdcard/agent_mobile_screenshot_{}.png", uuid);
 
     // Capture screenshot to file (without -p flag to avoid stdout corruption)
-    let output = conn.shell_command_args(&["screencap", remote_path])?;
+    let output = conn.shell_command_args(&["screencap", &remote_path])?;
     let output_lower = output.to_lowercase();
     if output_lower.contains("error") || output_lower.contains("failed") {
         return Err(AdbError::CommandFailed(format!(
@@ -47,10 +57,10 @@ pub fn screenshot_bytes(serial: Option<&str>) -> Result<Vec<u8>> {
 
     // Pull the file
     let mut png_bytes = Vec::new();
-    conn.pull(remote_path, &mut png_bytes)?;
+    conn.pull(&remote_path, &mut png_bytes)?;
 
     // Clean up temporary file
-    let _ = conn.shell_command_args(&["rm", remote_path]);
+    let _ = conn.shell_command_args(&["rm", &remote_path]);
 
     if png_bytes.is_empty() {
         return Err(AdbError::CommandFailed(
