@@ -1,6 +1,6 @@
 use std::ffi::c_void;
 use std::path::Path;
-use std::sync::Once;
+use std::sync::OnceLock;
 
 use objc2::msg_send;
 use objc2::rc::Retained;
@@ -28,23 +28,21 @@ const SIM_DEVICE_STATE_BOOTED: u64 = 3;
 #[allow(dead_code)]
 const SIM_DEVICE_STATE_SHUTTING_DOWN: u64 = 4;
 
-static LOAD_FRAMEWORK: Once = Once::new();
+static LOAD_FRAMEWORK: OnceLock<bool> = OnceLock::new();
 
 /// Load CoreSimulator.framework via dlopen.
 ///
 /// Must be called before any other CoreSimulator FFI operations.
-/// Safe to call multiple times — the framework is loaded only once.
+/// Safe to call multiple times — the result is cached after the first attempt.
 pub(crate) fn load_framework() -> Result<(), CoreSimError> {
-    let mut load_error: Option<CoreSimError> = None;
-
-    LOAD_FRAMEWORK.call_once(|| {
+    let loaded = LOAD_FRAMEWORK.get_or_init(|| {
         let paths = [
             "/Applications/Xcode.app/Contents/Developer/Library/PrivateFrameworks/CoreSimulator.framework/CoreSimulator",
             "/Applications/Xcode-beta.app/Contents/Developer/Library/PrivateFrameworks/CoreSimulator.framework/CoreSimulator",
             "/Library/Developer/PrivateFrameworks/CoreSimulator.framework/CoreSimulator",
         ];
 
-        let loaded = paths.iter().any(|path| {
+        let found = paths.iter().any(|path| {
             let c_path = match std::ffi::CString::new(*path) {
                 Ok(p) => p,
                 Err(_) => return false,
@@ -53,34 +51,38 @@ pub(crate) fn load_framework() -> Result<(), CoreSimError> {
             !handle.is_null()
         });
 
-        if !loaded {
-            // Try xcode-select -p to find the developer directory
-            if let Ok(output) = std::process::Command::new("xcode-select")
-                .arg("-p")
-                .output()
-            {
-                if output.status.success() {
-                    let dev_dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    let path = format!(
-                        "{}/Library/PrivateFrameworks/CoreSimulator.framework/CoreSimulator",
-                        dev_dir
-                    );
-                    if let Ok(c_path) = std::ffi::CString::new(path) {
-                        let handle =
-                            unsafe { dlopen(c_path.as_ptr(), RTLD_LAZY | RTLD_GLOBAL) };
-                        if !handle.is_null() {
-                            return;
-                        }
+        if found {
+            return true;
+        }
+
+        // Try xcode-select -p to find the developer directory
+        if let Ok(output) = std::process::Command::new("xcode-select")
+            .arg("-p")
+            .output()
+        {
+            if output.status.success() {
+                let dev_dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                let path = format!(
+                    "{}/Library/PrivateFrameworks/CoreSimulator.framework/CoreSimulator",
+                    dev_dir
+                );
+                if let Ok(c_path) = std::ffi::CString::new(path) {
+                    let handle =
+                        unsafe { dlopen(c_path.as_ptr(), RTLD_LAZY | RTLD_GLOBAL) };
+                    if !handle.is_null() {
+                        return true;
                     }
                 }
             }
-            load_error = Some(CoreSimError::FrameworkNotFound);
         }
+
+        false
     });
 
-    match load_error {
-        Some(e) => Err(e),
-        None => Ok(()),
+    if *loaded {
+        Ok(())
+    } else {
+        Err(CoreSimError::FrameworkNotFound)
     }
 }
 
@@ -218,6 +220,13 @@ pub(crate) fn launch_application(udid: &str, bundle_id: &str) -> Result<u32, Cor
     };
 
     result.map_err(|e| CoreSimError::LaunchFailed(format!("{}", e)))?;
+
+    if pid < 0 {
+        return Err(CoreSimError::LaunchFailed(format!(
+            "invalid PID returned: {}",
+            pid
+        )));
+    }
 
     Ok(pid as u32)
 }

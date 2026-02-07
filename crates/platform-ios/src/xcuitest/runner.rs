@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::process::Command;
+use tracing::{info, warn};
 
 use super::client::XCUITestClient;
 
@@ -25,6 +26,8 @@ pub enum RunnerStartError {
     InstallFailed(String),
     #[error("App launch failed: {0}")]
     LaunchFailed(String),
+    #[error("Health check timed out after {0} seconds")]
+    HealthCheckTimeout(u64),
 }
 
 /// Pre-built .app bundle paths for the XCUITest Runner.
@@ -236,10 +239,11 @@ pub async fn start_runner_detached(
     // Launch the test runner
     let pid = crate::coresim::launch_app(udid, RUNNER_XCTRUNNER_BUNDLE_ID)
         .map_err(|e| RunnerStartError::LaunchFailed(format!("{}", e)))?;
-    eprintln!("XCUITest Runner launched (PID: {pid})");
+    info!(pid, "XCUITest Runner launched");
 
     // Poll for readiness
     let start = std::time::Instant::now();
+    let timeout = Duration::from_secs(120);
     let retry_interval = Duration::from_millis(500);
     let progress_interval = Duration::from_secs(10);
     let mut last_progress = std::time::Instant::now();
@@ -250,9 +254,16 @@ pub async fn start_runner_detached(
             return Ok(());
         }
 
+        let elapsed = start.elapsed();
+        if elapsed >= timeout {
+            return Err(RunnerStartError::HealthCheckTimeout(timeout.as_secs()));
+        }
+
         if last_progress.elapsed() >= progress_interval {
-            let elapsed = start.elapsed().as_secs();
-            eprintln!("Still waiting for XCUITest Runner to become ready ({elapsed}s elapsed)...");
+            info!(
+                elapsed_secs = elapsed.as_secs(),
+                "Still waiting for XCUITest Runner to become ready"
+            );
             last_progress = std::time::Instant::now();
         }
 
@@ -268,7 +279,7 @@ pub async fn build_for_testing(project_path: &Path, udid: &str) -> Result<(), Ru
         .to_str()
         .ok_or(RunnerStartError::ProjectNotFound)?;
 
-    eprintln!("Building XCUITest Runner (this may take a moment)...");
+    info!("Building XCUITest Runner (this may take a moment)...");
 
     let output = Command::new("xcodebuild")
         .args([
@@ -287,14 +298,20 @@ pub async fn build_for_testing(project_path: &Path, udid: &str) -> Result<(), Ru
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let truncated = if stderr.len() > 2000 {
-            format!("{}... (truncated)", &stderr[..2000])
+            let end = stderr
+                .char_indices()
+                .map(|(i, _)| i)
+                .take_while(|&i| i <= 2000)
+                .last()
+                .unwrap_or(0);
+            format!("{}... (truncated)", &stderr[..end])
         } else {
             stderr.to_string()
         };
         return Err(RunnerStartError::BuildFailed(truncated));
     }
 
-    eprintln!("XCUITest Runner build completed successfully.");
+    info!("XCUITest Runner build completed successfully");
     Ok(())
 }
 
@@ -312,7 +329,7 @@ pub async fn ensure_runner_started(port: u16) -> Result<(), RunnerStartError> {
         return Ok(());
     }
 
-    eprintln!("XCUITest Runner is not running. Starting automatically...");
+    info!("XCUITest Runner is not running. Starting automatically...");
 
     let booted = crate::coresim::get_booted_device()
         .map_err(|e| RunnerStartError::NoBootedSimulator(e.to_string()))?;
@@ -321,14 +338,11 @@ pub async fn ensure_runner_started(port: u16) -> Result<(), RunnerStartError> {
     if let Some(products) = RunnerBuildProducts::find() {
         match start_runner_detached(&products, &booted.udid, port).await {
             Ok(()) => {
-                eprintln!(
-                    "XCUITest Runner started successfully on simulator '{}'.",
-                    booted.name
-                );
+                info!(simulator = %booted.name, "XCUITest Runner started successfully");
                 return Ok(());
             }
             Err(e) => {
-                eprintln!("Failed to start from pre-built products: {e}. Falling back to build...");
+                warn!(%e, "Failed to start from pre-built products. Falling back to build...");
             }
         }
     }
@@ -345,9 +359,6 @@ pub async fn ensure_runner_started(port: u16) -> Result<(), RunnerStartError> {
     })?;
 
     start_runner_detached(&products, &booted.udid, port).await?;
-    eprintln!(
-        "XCUITest Runner started successfully on simulator '{}'.",
-        booted.name
-    );
+    info!(simulator = %booted.name, "XCUITest Runner started successfully");
     Ok(())
 }
