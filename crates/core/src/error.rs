@@ -10,15 +10,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Common error type for agent-mobile operations
 #[derive(Debug, Error)]
 pub enum Error {
-    /// gRPC communication error
-    #[error("gRPC error: {0}")]
-    Grpc(String),
-    /// Connection error (failed to connect to companion)
-    #[error("Connection error: {0}")]
-    Connection(String),
-    /// Companion not found or not available
-    #[error("Companion not found: {0}")]
-    CompanionNotFound(String),
     /// Target (device/simulator) not found
     #[error("Target not found: {0}")]
     TargetNotFound(String),
@@ -57,12 +48,6 @@ impl From<&str> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_error_display() {
-        let err = Error::Grpc("connection refused".to_string());
-        assert_eq!(format!("{}", err), "gRPC error: connection refused");
-    }
 
     #[test]
     fn test_error_from_string() {

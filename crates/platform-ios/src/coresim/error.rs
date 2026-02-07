@@ -1,3 +1,6 @@
+//! Error types for CoreSimulator operations.
+
+/// Errors that can occur during CoreSimulator framework operations.
 #[derive(Debug, thiserror::Error)]
 pub enum CoreSimError {
     #[error("CoreSimulator framework not found")]

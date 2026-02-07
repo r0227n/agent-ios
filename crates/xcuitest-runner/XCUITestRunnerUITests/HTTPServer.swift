@@ -21,16 +21,19 @@ final class HTTPServer {
 
     // MARK: - Route Registration
 
+    /// Register a GET route handler.
     func get(_ path: String, handler: @escaping RouteHandler) {
         routes.append((method: "GET", path: path, handler: handler))
     }
 
+    /// Register a POST route handler.
     func post(_ path: String, handler: @escaping RouteHandler) {
         routes.append((method: "POST", path: path, handler: handler))
     }
 
     // MARK: - Server Lifecycle
 
+    /// Start the server and begin accepting requests on the configured port.
     func start() throws {
         let params = NWParameters.tcp
         params.allowLocalEndpointReuse = true
@@ -56,6 +59,7 @@ final class HTTPServer {
         listener?.start(queue: queue)
     }
 
+    /// Stop the server and cancel the listener.
     func stop() {
         listener?.cancel()
         listener = nil
@@ -138,6 +142,7 @@ final class HTTPServer {
 
 // MARK: - HTTP Request
 
+/// Represents a parsed HTTP request.
 struct HTTPRequest {
     let method: String
     let path: String
@@ -203,6 +208,7 @@ struct HTTPRequest {
 
 // MARK: - HTTP Response
 
+/// Represents an HTTP response to be sent back to the client.
 struct HTTPResponse {
     let statusCode: Int
     let body: Any?
@@ -210,6 +216,7 @@ struct HTTPResponse {
     private let rawData: Data?
     private let contentType: String
 
+    /// Create a JSON response.
     init(status: Int, body: Any? = nil) {
         self.statusCode = status
         self.body = body
@@ -225,10 +232,12 @@ struct HTTPResponse {
         self.contentType = contentType
     }
 
+    /// Create a 200 OK response.
     static func ok(_ body: Any? = nil) -> HTTPResponse {
         HTTPResponse(status: 200, body: body)
     }
 
+    /// Create an error response.
     static func error(_ message: String, status: Int = 400) -> HTTPResponse {
         HTTPResponse(status: status, body: ["error": message])
     }
@@ -238,6 +247,7 @@ struct HTTPResponse {
         HTTPResponse(status: status, data: data, contentType: contentType)
     }
 
+    /// Serialize the response into raw HTTP bytes.
     func serialize() -> Data {
         let bodyData: Data
         if let raw = rawData {

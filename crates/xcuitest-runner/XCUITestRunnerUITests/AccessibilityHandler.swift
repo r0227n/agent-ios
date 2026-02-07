@@ -1,7 +1,6 @@
 import XCTest
 
-/// Handles accessibility tree extraction via XCUITest API.
-/// Outputs JSON in idb-compatible format for seamless Rust-side parsing.
+/// Extracts the accessibility tree via XCUITest API and outputs it as JSON.
 final class AccessibilityHandler {
     private let app: XCUIApplication
 
@@ -9,14 +8,14 @@ final class AccessibilityHandler {
         self.app = app
     }
 
-    /// Get the accessibility tree as idb-compatible JSON.
+    /// Get the accessibility tree as JSON.
     ///
     /// - Parameters:
     ///   - nested: When `true`, include children recursively.
     ///   - maxDepth: Optional limit on recursion depth (0 = root only, 1 = root + direct children, …).
     ///              `nil` means unlimited.
     ///
-    /// The output format matches idb's accessibility_info response:
+    /// Output format:
     /// ```json
     /// {
     ///   "type": "Application",
@@ -69,7 +68,7 @@ final class AccessibilityHandler {
     private func buildElementDict(from element: XCUIElement) -> [String: Any] {
         var dict: [String: Any] = [:]
 
-        // Type - map XCUIElement.ElementType to idb type names
+        // Type - map XCUIElement.ElementType to human-readable type names
         dict["type"] = mapElementType(element.elementType)
 
         // Label
@@ -106,7 +105,7 @@ final class AccessibilityHandler {
 
     // MARK: - Type Mapping
 
-    /// Map XCUIElement.ElementType to idb-compatible type names.
+    /// Map XCUIElement.ElementType to a string name.
     private func mapElementType(_ type: XCUIElement.ElementType) -> String {
         switch type {
         case .application: return "Application"

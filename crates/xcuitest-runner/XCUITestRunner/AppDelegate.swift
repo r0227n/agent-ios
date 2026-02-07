@@ -1,5 +1,6 @@
 import UIKit
 
+/// Host application for the XCUITest Runner.
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?

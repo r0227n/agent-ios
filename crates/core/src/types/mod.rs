@@ -4,12 +4,10 @@
 //! target descriptions, addresses, compression types, and installation artifacts.
 
 mod install;
-mod merge;
 mod output;
 mod target;
 
 pub use install::{Compression, InstalledArtifact};
-pub use merge::merge_connected_targets;
 pub use output::{human_format_target, json_format_target};
 pub use target::{Address, CompanionInfo, DeviceInfo, TargetType};
 
