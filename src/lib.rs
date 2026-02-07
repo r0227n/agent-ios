@@ -11,20 +11,18 @@
 //!
 //! # CLI Usage
 //!
-//! ```no_run
-//! // This crate is designed as a CLI tool. Use it via the command line:
-//! //
-//! //   agent-mobile screenshot -o screenshot.png
-//! //   agent-mobile tap 100 200
-//! //   agent-mobile input "Hello!"
-//! //   agent-mobile swipe up
-//! //
-//! // For programmatic access from Rust, use the workspace crates directly:
-//! //   - `agent_mobile_core` for shared types and traits
-//! //   - `agent_mobile_platform_ios` for iOS operations
-//! //   - `agent_mobile_platform_android` for Android operations
-//! //   - `agent_mobile_gateway` for high-level API
+//! ```text
+//! agent-mobile screenshot -o screenshot.png
+//! agent-mobile tap 100 200
+//! agent-mobile input "Hello!"
+//! agent-mobile swipe up
 //! ```
+//!
+//! For programmatic access from Rust, use the workspace crates directly:
+//! - `agent_mobile_core` for shared types and traits
+//! - `agent_mobile_platform_ios` for iOS operations
+//! - `agent_mobile_platform_android` for Android operations
+//! - `agent_mobile_gateway` for high-level API
 //!
 //! # Architecture
 //!

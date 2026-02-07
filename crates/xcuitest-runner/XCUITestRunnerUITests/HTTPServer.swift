@@ -45,7 +45,8 @@ final class HTTPServer {
             self?.handleConnection(connection)
         }
 
-        listener?.stateUpdateHandler = { state in
+        listener?.stateUpdateHandler = { [weak self] state in
+            guard let self = self else { return }
             switch state {
             case .ready:
                 NSLog("[XCUITestRunner] HTTP server listening on port \(self.port)")

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Request for a tap gesture
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TapRequest {
     pub x: f64,
     pub y: f64,
@@ -9,6 +10,7 @@ pub struct TapRequest {
 
 /// Request for a long press gesture
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LongPressRequest {
     pub x: f64,
     pub y: f64,
@@ -51,13 +53,6 @@ pub struct AppRequest {
     pub bundle_id: String,
 }
 
-/// Generic response from XCUITest Runner
-#[derive(Debug, Deserialize)]
-pub struct RunnerResponse {
-    pub success: Option<bool>,
-    pub error: Option<String>,
-}
-
 /// Request for app installation
 #[derive(Debug, Serialize)]
 pub struct InstallRequest {
@@ -75,6 +70,13 @@ pub struct UninstallRequest {
 #[derive(Debug, Serialize)]
 pub struct ClipboardCopyRequest {
     pub text: String,
+}
+
+/// Generic response from XCUITest Runner
+#[derive(Debug, Deserialize)]
+pub struct RunnerResponse {
+    pub success: Option<bool>,
+    pub error: Option<String>,
 }
 
 /// Response containing clipboard paste content
