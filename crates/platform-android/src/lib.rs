@@ -12,6 +12,7 @@ pub mod snapshot;
 // Re-export main types
 pub use adb::app::AppInfo;
 pub use adb::connection::AdbConnection;
+pub use adb::logcat::LogcatStream;
 pub use adb::uiautomator::{
     dump_ui, find_by_id, find_by_text, find_by_type, parse_ui_hierarchy, AccessibilityElement,
 };
