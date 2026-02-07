@@ -80,7 +80,7 @@ pub fn get_avd_name(serial: &str) -> Result<Option<String>> {
     if value.is_empty() {
         Ok(None)
     } else {
-        // AVD name may be URL-encoded, decode underscores
+        // AVD name uses underscores as space separators (e.g., "Pixel_6_API_34")
         Ok(Some(value.replace("_", " ")))
     }
 }

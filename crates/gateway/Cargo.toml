@@ -6,6 +6,7 @@ description = "High-level API gateway for agent-mobile"
 
 [dependencies]
 agent-mobile-core = { path = "../core" }
+agent-mobile-platform-ios = { path = "../platform-ios" }
 agent-mobile-platform-android = { path = "../platform-android" }
 
 # Async runtime

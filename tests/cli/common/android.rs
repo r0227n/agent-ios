@@ -5,17 +5,18 @@
 
 #![allow(dead_code)]
 
-use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-/// Get a valid Android device serial number from adb devices.
+use agent_mobile_platform_android::{AdbConnection, AdbError};
+
+/// Get a valid Android device serial number via native ADB protocol.
 ///
 /// Returns the serial of the first connected device/emulator.
 /// Panics if no Android device is available.
 ///
 /// # Panics
-/// - If adb is not installed or not in PATH
+/// - If ADB server is not reachable
 /// - If no Android device/emulator is connected
 ///
 /// # Example
@@ -24,23 +25,12 @@ use std::time::Duration;
 /// println!("Using Android device: {}", serial);
 /// ```
 pub fn get_available_serial() -> String {
-    let output = Command::new("adb")
-        .args(["devices", "-l"])
-        .output()
-        .expect("Failed to execute adb - ensure Android SDK is installed and adb is in PATH");
+    let devices = agent_mobile_platform_android::list_devices()
+        .expect("Failed to list devices - ensure ADB server is running");
 
-    assert!(
-        output.status.success(),
-        "adb devices failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines().skip(1) {
-        // Skip "List of devices attached" header
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 2 && parts[1] == "device" {
-            return parts[0].to_string();
+    for (serial, state) in &devices {
+        if state == "device" {
+            return serial.clone();
         }
     }
 
@@ -56,24 +46,14 @@ pub fn get_available_serial() -> String {
 /// This is the Android equivalent of ensure_companion_running() for iOS.
 ///
 /// # Panics
-/// - If adb command fails
+/// - If ADB connection fails
 /// - If device is not responsive
 pub fn ensure_device_ready(serial: &str) {
-    let output = Command::new("adb")
-        .args(["-s", serial, "shell", "getprop", "ro.build.version.sdk"])
-        .output()
-        .expect("Failed to execute adb");
+    let api_level = agent_mobile_platform_android::get_api_level(serial)
+        .expect("Failed to connect to Android device");
 
     assert!(
-        output.status.success(),
-        "Failed to connect to Android device {}: {}",
-        serial,
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let api_level = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    assert!(
-        !api_level.is_empty(),
+        api_level.is_some(),
         "Device {} is not responding properly",
         serial
     );
@@ -101,14 +81,13 @@ pub fn wait_for_ui_ready(serial: &str) {
     const RETRY_DELAY_MS: u64 = 1000;
 
     for attempt in 1..=MAX_ATTEMPTS {
-        let output = Command::new("adb")
-            .args(["-s", serial, "shell", "getprop", "sys.boot_completed"])
-            .output()
-            .expect("Failed to execute adb");
+        let result = (|| -> std::result::Result<String, AdbError> {
+            let mut conn = AdbConnection::new(serial)?;
+            conn.shell_command("getprop sys.boot_completed")
+        })();
 
-        if output.status.success() {
-            let boot_completed = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if boot_completed == "1" {
+        if let Ok(output) = result {
+            if output.trim() == "1" {
                 eprintln!("Android UI ready after {} attempt(s)", attempt);
                 return;
             }
@@ -134,17 +113,17 @@ pub fn wait_for_ui_ready(serial: &str) {
 /// # Returns
 /// true if the package is installed, false otherwise
 pub fn is_package_installed(serial: &str, package: &str) -> bool {
-    let output = Command::new("adb")
-        .args(["-s", serial, "shell", "pm", "list", "packages", package])
-        .output()
-        .expect("Failed to execute adb");
+    let result = (|| -> std::result::Result<String, AdbError> {
+        let mut conn = AdbConnection::new(serial)?;
+        conn.shell_command_args(&["pm", "list", "packages", package])
+    })();
 
-    if !output.status.success() {
-        return false;
+    match result {
+        Ok(stdout) => stdout
+            .lines()
+            .any(|line| line.trim() == format!("package:{}", package)),
+        Err(_) => false,
     }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    stdout.contains(&format!("package:{}", package))
 }
 
 /// Get Android API level for the device.
@@ -152,21 +131,9 @@ pub fn is_package_installed(serial: &str, package: &str) -> bool {
 /// # Returns
 /// API level as integer (e.g., 30 for Android 11)
 pub fn get_api_level(serial: &str) -> u32 {
-    let output = Command::new("adb")
-        .args(["-s", serial, "shell", "getprop", "ro.build.version.sdk"])
-        .output()
-        .expect("Failed to execute adb");
-
-    assert!(
-        output.status.success(),
-        "Failed to get API level: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let api_level_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    api_level_str
-        .parse()
-        .unwrap_or_else(|_| panic!("Failed to parse API level: {}", api_level_str))
+    agent_mobile_platform_android::get_api_level(serial)
+        .expect("Failed to get API level")
+        .unwrap_or_else(|| panic!("API level not available for device {}", serial))
 }
 
 /// Check if the device is an emulator.
@@ -174,21 +141,7 @@ pub fn get_api_level(serial: &str) -> u32 {
 /// # Returns
 /// true if the device is an emulator, false if physical device
 pub fn is_emulator(serial: &str) -> bool {
-    serial.starts_with("emulator-") || {
-        let output = Command::new("adb")
-            .args(["-s", serial, "shell", "getprop", "ro.product.manufacturer"])
-            .output()
-            .ok();
-
-        if let Some(output) = output {
-            let manufacturer = String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .to_lowercase();
-            manufacturer.contains("google") || manufacturer.contains("generic")
-        } else {
-            false
-        }
-    }
+    agent_mobile_platform_android::is_emulator(serial)
 }
 
 #[cfg(test)]

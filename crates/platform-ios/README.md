@@ -17,7 +17,7 @@ iOS platform implementation for agent-mobile, providing device and simulator aut
 - Simulator lifecycle management (boot, shutdown, install, uninstall)
 - Device discovery via `simctl list` with caching (TTL 5s)
 - Accessibility tree extraction for UI automation
-- Zero external dependencies (Apple standard frameworks only)
+- Pure Rust implementation with Apple framework FFI (no Python/Ruby/system dependencies)
 
 ## Architecture
 
