@@ -77,7 +77,7 @@ agent-mobile console --udid emulator-5554
 ```
 
 **出力例**:
-```
+```text
 01-15 10:23:45.123  1234  5678 I ActivityManager: Start proc com.example.app
 01-15 10:23:45.234  1234  5678 D NetworkSecurityConfig: No Network Security Config specified
 01-15 10:23:45.345  1234  5678 I chatty: uid=10123(com.example.app) identical 3 lines
@@ -122,7 +122,7 @@ cargo build --release
 
 ### 処理フロー
 
-```
+```text
 CLI (src/main.rs)
     ↓
 gateway/console.rs (stream_android_console)

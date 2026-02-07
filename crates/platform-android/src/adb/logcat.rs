@@ -3,17 +3,22 @@
 //! Implements logcat streaming over the ADB wire protocol (TCP :5037),
 //! eliminating the need for `adb logcat` CLI process.
 
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, Lines};
+use std::time::Duration;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
+use tokio::time::timeout;
 
 use super::commands::{AdbError, Result};
 
 /// Default ADB server address.
 const ADB_ADDR: &str = "127.0.0.1:5037";
 
+/// Connection timeout for ADB server.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// Stream of logcat output over ADB native protocol.
 pub struct LogcatStream {
-    lines: Lines<BufReader<TcpStream>>,
+    reader: Option<BufReader<TcpStream>>,
 }
 
 impl LogcatStream {
@@ -26,12 +31,20 @@ impl LogcatStream {
     /// If `serial` is `None`, connects to whichever single device is available
     /// (`host:transport-any`).
     pub async fn open(serial: Option<&str>) -> Result<Self> {
-        let mut stream = TcpStream::connect(ADB_ADDR).await.map_err(|e| {
-            AdbError::ConnectionError(format!(
-                "failed to connect to ADB server at {}: {}",
-                ADB_ADDR, e
-            ))
-        })?;
+        let mut stream = timeout(CONNECT_TIMEOUT, TcpStream::connect(ADB_ADDR))
+            .await
+            .map_err(|_| {
+                AdbError::ConnectionError(format!(
+                    "connection to ADB server at {} timed out",
+                    ADB_ADDR
+                ))
+            })?
+            .map_err(|e| {
+                AdbError::ConnectionError(format!(
+                    "failed to connect to ADB server at {}: {}",
+                    ADB_ADDR, e
+                ))
+            })?;
 
         // 1. Select the target device
         let transport_cmd = match serial {
@@ -47,22 +60,39 @@ impl LogcatStream {
 
         // 3. Wrap in a line-based reader for streaming
         let reader = BufReader::new(stream);
-        let lines = reader.lines();
 
-        Ok(Self { lines })
+        Ok(Self {
+            reader: Some(reader),
+        })
     }
 
     /// Read the next line from the logcat stream.
     pub async fn next_line(&mut self) -> Result<Option<String>> {
-        self.lines
-            .next_line()
-            .await
-            .map_err(|e| AdbError::ConnectionError(format!("logcat read error: {}", e)))
+        let reader = self
+            .reader
+            .as_mut()
+            .ok_or_else(|| AdbError::ConnectionError("stream already closed".to_string()))?;
+
+        let mut line = String::new();
+        match reader.read_line(&mut line).await {
+            Ok(0) => Ok(None), // EOF
+            Ok(_) => Ok(Some(line.trim_end().to_string())),
+            Err(e) => Err(AdbError::ConnectionError(format!(
+                "logcat read error: {}",
+                e
+            ))),
+        }
     }
 
     /// Stop the logcat stream by shutting down the TCP connection.
     pub async fn stop(&mut self) -> Result<()> {
-        // Connection is closed when LogcatStream is dropped.
+        if let Some(reader) = self.reader.take() {
+            let mut stream = reader.into_inner();
+            stream
+                .shutdown()
+                .await
+                .map_err(|e| AdbError::ConnectionError(format!("failed to shutdown: {}", e)))?;
+        }
         Ok(())
     }
 }
