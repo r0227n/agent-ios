@@ -10,7 +10,16 @@ pub(super) fn run_simctl(args: &[&str]) -> Result<String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
+        let exit_code = output
+            .status
+            .code()
+            .map_or("unknown".to_string(), |c| c.to_string());
+        return Err(SimctlError::CommandFailed(format!(
+            "simctl command failed (exit code: {}): xcrun simctl {}\nstderr: {}",
+            exit_code,
+            args.join(" "),
+            stderr.trim()
+        )));
     }
 
     String::from_utf8(output.stdout).map_err(|e| SimctlError::InvalidOutput(e.to_string()))
@@ -28,7 +37,16 @@ pub(super) fn run_simctl_tolerant(args: &[&str], ok_patterns: &[&str]) -> Result
         if ok_patterns.iter().any(|p| stderr.contains(p)) {
             return Ok(String::new());
         }
-        return Err(SimctlError::CommandFailed(stderr.to_string()));
+        let exit_code = output
+            .status
+            .code()
+            .map_or("unknown".to_string(), |c| c.to_string());
+        return Err(SimctlError::CommandFailed(format!(
+            "simctl command failed (exit code: {}): xcrun simctl {}\nstderr: {}",
+            exit_code,
+            args.join(" "),
+            stderr.trim()
+        )));
     }
 
     String::from_utf8(output.stdout).map_err(|e| SimctlError::InvalidOutput(e.to_string()))

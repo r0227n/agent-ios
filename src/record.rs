@@ -231,7 +231,7 @@ fn send_sigint_to_child(child: &tokio::process::Child) {
 /// Get the UDID of a booted simulator
 async fn get_booted_simulator_udid() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let booted =
-        tokio::task::spawn_blocking(|| agent_mobile_platform_ios::simctl::get_booted_simulator())
+        tokio::task::spawn_blocking(agent_mobile_platform_ios::simctl::get_booted_simulator)
             .await
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
                 format!("spawn_blocking failed: {}", e).into()

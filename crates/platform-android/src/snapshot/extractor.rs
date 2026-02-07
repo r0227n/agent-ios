@@ -38,13 +38,13 @@ fn convert_element(element: &AccessibilityElement) -> RawElement {
 
     // Add additional traits based on Android-specific attributes
     let mut all_traits = traits;
-    if element.scrollable && !all_traits.contains(&"scrollable".to_string()) {
+    if element.scrollable && !all_traits.iter().any(|t| t == "scrollable") {
         all_traits.push("scrollable".to_string());
     }
     if element.clickable
-        && !all_traits.contains(&"button".to_string())
-        && !all_traits.contains(&"text_input".to_string())
-        && !all_traits.contains(&"clickable".to_string())
+        && !all_traits.iter().any(|t| t == "button")
+        && !all_traits.iter().any(|t| t == "text_input")
+        && !all_traits.iter().any(|t| t == "clickable")
     {
         all_traits.push("clickable".to_string());
     }

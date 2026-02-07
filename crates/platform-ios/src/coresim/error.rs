@@ -4,6 +4,8 @@ pub enum CoreSimError {
     FrameworkNotFound,
     #[error("No booted simulator found")]
     NoBootedDevice,
+    #[error("Device with UDID '{0}' not found")]
+    DeviceNotFound(String),
     #[error("App install failed: {0}")]
     InstallFailed(String),
     #[error("App launch failed: {0}")]

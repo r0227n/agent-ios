@@ -36,8 +36,7 @@ impl DeviceResolver {
     /// Check if any iOS simulators are currently booted
     pub async fn has_booted_ios_simulators() -> bool {
         let result =
-            tokio::task::spawn_blocking(|| agent_mobile_platform_ios::simctl::list_simulators())
-                .await;
+            tokio::task::spawn_blocking(agent_mobile_platform_ios::simctl::list_simulators).await;
 
         match result {
             Ok(Ok(devices)) => devices.iter().any(|d| d.state.as_deref() == Some("Booted")),

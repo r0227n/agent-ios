@@ -16,6 +16,18 @@ extern "C" {
 const RTLD_LAZY: i32 = 0x1;
 const RTLD_GLOBAL: i32 = 0x8;
 
+/// CoreSimulator SimDeviceState constants
+/// See: CoreSimulator.framework/Headers/SimDevice.h
+#[allow(dead_code)]
+const SIM_DEVICE_STATE_CREATING: u64 = 0;
+#[allow(dead_code)]
+const SIM_DEVICE_STATE_SHUTDOWN: u64 = 1;
+#[allow(dead_code)]
+const SIM_DEVICE_STATE_BOOTING: u64 = 2;
+const SIM_DEVICE_STATE_BOOTED: u64 = 3;
+#[allow(dead_code)]
+const SIM_DEVICE_STATE_SHUTTING_DOWN: u64 = 4;
+
 static LOAD_FRAMEWORK: Once = Once::new();
 
 /// Load CoreSimulator.framework via dlopen.
@@ -129,7 +141,7 @@ pub(crate) fn find_booted_device() -> Result<BootedDevice, CoreSimError> {
         let device = device_at_index(&devices, i);
 
         let state: u64 = unsafe { msg_send![&*device, state] };
-        if state == 3 {
+        if state == SIM_DEVICE_STATE_BOOTED {
             let udid = device_udid_string(&device);
             let name_ns: Retained<NSString> = unsafe { msg_send![&*device, name] };
 
@@ -158,7 +170,7 @@ fn find_device_by_udid(udid: &str) -> Result<Retained<AnyObject>, CoreSimError> 
         }
     }
 
-    Err(CoreSimError::NoBootedDevice)
+    Err(CoreSimError::DeviceNotFound(udid.to_string()))
 }
 
 /// Install an application on the specified simulator.

@@ -3,6 +3,8 @@
 //! This module provides functions to grant, revoke, and reset runtime permissions
 //! for Android apps using the native ADB protocol.
 
+use tracing::warn;
+
 use super::commands::{AdbError, Result};
 use super::connection::AdbConnection;
 
@@ -89,10 +91,10 @@ pub async fn reset_permissions(serial: Option<&str>, package: &str) -> Result<()
         if output.contains("Exception") || output.contains("Error") {
             // reset-permissions may not be available on all Android versions
             // Treat as non-critical error
-            eprintln!(
-                "Warning: Failed to reset permissions for '{}': {}",
-                package,
-                output.trim()
+            warn!(
+                package = %package,
+                error = %output.trim(),
+                "Failed to reset permissions (may not be available on this Android version)"
             );
         }
 
