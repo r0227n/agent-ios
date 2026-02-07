@@ -7,7 +7,19 @@ use thiserror::Error;
 /// Common result type alias using the Error enum
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Common error type for agent-mobile operations
+/// Common error type for agent-mobile operations.
+///
+/// # Example
+///
+/// ```
+/// use agent_mobile_core::Error;
+///
+/// let err = Error::TargetNotFound("iPhone 15".to_string());
+/// assert_eq!(err.to_string(), "Target not found: iPhone 15");
+///
+/// let err = Error::InvalidArgument("bad value".to_string());
+/// assert_eq!(err.to_string(), "Invalid argument: bad value");
+/// ```
 #[derive(Debug, Error)]
 pub enum Error {
     /// Target (device/simulator) not found

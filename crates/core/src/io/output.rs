@@ -24,13 +24,13 @@ impl OutputWriter {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```
     /// use agent_mobile_core::OutputWriter;
     /// use std::io::Write;
     ///
-    /// let mut writer = OutputWriter::from_path(&dest_path)?;
-    /// writer.write_all(&data)?;
-    /// writer.flush()?;
+    /// // "-" creates a stdout writer
+    /// let mut writer = OutputWriter::from_path("-").unwrap();
+    /// assert!(writer.is_stdout());
     /// ```
     pub fn from_path(path: &str) -> io::Result<Self> {
         if path == "-" {

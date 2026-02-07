@@ -4,6 +4,18 @@
 ///
 /// This function maps UI element types to semantic traits that describe
 /// the element's behavior. Works for both iOS and Android element types.
+///
+/// # Example
+///
+/// ```
+/// use agent_mobile_core::extract_traits_for_type;
+///
+/// let traits = extract_traits_for_type("Button");
+/// assert_eq!(traits, vec!["button"]);
+///
+/// let traits = extract_traits_for_type("View");
+/// assert!(traits.is_empty());
+/// ```
 pub fn extract_traits_for_type(element_type: &str) -> Vec<String> {
     let mut traits = Vec::new();
 

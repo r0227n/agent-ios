@@ -22,7 +22,7 @@ pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sy
 /// # Example
 ///
 /// ```ignore
-/// use crate::helpers::client::{with_xcuitest, CommandResult};
+/// use agent_mobile::helpers::client::{with_xcuitest, CommandResult};
 ///
 /// pub async fn run() -> CommandResult {
 ///     with_xcuitest(|client| async move {

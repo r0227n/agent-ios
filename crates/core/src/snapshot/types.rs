@@ -32,6 +32,16 @@ impl Frame {
     }
 
     /// Create a zero-sized frame at origin.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use agent_mobile_core::snapshot::Frame;
+    ///
+    /// let frame = Frame::zero();
+    /// assert_eq!(frame.x, 0.0);
+    /// assert_eq!(frame.width, 0.0);
+    /// ```
     pub fn zero() -> Self {
         Self {
             x: 0.0,
@@ -71,6 +81,16 @@ impl RawElement {
 }
 
 /// Check if an element type is interactive.
+///
+/// # Example
+///
+/// ```
+/// use agent_mobile_core::is_interactive_type;
+///
+/// assert!(is_interactive_type("Button"));
+/// assert!(is_interactive_type("TextField"));
+/// assert!(!is_interactive_type("StaticText"));
+/// ```
 pub fn is_interactive_type(element_type: &str) -> bool {
     matches!(
         element_type,

@@ -34,6 +34,17 @@ pub struct Point {
 }
 
 impl Point {
+    /// Create a new point at the given coordinates.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use agent_mobile_core::traits::Point;
+    ///
+    /// let p = Point::new(10.0, 20.0);
+    /// assert_eq!(p.x, 10.0);
+    /// assert_eq!(p.y, 20.0);
+    /// ```
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
     }

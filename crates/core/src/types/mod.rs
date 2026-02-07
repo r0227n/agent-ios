@@ -110,6 +110,16 @@ impl ScrollDirection {
 
     /// Get swipe coordinates for this direction (assuming center origin).
     /// Returns (start_offset, end_offset) where offset is (dx, dy) from center.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use agent_mobile_core::ScrollDirection;
+    ///
+    /// let (start, end) = ScrollDirection::Up.to_swipe_offsets(100.0);
+    /// assert_eq!(start, (0.0, 50.0));
+    /// assert_eq!(end, (0.0, -50.0));
+    /// ```
     pub fn to_swipe_offsets(self, distance: f64) -> ((f64, f64), (f64, f64)) {
         let half = distance / 2.0;
         match self {
