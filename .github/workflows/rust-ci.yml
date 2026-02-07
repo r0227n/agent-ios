@@ -41,6 +41,9 @@ jobs:
     - name: Run tests
       run: cargo test --workspace --lib --bins --verbose
 
+    - name: Run doc tests
+      run: cargo test --doc --workspace
+
 
   lint:
     runs-on: macos-15-intel
