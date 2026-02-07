@@ -4,13 +4,8 @@
 //! - XCUITest Runner HTTP communication
 //! - Simulator management via simctl
 
-<<<<<<< HEAD
-pub mod coresim;
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
 #[cfg(target_os = "macos")]
 pub mod coresim;
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
 pub mod simctl;
 pub mod snapshot;
 pub mod xcuitest;

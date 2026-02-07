@@ -41,9 +41,16 @@ jobs:
     - name: Run tests
       run: cargo test --workspace --lib --bins --verbose
 
+<<<<<<< HEAD
     - name: Run doc tests
       run: cargo test --doc --workspace
 
+||||||| parent of dbcdadbc (ci: cargo test --doc を CI に追加)
+=======
+    - name: Run doc tests
+      run: cargo test --doc --workspace --verbose
+
+>>>>>>> dbcdadbc (ci: cargo test --doc を CI に追加)
 
   lint:
     runs-on: macos-15-intel
@@ -61,3 +68,6 @@ jobs:
     
     - name: Run clippy
       run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Check documentation
+      run: cargo doc --no-deps --all-features --document-private-items
