@@ -20,7 +20,6 @@ pub enum RunnerStartError {
     NoBootedSimulator(String),
     #[error("Build failed: {0}")]
     BuildFailed(String),
-<<<<<<< HEAD
     #[error("Build products not found (searched: {0})")]
     BuildProductsNotFound(String),
     #[error("App install failed: {0}")]
@@ -29,15 +28,6 @@ pub enum RunnerStartError {
     LaunchFailed(String),
     #[error("Health check timed out after {0} seconds")]
     HealthCheckTimeout(u64),
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
-    #[error("Build products not found (searched: {0})")]
-    BuildProductsNotFound(String),
-    #[error("App install failed: {0}")]
-    InstallFailed(String),
-    #[error("App launch failed: {0}")]
-    LaunchFailed(String),
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
 }
 
 /// Pre-built .app bundle paths for the XCUITest Runner.
@@ -246,35 +236,10 @@ pub async fn start_runner_detached(
     crate::coresim::install_app(udid, &products.runner_app)
         .map_err(|e| RunnerStartError::InstallFailed(format!("runner app: {}", e)))?;
 
-<<<<<<< HEAD
     // Launch the test runner
     let pid = crate::coresim::launch_app(udid, RUNNER_XCTRUNNER_BUNDLE_ID)
         .map_err(|e| RunnerStartError::LaunchFailed(format!("{}", e)))?;
     info!(pid, "XCUITest Runner launched");
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-    // Use std::process::Command (not tokio) so the child is fully detached.
-    let mut child = std::process::Command::new("xcodebuild")
-        .args([
-            "test-without-building",
-            "-project",
-            project_str,
-            "-scheme",
-            "XCUITestRunner",
-            "-destination",
-            &format!("id={}", udid),
-            "-only-testing",
-            "XCUITestRunnerUITests/AutomationServer/testStartAutomationServer",
-        ])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::from(stderr_for_child))
-        .spawn()
-        .map_err(RunnerStartError::SpawnFailed)?;
-=======
-    // Launch the test runner
-    let pid = crate::coresim::launch_app(udid, RUNNER_XCTRUNNER_BUNDLE_ID)
-        .map_err(|e| RunnerStartError::LaunchFailed(format!("{}", e)))?;
-    eprintln!("XCUITest Runner launched (PID: {pid})");
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
 
     // Poll for readiness
     let start = std::time::Instant::now();
@@ -289,16 +254,11 @@ pub async fn start_runner_detached(
             return Ok(());
         }
 
-<<<<<<< HEAD
         let elapsed = start.elapsed();
         if elapsed >= timeout {
             return Err(RunnerStartError::HealthCheckTimeout(timeout.as_secs()));
         }
 
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-        // Show progress every 10 seconds so the user knows we're still waiting.
-=======
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
         if last_progress.elapsed() >= progress_interval {
             info!(
                 elapsed_secs = elapsed.as_secs(),
@@ -337,7 +297,6 @@ pub async fn build_for_testing(project_path: &Path, udid: &str) -> Result<(), Ru
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-<<<<<<< HEAD
         let truncated = if stderr.len() > 2000 {
             let end = stderr
                 .char_indices()
@@ -350,18 +309,6 @@ pub async fn build_for_testing(project_path: &Path, udid: &str) -> Result<(), Ru
             stderr.to_string()
         };
         return Err(RunnerStartError::BuildFailed(truncated));
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-        return Err(RunnerStartError::BuildFailed(truncate_stderr(
-            &stderr, 2000,
-        )));
-=======
-        let truncated = if stderr.len() > 2000 {
-            format!("{}... (truncated)", &stderr[..2000])
-        } else {
-            stderr.to_string()
-        };
-        return Err(RunnerStartError::BuildFailed(truncated));
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
     }
 
     info!("XCUITest Runner build completed successfully");
@@ -384,7 +331,6 @@ pub async fn ensure_runner_started(port: u16) -> Result<(), RunnerStartError> {
 
     info!("XCUITest Runner is not running. Starting automatically...");
 
-<<<<<<< HEAD
     let booted = crate::coresim::get_booted_device()
         .map_err(|e| RunnerStartError::NoBootedSimulator(e.to_string()))?;
 
@@ -402,29 +348,6 @@ pub async fn ensure_runner_started(port: u16) -> Result<(), RunnerStartError> {
     }
 
     // Fallback: build and retry
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
-    let booted = crate::coresim::get_booted_device()
-        .map_err(|e| RunnerStartError::NoBootedSimulator(e.to_string()))?;
-
-    // Try pre-built products first
-    if let Some(products) = RunnerBuildProducts::find() {
-        match start_runner_detached(&products, &booted.udid, port).await {
-            Ok(()) => {
-                eprintln!(
-                    "XCUITest Runner started successfully on simulator '{}'.",
-                    booted.name
-                );
-                return Ok(());
-            }
-            Err(e) => {
-                eprintln!("Failed to start from pre-built products: {e}. Falling back to build...");
-            }
-        }
-    }
-
-    // Fallback: build and retry
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
     let project_path =
         XCUITestRunner::bundled_project_path().ok_or(RunnerStartError::ProjectNotFound)?;
 
@@ -435,195 +358,7 @@ pub async fn ensure_runner_started(port: u16) -> Result<(), RunnerStartError> {
         RunnerStartError::BuildProductsNotFound(RunnerBuildProducts::searched_paths_description())
     })?;
 
-<<<<<<< HEAD
     start_runner_detached(&products, &booted.udid, port).await?;
     info!(simulator = %booted.name, "XCUITest Runner started successfully");
     Ok(())
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-            // Retry after building.
-            start_runner_detached(&project_path, &booted.udid, port).await?;
-            eprintln!(
-                "XCUITest Runner started successfully on simulator '{}'.",
-                booted.name
-            );
-            Ok(())
-        }
-        Err(e) => Err(e),
-    }
-}
-
-/// Classify xcodebuild stderr output and return a user-friendly hint.
-pub(crate) fn classify_xcodebuild_error(stderr: &str) -> String {
-    if needs_build(stderr) {
-        return "Run `xcodebuild build-for-testing` first, or let ensure_runner_started() handle it automatically.".to_string();
-    }
-    if stderr.contains("Unable to find a destination matching the provided destination specifier")
-        || stderr.contains("device not found")
-    {
-        return "No matching simulator found. Boot a simulator with `xcrun simctl boot <UDID>`."
-            .to_string();
-    }
-    if stderr.contains("xcodebuild: error: Could not resolve package dependencies") {
-        return "Swift Package Manager dependency resolution failed. Check your network connection.".to_string();
-    }
-    if stderr.contains("is not a project file") || stderr.contains("does not exist") {
-        return "XCUITest Runner project not found at the expected path.".to_string();
-    }
-    "Check xcodebuild output above for details.".to_string()
-}
-
-/// Truncate stderr output to at most `max_chars` characters.
-pub(crate) fn truncate_stderr(stderr: &str, max_chars: usize) -> String {
-    if stderr.len() <= max_chars {
-        stderr.to_string()
-    } else {
-        let truncated = &stderr[..max_chars];
-        format!("{}... (truncated)", truncated)
-    }
-}
-
-/// Check whether the xcodebuild error indicates the test bundle has not been built.
-pub(crate) fn needs_build(stderr: &str) -> bool {
-    // xcodebuild test-without-building fails with these messages when not built
-    stderr.contains("xcodebuild: error: Failed to build")
-        || stderr.contains("no test bundle found")
-        || stderr.contains("Could not find test runner")
-        || stderr.contains("Test product not found")
-        || stderr.contains("cannot be located")
-        || stderr.contains("doesn't contain a test host")
-}
-
-/// Read stderr content from the temp file.
-fn read_stderr_file(file: &tempfile::NamedTempFile) -> String {
-    let mut f = match file.reopen() {
-        Ok(f) => f,
-        Err(_) => return String::new(),
-    };
-    let mut content = String::new();
-    let _ = f.read_to_string(&mut content);
-    content
-}
-
-impl Drop for XCUITestRunner {
-    fn drop(&mut self) {
-        if let Some(ref mut child) = self.process {
-            let _ = child.start_kill();
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_classify_needs_build() {
-        let stderr = "xcodebuild: error: Failed to build something";
-        let hint = classify_xcodebuild_error(stderr);
-        assert!(hint.contains("build-for-testing"));
-    }
-
-    #[test]
-    fn test_classify_no_test_bundle() {
-        let stderr = "error: no test bundle found at path";
-        let hint = classify_xcodebuild_error(stderr);
-        assert!(hint.contains("build-for-testing"));
-    }
-
-    #[test]
-    fn test_classify_no_simulator() {
-        let stderr = "Unable to find a destination matching the provided destination specifier";
-        let hint = classify_xcodebuild_error(stderr);
-        assert!(hint.contains("Boot a simulator"));
-    }
-
-    #[test]
-    fn test_classify_device_not_found() {
-        let stderr = "error: device not found for id=ABCD-1234";
-        let hint = classify_xcodebuild_error(stderr);
-        assert!(hint.contains("Boot a simulator"));
-    }
-
-    #[test]
-    fn test_classify_package_deps() {
-        let stderr = "xcodebuild: error: Could not resolve package dependencies";
-        let hint = classify_xcodebuild_error(stderr);
-        assert!(hint.contains("network connection"));
-    }
-
-    #[test]
-    fn test_classify_project_not_found() {
-        let stderr = "error: '/tmp/foo.xcodeproj' is not a project file";
-        let hint = classify_xcodebuild_error(stderr);
-        assert!(hint.contains("project not found"));
-    }
-
-    #[test]
-    fn test_classify_unknown_error() {
-        let stderr = "some completely unknown error";
-        let hint = classify_xcodebuild_error(stderr);
-        assert!(hint.contains("Check xcodebuild output"));
-    }
-
-    #[test]
-    fn test_truncate_stderr_short() {
-        let s = "short message";
-        assert_eq!(truncate_stderr(s, 100), "short message");
-    }
-
-    #[test]
-    fn test_truncate_stderr_exact() {
-        let s = "12345";
-        assert_eq!(truncate_stderr(s, 5), "12345");
-    }
-
-    #[test]
-    fn test_truncate_stderr_long() {
-        let s = "a".repeat(200);
-        let result = truncate_stderr(&s, 50);
-        assert!(result.len() < 200);
-        assert!(result.ends_with("... (truncated)"));
-        // 50 chars of 'a' + "... (truncated)"
-        assert!(result.starts_with(&"a".repeat(50)));
-    }
-
-    #[test]
-    fn test_needs_build_positive() {
-        assert!(needs_build("xcodebuild: error: Failed to build workspace"));
-        assert!(needs_build("error: no test bundle found at /path"));
-        assert!(needs_build("Could not find test runner for XCUITestRunner"));
-        assert!(needs_build("Test product not found"));
-        assert!(needs_build("the test bundle cannot be located"));
-    }
-
-    #[test]
-    fn test_needs_build_negative() {
-        assert!(!needs_build("Build succeeded"));
-        assert!(!needs_build("Test session started"));
-        assert!(!needs_build("some random error"));
-    }
-
-    #[test]
-    fn test_runner_start_error_display() {
-        let err = RunnerStartError::ProjectNotFound;
-        assert!(err.to_string().contains("not found"));
-
-        let err = RunnerStartError::ProcessExitedEarly {
-            exit_code: Some(65),
-            stderr: "test error".to_string(),
-            hint: "build first".to_string(),
-        };
-        let msg = err.to_string();
-        assert!(msg.contains("65"));
-        assert!(msg.contains("test error"));
-        assert!(msg.contains("build first"));
-    }
-=======
-    start_runner_detached(&products, &booted.udid, port).await?;
-    eprintln!(
-        "XCUITest Runner started successfully on simulator '{}'.",
-        booted.name
-    );
-    Ok(())
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
 }
