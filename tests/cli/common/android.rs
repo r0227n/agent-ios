@@ -119,7 +119,9 @@ pub fn is_package_installed(serial: &str, package: &str) -> bool {
     })();
 
     match result {
-        Ok(stdout) => stdout.contains(&format!("package:{}", package)),
+        Ok(stdout) => stdout
+            .lines()
+            .any(|line| line.trim() == format!("package:{}", package)),
         Err(_) => false,
     }
 }
