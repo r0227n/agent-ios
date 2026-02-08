@@ -63,18 +63,17 @@ pub async fn run(mut args: DoctorArgs) -> Result<(), Box<dyn std::error::Error +
         args.format = OutputFormat::Json;
     }
 
-    let mut checks = Vec::new();
-
-    // iOS checks
-    checks.push(check_xcode());
-    checks.push(check_simctl());
-    checks.push(check_coresimulator());
-    checks.push(check_xcuitest_runner());
-
-    // Android checks
-    checks.push(check_adb_server());
-    checks.push(check_android_sdk());
-    checks.push(check_android_emulator());
+    let checks = vec![
+        // iOS checks
+        check_xcode(),
+        check_simctl(),
+        check_coresimulator(),
+        check_xcuitest_runner(),
+        // Android checks
+        check_adb_server(),
+        check_android_sdk(),
+        check_android_emulator(),
+    ];
 
     let summary = DoctorSummary {
         ok: checks
@@ -342,51 +341,45 @@ fn check_android_sdk() -> CheckResult {
     let critical = false;
 
     // Check ANDROID_HOME
-    match std::env::var("ANDROID_HOME") {
-        Ok(home) => {
-            if PathBuf::from(&home).exists() {
-                return CheckResult {
-                    name,
-                    category,
-                    status: CheckStatus::Ok,
-                    message: format!("ANDROID_HOME: {}", home),
-                    critical,
-                };
-            } else {
-                return CheckResult {
-                    name,
-                    category,
-                    status: CheckStatus::Warning,
-                    message: format!("ANDROID_HOME set but path does not exist: {}", home),
-                    critical,
-                };
-            }
+    if let Ok(home) = std::env::var("ANDROID_HOME") {
+        if PathBuf::from(&home).exists() {
+            return CheckResult {
+                name,
+                category,
+                status: CheckStatus::Ok,
+                message: format!("ANDROID_HOME: {}", home),
+                critical,
+            };
+        } else {
+            return CheckResult {
+                name,
+                category,
+                status: CheckStatus::Warning,
+                message: format!("ANDROID_HOME set but path does not exist: {}", home),
+                critical,
+            };
         }
-        Err(_) => {}
     }
 
     // Check ANDROID_SDK_ROOT
-    match std::env::var("ANDROID_SDK_ROOT") {
-        Ok(root) => {
-            if PathBuf::from(&root).exists() {
-                return CheckResult {
-                    name,
-                    category,
-                    status: CheckStatus::Ok,
-                    message: format!("ANDROID_SDK_ROOT: {}", root),
-                    critical,
-                };
-            } else {
-                return CheckResult {
-                    name,
-                    category,
-                    status: CheckStatus::Warning,
-                    message: format!("ANDROID_SDK_ROOT set but path does not exist: {}", root),
-                    critical,
-                };
-            }
+    if let Ok(root) = std::env::var("ANDROID_SDK_ROOT") {
+        if PathBuf::from(&root).exists() {
+            return CheckResult {
+                name,
+                category,
+                status: CheckStatus::Ok,
+                message: format!("ANDROID_SDK_ROOT: {}", root),
+                critical,
+            };
+        } else {
+            return CheckResult {
+                name,
+                category,
+                status: CheckStatus::Warning,
+                message: format!("ANDROID_SDK_ROOT set but path does not exist: {}", root),
+                critical,
+            };
         }
-        Err(_) => {}
     }
 
     CheckResult {
@@ -501,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_summary_counts() {
-        let checks = vec![
+        let checks = [
             CheckResult {
                 name: "A".to_string(),
                 category: CheckCategory::Ios,
