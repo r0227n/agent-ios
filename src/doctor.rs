@@ -14,6 +14,10 @@ pub struct DoctorArgs {
     /// Output format
     #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Text)]
     pub format: OutputFormat,
+
+    /// Output in JSON format (alias for --format json)
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -53,7 +57,12 @@ pub struct DoctorReport {
     pub summary: DoctorSummary,
 }
 
-pub async fn run(args: DoctorArgs) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run(mut args: DoctorArgs) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // --json フラグが指定されている場合は format を Json に設定
+    if args.json {
+        args.format = OutputFormat::Json;
+    }
+
     let mut checks = Vec::new();
 
     // iOS checks
@@ -95,7 +104,7 @@ pub async fn run(args: DoctorArgs) -> Result<(), Box<dyn std::error::Error + Sen
     }
 
     if has_critical_error {
-        std::process::exit(1);
+        return Err("Critical environment errors detected. See report above for details.".into());
     }
 
     Ok(())
@@ -332,28 +341,52 @@ fn check_android_sdk() -> CheckResult {
     let category = CheckCategory::Android;
     let critical = false;
 
-    if let Ok(home) = std::env::var("ANDROID_HOME") {
-        if PathBuf::from(&home).exists() {
-            return CheckResult {
-                name,
-                category,
-                status: CheckStatus::Ok,
-                message: format!("ANDROID_HOME: {}", home),
-                critical,
-            };
+    // Check ANDROID_HOME
+    match std::env::var("ANDROID_HOME") {
+        Ok(home) => {
+            if PathBuf::from(&home).exists() {
+                return CheckResult {
+                    name,
+                    category,
+                    status: CheckStatus::Ok,
+                    message: format!("ANDROID_HOME: {}", home),
+                    critical,
+                };
+            } else {
+                return CheckResult {
+                    name,
+                    category,
+                    status: CheckStatus::Warning,
+                    message: format!("ANDROID_HOME set but path does not exist: {}", home),
+                    critical,
+                };
+            }
         }
+        Err(_) => {}
     }
 
-    if let Ok(root) = std::env::var("ANDROID_SDK_ROOT") {
-        if PathBuf::from(&root).exists() {
-            return CheckResult {
-                name,
-                category,
-                status: CheckStatus::Ok,
-                message: format!("ANDROID_SDK_ROOT: {}", root),
-                critical,
-            };
+    // Check ANDROID_SDK_ROOT
+    match std::env::var("ANDROID_SDK_ROOT") {
+        Ok(root) => {
+            if PathBuf::from(&root).exists() {
+                return CheckResult {
+                    name,
+                    category,
+                    status: CheckStatus::Ok,
+                    message: format!("ANDROID_SDK_ROOT: {}", root),
+                    critical,
+                };
+            } else {
+                return CheckResult {
+                    name,
+                    category,
+                    status: CheckStatus::Warning,
+                    message: format!("ANDROID_SDK_ROOT set but path does not exist: {}", root),
+                    critical,
+                };
+            }
         }
+        Err(_) => {}
     }
 
     CheckResult {
