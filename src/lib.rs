@@ -39,6 +39,7 @@ pub mod command;
 pub mod console;
 pub mod core;
 pub mod device;
+pub mod doctor;
 pub mod helpers;
 pub mod record;
 pub mod session;
