@@ -83,4 +83,7 @@ pub enum Commands {
 
     /// Session management (list, show, create, destroy)
     Session(crate::session::SessionArgs),
+
+    /// Check external dependency availability and status
+    Doctor(crate::doctor::DoctorArgs),
 }
