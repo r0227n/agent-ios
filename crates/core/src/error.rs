@@ -7,18 +7,21 @@ use thiserror::Error;
 /// Common result type alias using the Error enum
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Common error type for agent-mobile operations
+/// Common error type for agent-mobile operations.
+///
+/// # Example
+///
+/// ```
+/// use agent_mobile_core::Error;
+///
+/// let err = Error::TargetNotFound("iPhone 15".to_string());
+/// assert_eq!(err.to_string(), "Target not found: iPhone 15");
+///
+/// let err = Error::InvalidArgument("bad value".to_string());
+/// assert_eq!(err.to_string(), "Invalid argument: bad value");
+/// ```
 #[derive(Debug, Error)]
 pub enum Error {
-    /// gRPC communication error
-    #[error("gRPC error: {0}")]
-    Grpc(String),
-    /// Connection error (failed to connect to companion)
-    #[error("Connection error: {0}")]
-    Connection(String),
-    /// Companion not found or not available
-    #[error("Companion not found: {0}")]
-    CompanionNotFound(String),
     /// Target (device/simulator) not found
     #[error("Target not found: {0}")]
     TargetNotFound(String),
@@ -57,12 +60,6 @@ impl From<&str> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_error_display() {
-        let err = Error::Grpc("connection refused".to_string());
-        assert_eq!(format!("{}", err), "gRPC error: connection refused");
-    }
 
     #[test]
     fn test_error_from_string() {

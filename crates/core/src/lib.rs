@@ -14,6 +14,6 @@ pub use error::{Error, Result};
 pub use io::OutputWriter;
 pub use snapshot::{extract_traits_for_type, is_interactive_type, Frame, RawElement};
 pub use types::{
-    human_format_target, json_format_target, merge_connected_targets, Address, CompanionInfo,
-    Compression, DeviceInfo, InstalledArtifact, Platform, ScrollDirection, TargetType,
+    human_format_target, json_format_target, Address, CompanionInfo, Compression, DeviceInfo,
+    InstalledArtifact, Platform, ScrollDirection, TargetType,
 };

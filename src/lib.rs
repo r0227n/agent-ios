@@ -1,40 +1,28 @@
-//! agent-mobile - Rust-based iOS Development Bridge
+//! agent-mobile - AI-optimized CLI for iOS/Android device automation
 //!
-//! This crate provides both a CLI tool and a library API for controlling
-//! iOS devices and simulators.
+//! This crate is primarily a **CLI tool** for controlling iOS/Android devices
+//! and simulators. It is designed to be invoked from the command line by AI
+//! agents or developers.
 //!
 //! # Features
 //!
 //! - **CLI Tool**: AI-optimized CLI for iOS/Android device automation
 //! - **AI Commands**: Simplified commands for AI agent automation
-//! - **Library API**: Programmatic access for Rust projects
 //!
-//! # Library Usage
+//! # CLI Usage
 //!
-//! ```ignore
-//! use agent_mobile::api::IosDevice;
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Connect to a device
-//!     let mut device = IosDevice::connect(None).await?;
-//!
-//!     // Take a screenshot
-//!     let screenshot = device.screenshot().await?;
-//!     std::fs::write("screenshot.png", screenshot)?;
-//!
-//!     // Tap at coordinates
-//!     device.tap(100.0, 200.0).await?;
-//!
-//!     // Type text
-//!     device.type_text("Hello!").await?;
-//!
-//!     // Swipe
-//!     device.swipe((100.0, 500.0), (100.0, 200.0), Some(0.5)).await?;
-//!
-//!     Ok(())
-//! }
+//! ```text
+//! agent-mobile screenshot -o screenshot.png
+//! agent-mobile tap 100 200
+//! agent-mobile input "Hello!"
+//! agent-mobile swipe up
 //! ```
+//!
+//! For programmatic access from Rust, use the workspace crates directly:
+//! - `agent_mobile_core` for shared types and traits
+//! - `agent_mobile_platform_ios` for iOS operations
+//! - `agent_mobile_platform_android` for Android operations
+//! - `agent_mobile_gateway` for high-level API
 //!
 //! # Architecture
 //!
@@ -44,8 +32,6 @@
 //! - `agent-mobile-platform-ios` - iOS-specific implementations
 //! - `agent-mobile-platform-android` - Android-specific implementations
 //! - `agent-mobile-gateway` - High-level API
-//!
-//! For backward compatibility, this crate re-exports the workspace crates.
 
 // CLI modules (local implementation)
 pub mod app;

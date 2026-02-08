@@ -4,12 +4,10 @@
 //! target descriptions, addresses, compression types, and installation artifacts.
 
 mod install;
-mod merge;
 mod output;
 mod target;
 
 pub use install::{Compression, InstalledArtifact};
-pub use merge::merge_connected_targets;
 pub use output::{human_format_target, json_format_target};
 pub use target::{Address, CompanionInfo, DeviceInfo, TargetType};
 
@@ -112,6 +110,16 @@ impl ScrollDirection {
 
     /// Get swipe coordinates for this direction (assuming center origin).
     /// Returns (start_offset, end_offset) where offset is (dx, dy) from center.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use agent_mobile_core::ScrollDirection;
+    ///
+    /// let (start, end) = ScrollDirection::Up.to_swipe_offsets(100.0);
+    /// assert_eq!(start, (0.0, 50.0));
+    /// assert_eq!(end, (0.0, -50.0));
+    /// ```
     pub fn to_swipe_offsets(self, distance: f64) -> ((f64, f64), (f64, f64)) {
         let half = distance / 2.0;
         match self {
