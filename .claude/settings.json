@@ -12,9 +12,7 @@
       "Bash(cargo build:*)",
       "Bash(cargo clean:*)",
       "Bash(cargo test:*)",
-      "Bash(./target/debug/agent-mobile:*)",
-      "Skill(ck)",
-      "Bash(ck:*)"
+      "Bash(./target/debug/agent-mobile:*)"
     ],
     "deny": [
       "Grep"

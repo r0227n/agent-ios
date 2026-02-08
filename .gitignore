@@ -9,9 +9,6 @@ Cargo.lock
 .vscode/
 .mise.local.toml
 
-# ck index
-.ck/
-
 # AI Agent
 .claude/plans/
 
