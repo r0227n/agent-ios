@@ -9,6 +9,9 @@
 > [!NOTE]
 > このプロジェクトは [agent-browser](https://github.com/vercel-labs/agent-browser) に着想を得ています。
 
+> [!IMPORTANT]
+> `agent-mobile` は現在も鋭意開発中です。今後の開発に伴い、コマンド、挙動、API は変更される可能性があります。
+
 ## なぜ agent-mobile なのか
 
 - **LLM ループ向けにコンパクト**: 長いセレクタより `tap @e3` のほうが短く、扱いやすいです。

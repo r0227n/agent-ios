@@ -9,6 +9,9 @@
 > [!NOTE]
 > This project is inspired by [agent-browser](https://github.com/vercel-labs/agent-browser).
 
+> [!IMPORTANT]
+> `agent-mobile` is under active development. Commands, behavior, and APIs may change as the project evolves.
+
 ## Why agent-mobile?
 
 - **Compact for LLM loops**: `tap @e3` is cheaper and clearer than long selector expressions.
