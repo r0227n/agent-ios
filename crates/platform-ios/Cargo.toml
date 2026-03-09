@@ -34,38 +34,6 @@ reqwest = { version = "0.12", features = ["json"] }
 flate2 = "1.0"
 tar = "0.4"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-# Image processing (PNG -> JPEG conversion)
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"], optional = true }
-||||||| parent of 8cef7438 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
-<<<<<<< HEAD
->>>>>>> 8cef7438 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-
-[target.'cfg(target_os = "macos")'.dependencies]
-# CoreSimulator FFI
-objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSArray", "NSError", "NSString", "NSURL", "NSDictionary", "NSObject"] }
-
-<<<<<<< HEAD
-
-||||||| parent of 8cef7438 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
-||||||| parent of dbcdadbc (ci: cargo test --doc を CI に追加)
-<<<<<<< HEAD
-
-[target.'cfg(target_os = "macos")'.dependencies]
-# CoreSimulator FFI
-objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSArray", "NSError", "NSString", "NSURL", "NSDictionary", "NSObject"] }
-
-||||||| parent of 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
-=======
->>>>>>> dbcdadbc (ci: cargo test --doc を CI に追加)
 # Image processing (PNG -> JPEG conversion)
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"], optional = true }
 
@@ -73,13 +41,4 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 # CoreSimulator FFI
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSError", "NSString", "NSURL", "NSDictionary", "NSObject"] }
-<<<<<<< HEAD
-
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
->>>>>>> 8cef7438 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-||||||| parent of dbcdadbc (ci: cargo test --doc を CI に追加)
-
->>>>>>> 07dcdae9 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
->>>>>>> dbcdadbc (ci: cargo test --doc を CI に追加)
 [dev-dependencies]

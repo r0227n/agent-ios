@@ -50,6 +50,42 @@ agent-mobile doctor
 agent-mobile --help
 ```
 
+### Add Cargo bin to PATH
+
+If `agent-mobile` is not found after `cargo install`, add Cargo's bin directory to your `PATH`.
+
+Check where Cargo installs binaries:
+
+```bash
+cargo install --path .
+cargo install --list | rg '^agent-mobile '
+```
+
+Most environments use one of these locations:
+
+- `$CARGO_HOME/bin` (if `CARGO_HOME` is set)
+- `$HOME/.cargo/bin` (default)
+
+Current shell only:
+
+```bash
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+agent-mobile --help
+```
+
+Persist it in your shell config:
+
+- zsh: add to `~/.zshrc`
+- bash: add to `~/.bashrc` or `~/.bash_profile`
+- fish: run `fish_add_path (string join / (or $CARGO_HOME $HOME/.cargo) bin)`
+
+Then open a new terminal (or reload your shell config) and verify:
+
+```bash
+command -v agent-mobile
+agent-mobile --help
+```
+
 ### Platform notes
 
 **iOS**

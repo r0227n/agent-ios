@@ -1,16 +1,6 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 //! Error types for CoreSimulator operations.
 
 /// Errors that can occur during CoreSimulator framework operations.
-||||||| parent of 8cef7438 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-=======
-<<<<<<< HEAD
->>>>>>> 8cef7438 (fix: Android screenshot - file + pull 方式に変更して JPEG 対応完了)
-||||||| parent of dbcdadbc (ci: cargo test --doc を CI に追加)
-<<<<<<< HEAD
-=======
->>>>>>> dbcdadbc (ci: cargo test --doc を CI に追加)
 #[derive(Debug, thiserror::Error)]
 pub enum CoreSimError {
     #[error("CoreSimulator framework not found")]
