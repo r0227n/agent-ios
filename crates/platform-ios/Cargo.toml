@@ -41,6 +41,4 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 # CoreSimulator FFI
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSError", "NSString", "NSURL", "NSDictionary", "NSObject"] }
-
-
 [dev-dependencies]

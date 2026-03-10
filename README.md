@@ -1,390 +1,279 @@
 # agent-mobile
 
-> Mobile device automation CLI designed for AI agents
+> AI-friendly mobile automation CLI for iOS simulators and Android devices
 
-Natural language commands for iOS and Android automation. Minimize tokens, maximize expressiveness.
+[日本語](docs/README.ja.md)
 
-```bash
-# 30 seconds to first automation
-git clone https://github.com/your-org/agent-mobile.git
-cd agent-mobile && cargo build --release
-cargo install --path .
+`agent-mobile` is a Rust CLI for agentic mobile testing and automation. It captures the current UI, assigns short element references such as `@e1`, and lets you drive apps with concise commands like `tap`, `fill`, `find`, `wait`, and `screenshot`.
 
-agent-mobile device boot "iPhone 15 Pro"
-agent-mobile snapshot                    # See UI elements
-agent-mobile tap @e1                     # Interact with elements
-```
+> [!NOTE]
+> This project is inspired by [agent-browser](https://github.com/vercel-labs/agent-browser).
+
+> [!IMPORTANT]
+> `agent-mobile` is under active development. Commands, behavior, and APIs may change as the project evolves.
 
 ## Why agent-mobile?
 
-- **Token-efficient**: Use `@e1` instead of complex selectors
-- **AI-optimized**: Semantic locators (`find text "Login"`)
-- **Cross-platform**: Unified API for iOS + Android
-- **Session-aware**: Persistent state across commands
+- **Compact for LLM loops**: `tap @e3` is cheaper and clearer than long selector expressions.
+- **Semantic locators**: Find elements by `text`, `label`, `placeholder`, `type`, or state.
+- **Cross-platform workflow**: Use one CLI across iOS and Android.
+- **Session-aware**: Bind a device to a named session for repeatable multi-device workflows.
+- **Machine-readable output**: Query-style commands support JSON output.
+
+## What it can do
+
+- Capture the UI tree and generate element references
+- Tap, long-press, type, fill, scroll, and swipe
+- Launch, install, terminate, and uninstall apps
+- Wait for elements or text to appear or disappear
+- Save screenshots, record video, and stream console logs
+- Manage devices and named sessions
 
 ## Installation
 
-### From Source (Recommended)
+### Prerequisites
+
+- Rust toolchain
+- macOS + Xcode Command Line Tools for iOS simulator support
+- Android SDK Platform Tools (`adb`) for Android support
+
+### Build from source
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/your-org/agent-mobile.git
+git clone https://github.com/r0227n/agent-mobile.git
 cd agent-mobile
 
-# 2. Build release binary
 cargo build --release
-
-# 3. Install to PATH
 cargo install --path .
 
-# 4. Verify installation
-agent-mobile --version
+agent-mobile doctor
+agent-mobile --help
 ```
 
-**Prerequisites**: Rust 1.92+ ([install via rustup](https://rustup.rs/))
+### Add Cargo bin to PATH
 
-### Platform-Specific Dependencies
+If `agent-mobile` is not found after `cargo install`, add Cargo's bin directory to your `PATH`.
 
-**iOS Development**:
+Check where Cargo installs binaries:
+
 ```bash
-# Xcode Command Line Tools
+cargo install --path .
+cargo install --list | rg '^agent-mobile '
+```
+
+Most environments use one of these locations:
+
+- `$CARGO_HOME/bin` (if `CARGO_HOME` is set)
+- `$HOME/.cargo/bin` (default)
+
+Current shell only:
+
+```bash
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+agent-mobile --help
+```
+
+Persist it in your shell config:
+
+- zsh: add to `~/.zshrc`
+- bash: add to `~/.bashrc` or `~/.bash_profile`
+- fish: run `fish_add_path (string join / (or $CARGO_HOME $HOME/.cargo) bin)`
+
+Then open a new terminal (or reload your shell config) and verify:
+
+```bash
+command -v agent-mobile
+agent-mobile --help
+```
+
+### Platform notes
+
+**iOS**
+
+```bash
 xcode-select --install
 ```
 
-**Android Development**:
+`agent-mobile` uses `xcrun simctl` and the bundled XCUITest Runner to automate iOS simulators.
+
+**Android**
+
+Install Android Studio or the Android SDK Platform Tools, then make sure `adb` is on `PATH`:
+
 ```bash
-# Android Studio (recommended)
-# Download from https://developer.android.com/studio
-
-# Add to PATH
-export ANDROID_HOME=$HOME/Library/Android/sdk
-export PATH=$PATH:$ANDROID_HOME/platform-tools
-
-# Verify
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$PATH:$ANDROID_HOME/platform-tools"
 adb version
 ```
 
-See [CLAUDE.md](CLAUDE.md) for detailed development setup.
+## Quick start
 
-## Quick Start (5 Minutes)
-
-### 1. Start a Device
+### 1. Check your environment
 
 ```bash
-# iOS: Boot a simulator
-agent-mobile device boot "iPhone 15 Pro"
+agent-mobile doctor
+```
 
-# Android: List connected devices/emulators
+### 2. Pick a device
+
+```bash
 agent-mobile device list
+agent-mobile device boot "iPhone 15 Pro"
 ```
 
-### 2. Launch an App
+### 3. Launch an app
 
 ```bash
-# iOS example
 agent-mobile app launch com.apple.mobilesafari
-
-# Android example
-agent-mobile app launch com.android.chrome
 ```
 
-### 3. Capture UI State
+### 4. Capture the current UI
 
 ```bash
 agent-mobile snapshot
 ```
 
-**Output example:**
-```
-@e1  Button       "Allow"          (200.0, 500.0)  [enabled]
-@e2  TextField    "Search or URL"  (200.0, 100.0)  [enabled]
-@e3  Button       "Cancel"         (300.0, 500.0)  [enabled]
+Example output:
+
+```text
+@e1  Button     "Continue"                     [enabled]
+@e2  TextField  "Search or enter website name" [enabled]
+@e3  Button     "Cancel"                       [enabled]
 ```
 
-### 4. Interact with Elements
+### 5. Interact with the UI
 
 ```bash
-# Method 1: Element references (token-efficient)
-agent-mobile fill @e2 "https://example.com"
 agent-mobile tap @e1
-
-# Method 2: Semantic locators (descriptive)
-agent-mobile find text "Allow" tap
-agent-mobile find placeholder "Search or URL" fill "https://example.com"
+agent-mobile fill @e2 "https://example.com"
 ```
 
-### 5. Verify Results
+Or use semantic locators directly:
 
 ```bash
-# Wait for element
-agent-mobile wait type StaticText text "Example Domain"
-
-# Take screenshot
-agent-mobile screenshot result.png
+agent-mobile find text "Continue" tap
+agent-mobile find placeholder "Search or enter website name" fill "https://example.com"
 ```
 
-**Next**: See [Core Concepts](#core-concepts) to understand semantic locators and element references.
-
-## Core Concepts
-
-### Semantic Locators
-
-Find elements by **meaning**, not implementation:
+### 6. Verify the result
 
 ```bash
-agent-mobile find text "Login"              # Visible text
-agent-mobile find label "Email Address"     # Accessibility label
-agent-mobile find placeholder "Enter email" # Placeholder
-agent-mobile find type Button               # Element type
-
-# Chain with actions
-agent-mobile find text "Submit" tap
+agent-mobile wait text "Example Domain" --timeout 10s
+agent-mobile screenshot --output result.png
 ```
 
-### Element References (`@e1`, `@e2`, ...)
+## Core concepts
 
-Snapshot creates shorthand aliases for UI elements:
+### 1. Snapshots and element references
+
+`snapshot` captures the accessibility tree and assigns short references such as `@e1`, `@e2`, and `@e3`.
 
 ```bash
-agent-mobile snapshot  # Generates @e1, @e2, @e3, ...
-agent-mobile tap @e1   # Use in commands
-agent-mobile get @e2 text  # Query properties
+agent-mobile snapshot
+agent-mobile tap @e1
+agent-mobile get @e2 text
 ```
 
-**Token savings:**
-- Without refs: `find type TextField label "Email" --first fill "user@example.com"` (52 tokens)
-- With refs: `fill @e2 "user@example.com"` (7 tokens)
+Use references when you want the shortest possible interaction loop.
 
-**Lifecycle:** Valid until screen changes or new snapshot.
+### 2. Semantic locators
 
-### Sessions
-
-Manage multiple devices with isolated state:
+You can also search by meaning instead of by generated refs.
 
 ```bash
-agent-mobile session create ios-dev --udid ABC-123 -p ios
-agent-mobile session create android-qa --udid emulator-5554 -p android
+agent-mobile find text "Login"
+agent-mobile find label "Email" fill "user@example.com"
+agent-mobile find type Button --nth 0 tap
+agent-mobile find enabled --all -f json
+```
 
-# Use via flag or environment variable
+Supported locator families:
+
+- `type`
+- `text`
+- `label`
+- `placeholder`
+- `enabled`
+- `disabled`
+
+Supported inline actions:
+
+- `tap`
+- `long-press`
+- `fill`
+- `clear`
+
+### 3. Sessions
+
+Sessions let you bind a device UDID to a name and reuse it across commands.
+
+```bash
+agent-mobile session create ios-dev --udid <UDID>
 agent-mobile --session ios-dev snapshot
+
 export AGENT_MOBILE_SESSION=ios-dev
+agent-mobile session show
 ```
 
-### JSON Output
+### 4. JSON output
 
-Every command supports `--json`:
+Query-oriented commands expose machine-readable output with command-specific flags such as `-f json`.
 
 ```bash
-agent-mobile snapshot --json | jq '.elements[] | select(.type == "Button")'
-agent-mobile device list --json | jq '.[0].udid'
+agent-mobile snapshot -f json
+agent-mobile device list -f json
+agent-mobile session list -f json
+agent-mobile doctor --json
 ```
 
-## Commands
+## Command overview
 
-### Core Automation
+| Area | Commands |
+| --- | --- |
+| Interaction | `tap`, `long-press`, `fill`, `type`, `check`, `uncheck`, `select`, `scroll`, `swipe` |
+| UI inspection | `snapshot`, `find`, `get`, `is`, `wait` |
+| Media and logs | `screenshot`, `record`, `console` |
+| App management | `app launch`, `app terminate`, `app install`, `app uninstall`, `app list`, `app grant`, `app revoke`, `app reset` |
+| Device management | `device list`, `device boot`, `device shutdown`, `device pbcopy`, `device pbpaste` |
+| Session management | `session create`, `session list`, `session show`, `session destroy` |
+| Environment checks | `doctor` |
 
-| Command | Description | Example |
-|---------|-------------|---------|
-| `tap` | Tap element/coordinates/key | `tap @e1` / `tap 100,200` / `tap home` |
-| `fill` | Clear + type into field | `fill @e2 "text"` |
-| `type` | Append to focused field | `type "more text"` |
-| `check`/`uncheck` | Toggle checkboxes | `check @e1` |
-| `select` | Choose picker value | `select @e1 "Option 2"` |
-| `swipe` | Directional gesture | `swipe up` / `swipe left` |
-| `scroll` | Scroll screen/element | `scroll down --element @e1` |
+Run `agent-mobile <command> --help` for command-specific details.
 
-### Queries & State
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `snapshot` | Capture UI + generate refs | `snapshot` |
-| `screenshot` | Save PNG image | `screenshot output.png` |
-| `get` | Get element property | `get @e1 text` |
-| `is` | Check state (exit code) | `is @e1 enabled` |
-| `wait` | Wait for condition | `wait @e1 --timeout 10` |
-| `find` | Search + action | `find text "Login" tap` |
-
-### Device & App
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `device list` | List devices | `device list --json` |
-| `device boot` | Start simulator (iOS) | `device boot "iPhone 15 Pro"` |
-| `app launch` | Start application | `app launch com.example.app` |
-| `app terminate` | Stop application | `app terminate com.example.app` |
-| `app install` | Install .ipa/.apk | `app install app.ipa` |
-
-### Session Management
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `session create` | New session | `session create ios --udid ABC -p ios` |
-| `session list` | Show sessions | `session list` |
-| `session destroy` | Delete session | `session destroy ios` |
-
-### Recording
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `record` | Capture video (MP4) | `record output.mp4 --duration 30` |
-| `console` | Stream device logs | `console --platform ios` |
-
-**Tip**: Run `agent-mobile <command> --help` for detailed usage.
-
-## Usage Examples
-
-### Login Flow
+## Example: login flow
 
 ```bash
-# Launch app and capture state
 agent-mobile app launch com.example.app
 agent-mobile snapshot
-# @e1  TextField       "Email"     ...
-# @e2  SecureTextField "Password"  ...
-# @e3  Button          "Login"     ...
 
-# Fill credentials
 agent-mobile fill @e1 "user@example.com"
 agent-mobile fill @e2 "password123"
 agent-mobile tap @e3
 
-# Verify success
-agent-mobile wait type Button text "Profile" --timeout 5
-agent-mobile screenshot logged_in.png
+agent-mobile wait text "Profile" --timeout 5s
+agent-mobile screenshot --output logged_in.png
 ```
 
-### Form Submission with Validation
+## Architecture at a glance
 
-```bash
-# Navigate and capture form
-agent-mobile app launch com.example.app
-agent-mobile find text "Sign Up" tap
-agent-mobile snapshot
-
-# Fill form
-agent-mobile fill @e1 "John Doe"           # Name
-agent-mobile fill @e2 "john@example.com"   # Email
-agent-mobile select @e3 "United States"    # Country
-agent-mobile check @e4                      # Terms checkbox
-agent-mobile tap @e5                        # Submit
-
-# Handle result
-if agent-mobile is type StaticText text "Error" visible; then
-    echo "Validation failed"
-    agent-mobile screenshot error.png
-    exit 1
-fi
-```
-
-### Multi-Screen Navigation
-
-```bash
-# Navigate through app
-agent-mobile app launch com.example.app
-
-agent-mobile find text "Settings" tap
-agent-mobile wait type NavigationBar text "Settings"
-
-agent-mobile find text "Account" tap
-agent-mobile wait type NavigationBar text "Account"
-
-agent-mobile screenshot account_screen.png
-```
-
-### Cross-Platform Testing
-
-```bash
-# Setup sessions
-agent-mobile session create ios --udid ABC-123 -p ios
-agent-mobile session create android --udid emulator-5554 -p android
-
-# Test function (works on both)
-test_login() {
-    local session=$1
-    agent-mobile --session $session app launch com.example.app
-    agent-mobile --session $session snapshot
-    agent-mobile --session $session fill @e1 "user@example.com"
-    agent-mobile --session $session fill @e2 "password"
-    agent-mobile --session $session tap @e3
-    agent-mobile --session $session screenshot ${session}_result.png
-}
-
-# Run tests
-test_login ios
-test_login android
-```
-
-### JSON Output for Automation
-
-```bash
-# Find enabled button
-enabled_button=$(agent-mobile snapshot --json | \
-    jq -r '.elements[] | select(.type == "Button" and .enabled == true) | .reference' | \
-    head -n1)
-
-agent-mobile tap "$enabled_button"
-
-# Get device programmatically
-udid=$(agent-mobile device list --json | jq -r '.[0].udid')
-echo "Using device: $udid"
-```
-
-## Platform Details
-
-### iOS
-
-**Implementation**: XCUITest Runner (HTTP) + xcrun simctl
-
-**Supported**:
-- Simulators (via simctl + XCUITest Runner)
-
-**Device lifecycle**:
-```bash
-agent-mobile device boot "iPhone 15 Pro"   # Start simulator
-agent-mobile device shutdown <UDID>        # Stop simulator
-agent-mobile device create "Test iPhone" "iPhone 15 Pro" "iOS 17.0"
-```
-
-### Android
-
-**Implementation**: ADB + UI Automator
-
-**Supported**:
-- Emulators (via ADB)
-- Physical devices (via ADB)
-
-**Requirements**:
-- Android SDK Platform Tools
-- USB debugging enabled (physical devices)
-
-### Cross-Platform Compatibility
-
-| Feature | iOS | Android | Notes |
-|---------|-----|---------|-------|
-| Semantic locators | ✓ | ✓ | Accessibility tree based |
-| Element references | ✓ | ✓ | Snapshot required |
-| Screenshots | ✓ | ✓ | PNG format |
-| Video recording | ✓ | ✓ | MP4 format |
-| Log streaming | ✓ | ✓ | Platform-specific formats |
+- `agent-mobile` is the Rust CLI entrypoint.
+- `crates/core` contains shared types and traits.
+- `crates/platform-ios` handles iOS automation via `simctl` and XCUITest Runner.
+- `crates/platform-android` handles Android automation via `adb` and UI Automator.
+- `crates/gateway` provides higher-level platform resolution and orchestration.
+- `crates/xcuitest-runner` contains the Swift-side HTTP server used by iOS automation.
 
 ## Documentation
 
-- [Developer Guide](CLAUDE.md) - Development workflow (Japanese)
-- [Crate Documentation](crates/) - Core, Platform, Gateway APIs
+- [docs/README.ja.md](docs/README.ja.md) for the Japanese reference
+- [docs/README.md](docs/README.md) for technical notes
+- [CLAUDE.md](CLAUDE.md) for the development workflow
+- [AGENTS.md](AGENTS.md) for repository-specific agent guidance
 
 ## Contributing
 
-Contributions welcome! See [CLAUDE.md](CLAUDE.md) for development workflow.
-
-**Before submitting a PR**:
-- Test on actual devices (iOS/Android)
-- Run `cargo test`
-- Update relevant documentation
+Contributions are welcome. If you change CLI behavior, update the docs and verify the flow on a real simulator or device.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
-
-## Credits
-
-Built with Rust, powered by XCUITest and [Android ADB](https://developer.android.com/tools/adb).
+MIT. See [LICENSE](LICENSE).
