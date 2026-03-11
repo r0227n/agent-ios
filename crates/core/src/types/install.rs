@@ -5,15 +5,20 @@ use serde::{Deserialize, Serialize};
 /// Result of an install operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstalledArtifact {
+    /// Display name of the installed artifact.
     pub name: String,
+    /// Platform-specific installation identifier, when available.
     pub uuid: Option<String>,
+    /// Best-effort progress ratio between `0.0` and `1.0`.
     pub progress: Option<f64>,
 }
 
 /// Compression type for install payloads
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Compression {
+    /// GNU zip compression.
     Gzip,
+    /// Zstandard compression.
     Zstd,
 }
 

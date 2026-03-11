@@ -4,6 +4,7 @@ use agent_mobile_core::{OutputWriter, Platform};
 use std::io::Write;
 use tokio::sync::watch;
 
+/// Convenient result type for console streaming operations.
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// Stream console logs from a device

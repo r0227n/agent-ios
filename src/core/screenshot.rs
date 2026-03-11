@@ -18,7 +18,9 @@ use agent_mobile_gateway::DeviceResolver;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ImageFormat {
     #[default]
+    /// PNG image output.
     Png,
+    /// JPEG image output.
     Jpeg,
 }
 
@@ -67,6 +69,7 @@ pub struct ScreenshotArgs {
     #[arg(short = 'f', long, default_value = "png")]
     pub format: ImageFormat,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

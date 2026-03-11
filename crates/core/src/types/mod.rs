@@ -36,8 +36,10 @@ use std::fmt;
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
     #[cfg_attr(feature = "cli", value(name = "ios"))]
+    /// Apple mobile devices and simulators.
     Ios,
     #[cfg_attr(feature = "cli", value(name = "android"))]
+    /// Android devices and emulators.
     Android,
 }
 
@@ -88,12 +90,16 @@ impl std::str::FromStr for Platform {
 #[serde(rename_all = "lowercase")]
 pub enum ScrollDirection {
     #[cfg_attr(feature = "cli", value(name = "up"))]
+    /// Move toward the top edge of the screen.
     Up,
     #[cfg_attr(feature = "cli", value(name = "down"))]
+    /// Move toward the bottom edge of the screen.
     Down,
     #[cfg_attr(feature = "cli", value(name = "left"))]
+    /// Move toward the left edge of the screen.
     Left,
     #[cfg_attr(feature = "cli", value(name = "right"))]
+    /// Move toward the right edge of the screen.
     Right,
 }
 

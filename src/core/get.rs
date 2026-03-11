@@ -33,6 +33,7 @@ pub struct GetArgs {
     #[arg(short = 'f', long, value_enum, default_value = "text")]
     pub format: OutputFormat,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

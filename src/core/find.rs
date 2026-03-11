@@ -41,6 +41,7 @@ const DEFAULT_MAX_TEXT_LENGTH: usize = 50;
 /// Arguments for the find command
 #[derive(Args, Debug)]
 pub struct FindArgs {
+    /// Locator strategy used to find matching elements.
     #[command(subcommand)]
     pub locator: FindLocator,
 
@@ -64,6 +65,7 @@ pub struct FindArgs {
     #[arg(short = 'f', long, value_enum, default_value = "text", global = true)]
     pub format: FindOutputFormat,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

@@ -19,6 +19,7 @@ pub struct TypeArgs {
     /// Text to type
     pub text: String,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

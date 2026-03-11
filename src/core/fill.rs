@@ -25,6 +25,7 @@ pub struct FillArgs {
     /// Text to fill
     pub text: String,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

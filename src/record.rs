@@ -1,6 +1,7 @@
-//! record コマンド - 画面録画
+//! Screen recording support for iOS and Android devices.
 //!
-//! iOS/Android両対応の画面録画をMP4形式で保存
+//! The command saves recordings as MP4 files and supports both simulator- and
+//! device-backed capture flows where available.
 //!
 //! ```bash
 //! agent-mobile record                        # Ctrl+Cまで録画、カレントディレクトリに保存
@@ -19,7 +20,7 @@ use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::signal::setup_ctrl_c_handler;
 
-/// record コマンド引数
+/// Arguments for the `record` command.
 #[derive(Args, Debug)]
 pub struct RecordArgs {
     /// Output path (directory or file)
@@ -35,6 +36,7 @@ pub struct RecordArgs {
     #[arg(short = 't', long)]
     pub time_limit: Option<u64>,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

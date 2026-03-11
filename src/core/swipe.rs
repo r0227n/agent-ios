@@ -42,6 +42,7 @@ pub struct SwipeArgs {
     #[arg(long)]
     pub duration: Option<f64>,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

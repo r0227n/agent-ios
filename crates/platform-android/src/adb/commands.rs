@@ -12,21 +12,27 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum AdbError {
     #[error("adb command failed: {0}")]
+    /// A device-side ADB command returned an error message.
     CommandFailed(String),
 
     #[error("adb execution error: {0}")]
+    /// The local process failed while preparing or executing an ADB request.
     ExecutionError(#[from] std::io::Error),
 
     #[error("adb server not reachable at 127.0.0.1:5037. Please start the ADB server with 'adb start-server'.")]
+    /// No reachable ADB server was found on the default local port.
     AdbNotFound,
 
     #[error("Invalid output: {0}")]
+    /// ADB returned output that could not be parsed.
     InvalidOutput(String),
 
     #[error("adb connection error: {0}")]
+    /// Establishing or using the ADB transport failed.
     ConnectionError(String),
 }
 
+/// Convenient result type for ADB helpers.
 pub type Result<T> = std::result::Result<T, AdbError>;
 
 /// Check if ADB server is reachable (native TCP check).

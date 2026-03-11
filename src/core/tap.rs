@@ -26,6 +26,7 @@ pub struct TapArgs {
     /// Target: @eN ref, "text", x,y coordinates, or key (home, back, enter, etc.)
     pub target: String,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

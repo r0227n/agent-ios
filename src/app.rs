@@ -3,19 +3,24 @@
 //! Provides cross-platform application management including launch,
 //! terminate, install, uninstall, and list operations.
 
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
 use clap::{Args, Subcommand};
 use serde::Serialize;
+use tempfile::TempDir;
 
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::client::{with_xcuitest, CommandResult};
+use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::{DeviceArgs, DeviceFormatArgs};
 use crate::helpers::format::OutputFormat;
 
 /// App command arguments.
 #[derive(Args, Debug)]
 pub struct AppArgs {
+    /// App management action to execute.
     #[command(subcommand)]
     pub command: AppCommands,
 }
@@ -28,6 +33,7 @@ pub enum AppCommands {
         /// Bundle ID (iOS) or package name (Android).
         bundle_id: String,
 
+        /// Device selection and output formatting options.
         #[command(flatten)]
         device_output: DeviceFormatArgs,
     },
@@ -37,6 +43,7 @@ pub enum AppCommands {
         /// Bundle ID (iOS) or package name (Android).
         bundle_id: String,
 
+        /// Device selection options.
         #[command(flatten)]
         device: DeviceArgs,
     },
@@ -46,6 +53,7 @@ pub enum AppCommands {
         /// Path to the app file (.app, .ipa, or .apk).
         path: String,
 
+        /// Device selection and output formatting options.
         #[command(flatten)]
         device_output: DeviceFormatArgs,
     },
@@ -55,12 +63,14 @@ pub enum AppCommands {
         /// Bundle ID (iOS) or package name (Android).
         bundle_id: String,
 
+        /// Device selection options.
         #[command(flatten)]
         device: DeviceArgs,
     },
 
     /// List installed apps.
     List {
+        /// Device selection and output formatting options.
         #[command(flatten)]
         device_output: DeviceFormatArgs,
     },
@@ -74,6 +84,7 @@ pub enum AppCommands {
         #[arg(short = 'b', long)]
         bundle: String,
 
+        /// Device selection options.
         #[command(flatten)]
         device: DeviceArgs,
     },
@@ -87,6 +98,7 @@ pub enum AppCommands {
         #[arg(short = 'b', long)]
         bundle: String,
 
+        /// Device selection options.
         #[command(flatten)]
         device: DeviceArgs,
     },
@@ -100,6 +112,7 @@ pub enum AppCommands {
         #[arg(short = 'b', long)]
         bundle: String,
 
+        /// Device selection options.
         #[command(flatten)]
         device: DeviceArgs,
     },
@@ -108,12 +121,16 @@ pub enum AppCommands {
 /// Unified app info for output.
 #[derive(Debug, Serialize)]
 pub struct UnifiedAppInfo {
+    /// Bundle identifier or Android package name.
     pub bundle_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Human-readable application name, when available.
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Marketing version string, when available.
     pub version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Installation type reported by the platform, when available.
     pub install_type: Option<String>,
 }
 
@@ -298,24 +315,20 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
 /// Execute app launch.
 async fn execute_launch(
     platform: Platform,
-    _udid: Option<&str>,
+    udid: Option<&str>,
     bundle_id: &str,
     _output: &OutputFormat,
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            let bundle_id = bundle_id.to_string();
-
-            with_xcuitest(|client| async move {
-                client.launch_app(&bundle_id).await?;
-                println!("Launched {}", bundle_id);
-                Ok(())
-            })
-            .await
+            let udid = resolve_ios_udid(udid)?;
+            let pid = agent_mobile_platform_ios::coresim::launch_app(&udid, bundle_id)?;
+            println!("Launched {} (pid: {})", bundle_id, pid);
+            Ok(())
         }
         Platform::Android => {
             use agent_mobile_platform_android::adb::app;
-            app::launch(_udid, bundle_id).await?;
+            app::launch(udid, bundle_id).await?;
             println!("Launched {}", bundle_id);
             Ok(())
         }
@@ -330,14 +343,10 @@ async fn execute_terminate(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            let bundle_id = bundle_id.to_string();
-
-            with_xcuitest(|client| async move {
-                client.terminate_app(&bundle_id).await?;
-                println!("Terminated {}", bundle_id);
-                Ok(())
-            })
-            .await
+            let udid = resolve_ios_udid(udid)?;
+            agent_mobile_platform_ios::coresim::terminate_app(&udid, bundle_id)?;
+            println!("Terminated {}", bundle_id);
+            Ok(())
         }
         Platform::Android => {
             use agent_mobile_platform_android::adb::app;
@@ -357,15 +366,15 @@ async fn execute_install(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            let path = path.to_string();
-
-            with_xcuitest(|client| async move {
-                println!("Installing {}...", path);
-                client.install_app(&path).await?;
-                println!("Installation complete");
-                Ok(())
-            })
-            .await
+            let udid = resolve_ios_udid(udid)?;
+            let (install_path, _temp_dir) = resolve_ios_install_source(path)?;
+            println!("Installing {}...", install_path.display());
+            agent_mobile_platform_ios::simctl::install_app(
+                &udid,
+                install_path_to_str(&install_path)?,
+            )?;
+            println!("Installation complete");
+            Ok(())
         }
         Platform::Android => {
             use agent_mobile_platform_android::adb::app;
@@ -385,14 +394,10 @@ async fn execute_uninstall(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            let bundle_id = bundle_id.to_string();
-
-            with_xcuitest(|client| async move {
-                client.uninstall_app(&bundle_id).await?;
-                println!("Uninstalled {}", bundle_id);
-                Ok(())
-            })
-            .await
+            let udid = resolve_ios_udid(udid)?;
+            agent_mobile_platform_ios::simctl::uninstall_app(&udid, bundle_id)?;
+            println!("Uninstalled {}", bundle_id);
+            Ok(())
         }
         Platform::Android => {
             use agent_mobile_platform_android::adb::app;
@@ -620,4 +625,109 @@ fn android_permission_name(
             .collect::<Vec<_>>()
     )
     .into())
+}
+
+fn resolve_ios_udid(
+    udid: Option<&str>,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    match udid {
+        Some(udid) => Ok(udid.to_string()),
+        None => Ok(agent_mobile_platform_ios::simctl::get_booted_simulator()?.udid),
+    }
+}
+
+fn resolve_ios_install_source(
+    path: &str,
+) -> Result<(PathBuf, Option<TempDir>), Box<dyn std::error::Error + Send + Sync>> {
+    let source = PathBuf::from(path);
+
+    if !source.exists() {
+        return Err(format!("iOS app not found: {}", path).into());
+    }
+
+    if source.extension().and_then(|ext| ext.to_str()) == Some("app") {
+        return Ok((source, None));
+    }
+
+    if source.extension().and_then(|ext| ext.to_str()) == Some("ipa") {
+        let temp_dir = tempfile::tempdir()?;
+        let status = Command::new("ditto")
+            .args([
+                "-x",
+                "-k",
+                install_path_to_str(&source)?,
+                install_path_to_str(temp_dir.path())?,
+            ])
+            .status()?;
+
+        if !status.success() {
+            return Err(format!("Failed to extract iOS archive: {}", path).into());
+        }
+
+        let app_bundle = find_ios_app_bundle(temp_dir.path())?;
+        return Ok((app_bundle, Some(temp_dir)));
+    }
+
+    Err(format!(
+        "Unsupported iOS app format: {}. Expected .app or .ipa",
+        path
+    )
+    .into())
+}
+
+fn find_ios_app_bundle(
+    extracted_root: &Path,
+) -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
+    let payload = extracted_root.join("Payload");
+    if !payload.exists() {
+        return Err("Invalid iOS archive: missing Payload directory".into());
+    }
+
+    for entry in std::fs::read_dir(&payload)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("app") {
+            return Ok(path);
+        }
+    }
+
+    Err("Invalid iOS archive: no .app bundle found in Payload".into())
+}
+
+fn install_path_to_str(path: &Path) -> Result<&str, Box<dyn std::error::Error + Send + Sync>> {
+    path.to_str()
+        .ok_or_else(|| format!("Invalid path encoding: {}", path.display()).into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_ios_install_source_missing_path() {
+        let result = resolve_ios_install_source("/nonexistent/app.ipa");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_ios_install_source_unsupported_extension() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let unsupported = temp_dir.path().join("app.zip");
+        std::fs::write(&unsupported, b"dummy").unwrap();
+
+        let result = resolve_ios_install_source(unsupported.to_str().unwrap());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_find_ios_app_bundle_finds_payload_app() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let payload = temp_dir.path().join("Payload");
+        std::fs::create_dir(&payload).unwrap();
+        let app = payload.join("MockApp.app");
+        std::fs::create_dir(&app).unwrap();
+
+        let found = find_ios_app_bundle(temp_dir.path()).unwrap();
+        assert_eq!(found, app);
+    }
 }

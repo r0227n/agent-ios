@@ -28,6 +28,7 @@ pub struct IsArgs {
     /// Element ref (@eN) or "text"
     pub target: String,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

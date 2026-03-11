@@ -56,39 +56,33 @@ impl AdbConnection {
     /// For commands that need literal spaces in arguments, use `shell_command_args`.
     pub fn shell_command(&mut self, command: &str) -> Result<String> {
         let parts: Vec<&str> = command.split_whitespace().collect();
-        let mut output = Vec::new();
-        self.device
-            .shell_command(&parts, &mut output)
-            .map_err(|e| AdbError::CommandFailed(format!("shell command failed: {}", e)))?;
-        Ok(String::from_utf8_lossy(&output).to_string())
+        self.shell_command_bytes_inner(&parts)
+            .map(|output| String::from_utf8_lossy(&output).to_string())
     }
 
     /// Execute a shell command with pre-split arguments.
     pub fn shell_command_args(&mut self, args: &[&str]) -> Result<String> {
-        let mut output = Vec::new();
-        self.device
-            .shell_command(args, &mut output)
-            .map_err(|e| AdbError::CommandFailed(format!("shell command failed: {}", e)))?;
-        Ok(String::from_utf8_lossy(&output).to_string())
+        self.shell_command_bytes_inner(args)
+            .map(|output| String::from_utf8_lossy(&output).to_string())
     }
 
     /// Execute a shell command and capture stdout as raw bytes.
     pub fn shell_command_bytes(&mut self, command: &str) -> Result<Vec<u8>> {
         let parts: Vec<&str> = command.split_whitespace().collect();
-        let mut output = Vec::new();
-        self.device
-            .shell_command(&parts, &mut output)
-            .map_err(|e| AdbError::CommandFailed(format!("shell command failed: {}", e)))?;
-        Ok(output)
+        self.shell_command_bytes_inner(&parts)
     }
 
     /// Execute a shell command with pre-split args and capture stdout as raw bytes.
     pub fn shell_command_bytes_args(&mut self, args: &[&str]) -> Result<Vec<u8>> {
+        self.shell_command_bytes_inner(args)
+    }
+
+    fn shell_command_bytes_inner(&mut self, args: &[&str]) -> Result<Vec<u8>> {
         let mut output = Vec::new();
         self.device
             .shell_command(args, &mut output)
             .map_err(|e| AdbError::CommandFailed(format!("shell command failed: {}", e)))?;
-        Ok(output)
+        Ok(decode_shell_output(&output))
     }
 
     /// Pull a file from device to a writer.
@@ -251,4 +245,76 @@ pub fn get_prop(serial: &str, prop: &str) -> Result<String> {
     let command = format!("getprop {}", prop);
     let output = conn.shell_command(&command)?;
     Ok(output.trim().to_string())
+}
+
+fn decode_shell_output(raw: &[u8]) -> Vec<u8> {
+    const SHELL_V2_STDOUT: u8 = 1;
+    const SHELL_V2_STDERR: u8 = 2;
+    const SHELL_V2_EXIT: u8 = 3;
+    const HEADER_LEN: usize = 5;
+
+    if raw.len() < HEADER_LEN {
+        return raw.to_vec();
+    }
+
+    let mut cursor = 0usize;
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut decoded_any = false;
+
+    while cursor + HEADER_LEN <= raw.len() {
+        let packet_id = raw[cursor];
+        let packet_len = u32::from_le_bytes([
+            raw[cursor + 1],
+            raw[cursor + 2],
+            raw[cursor + 3],
+            raw[cursor + 4],
+        ]) as usize;
+        cursor += HEADER_LEN;
+
+        if cursor + packet_len > raw.len() {
+            return raw.to_vec();
+        }
+
+        let payload = &raw[cursor..cursor + packet_len];
+        match packet_id {
+            SHELL_V2_STDOUT => stdout.extend_from_slice(payload),
+            SHELL_V2_STDERR => stderr.extend_from_slice(payload),
+            SHELL_V2_EXIT => {}
+            _ => return raw.to_vec(),
+        }
+        decoded_any = true;
+        cursor += packet_len;
+    }
+
+    if !decoded_any || cursor != raw.len() {
+        return raw.to_vec();
+    }
+
+    if stderr.is_empty() {
+        stdout
+    } else if stdout.is_empty() {
+        stderr
+    } else {
+        stdout.push(b'\n');
+        stdout.extend_from_slice(&stderr);
+        stdout
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decode_shell_output;
+
+    #[test]
+    fn test_decode_shell_output_shell_v2_stdout_and_exit() {
+        let raw = [1, 4, 0, 0, 0, b't', b'e', b's', b't', 3, 1, 0, 0, 0, 0];
+        assert_eq!(decode_shell_output(&raw), b"test");
+    }
+
+    #[test]
+    fn test_decode_shell_output_passthrough_plain_text() {
+        let raw = b"plain text\n";
+        assert_eq!(decode_shell_output(raw), raw);
+    }
 }

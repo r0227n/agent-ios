@@ -13,7 +13,12 @@ pub enum OutputWriter {
     /// Write to a file
     File(File),
     /// Write to both file and stdout (tee mode)
-    Tee { file: File, stdout: io::Stdout },
+    Tee {
+        /// File handle that receives the mirrored output.
+        file: File,
+        /// Standard output handle that receives the mirrored output.
+        stdout: io::Stdout,
+    },
 }
 
 impl OutputWriter {

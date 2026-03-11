@@ -1,3 +1,8 @@
+//! CoreSimulator-backed iOS simulator helpers.
+//!
+//! This module exposes lightweight wrappers around the private CoreSimulator
+//! framework for app install, launch, terminate, and booted-device discovery.
+
 mod device;
 mod error;
 

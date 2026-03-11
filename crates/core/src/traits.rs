@@ -10,26 +10,37 @@ use async_trait::async_trait;
 /// Information about an installed application
 #[derive(Debug, Clone)]
 pub struct AppInfo {
+    /// Bundle identifier on iOS or package name on Android.
     pub bundle_id: String,
+    /// Human-readable application name.
     pub name: String,
+    /// Installation source reported by the platform, when available.
     pub install_type: Option<String>,
+    /// CPU architectures supported by the installed binary.
     pub architectures: Vec<String>,
+    /// Current runtime state reported by the platform, when available.
     pub process_state: Option<String>,
+    /// Whether the application can be debugged.
     pub debuggable: Option<bool>,
 }
 
 /// Information about a file or directory
 #[derive(Debug, Clone)]
 pub struct FileInfo {
+    /// Absolute or device-relative path to the entry.
     pub path: String,
+    /// Whether the entry is a directory.
     pub is_directory: bool,
+    /// File size in bytes, if the platform provides it.
     pub size: Option<u64>,
 }
 
 /// A point on the screen
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
+    /// Horizontal coordinate in logical pixels.
     pub x: f64,
+    /// Vertical coordinate in logical pixels.
     pub y: f64,
 }
 

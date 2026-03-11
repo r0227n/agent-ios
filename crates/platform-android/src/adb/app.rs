@@ -12,12 +12,16 @@ use serde::{Deserialize, Serialize};
 /// Installed app information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppInfo {
+    /// Android package name.
     pub package_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Human-readable version string, when available.
     pub version_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Internal version code, when available.
     pub version_code: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Install location or APK path reported by the device.
     pub path: Option<String>,
 }
 

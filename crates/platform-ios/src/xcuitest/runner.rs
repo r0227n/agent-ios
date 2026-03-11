@@ -15,18 +15,25 @@ const RUNNER_XCTRUNNER_BUNDLE_ID: &str = "com.agent-mobile.xcuitest-runner-uites
 #[derive(Debug, thiserror::Error)]
 pub enum RunnerStartError {
     #[error("XCUITest Runner project not found")]
+    /// The runner Xcode project could not be located.
     ProjectNotFound,
     #[error("No booted simulator found: {0}")]
+    /// No booted simulator was available for starting the runner.
     NoBootedSimulator(String),
     #[error("Build failed: {0}")]
+    /// Building the runner app bundles failed.
     BuildFailed(String),
     #[error("Build products not found (searched: {0})")]
+    /// Expected runner app bundles could not be found after searching known paths.
     BuildProductsNotFound(String),
     #[error("App install failed: {0}")]
+    /// Installing one of the runner app bundles failed.
     InstallFailed(String),
     #[error("App launch failed: {0}")]
+    /// Launching the runner app failed.
     LaunchFailed(String),
     #[error("Health check timed out after {0} seconds")]
+    /// The runner did not become healthy before the timeout elapsed.
     HealthCheckTimeout(u64),
 }
 
@@ -171,6 +178,7 @@ pub struct XCUITestRunner {
 }
 
 impl XCUITestRunner {
+    /// Create a runner handle bound to the given simulator UDID and port.
     pub fn new(udid: String, port: u16) -> Self {
         Self { udid, port }
     }

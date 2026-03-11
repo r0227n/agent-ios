@@ -7,8 +7,11 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum TargetType {
+    /// An iOS simulator managed by CoreSimulator.
     Simulator,
+    /// A physical mobile device.
     Device,
+    /// A locally addressable Mac host target.
     Mac,
 }
 
@@ -47,9 +50,17 @@ impl std::str::FromStr for TargetType {
 #[serde(untagged)]
 pub enum Address {
     /// TCP connection (host:port)
-    Tcp { host: String, port: u16 },
+    Tcp {
+        /// Host name or IP address of the remote endpoint.
+        host: String,
+        /// TCP port of the remote endpoint.
+        port: u16,
+    },
     /// Unix domain socket connection
-    DomainSocket { path: String },
+    DomainSocket {
+        /// Filesystem path to the Unix domain socket.
+        path: String,
+    },
 }
 
 impl fmt::Display for Address {
