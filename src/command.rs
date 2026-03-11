@@ -1,9 +1,11 @@
-//! CLI コマンド構造定義
+//! Top-level CLI command definitions.
 //!
-//! clap による CLI パーサーとコマンド enum を提供します。
+//! This module declares the `clap` parser and the top-level command enum used
+//! by the `agent-mobile` binary.
 
 use clap::{Parser, Subcommand};
 
+/// Top-level CLI parser for the `agent-mobile` binary.
 #[derive(Parser)]
 #[command(name = "agent-mobile")]
 #[command(about = "AI Agent 向け モバイルアプリ E2E テスト CLI")]
@@ -14,10 +16,12 @@ pub struct Cli {
     #[arg(long, global = true, env = "AGENT_MOBILE_SESSION")]
     pub session: Option<String>,
 
+    /// Top-level command to execute.
     #[command(subcommand)]
     pub command: Commands,
 }
 
+/// Top-level commands supported by the CLI.
 #[derive(Subcommand)]
 pub enum Commands {
     // ==================== Core Commands (AI Agent 向け) ====================

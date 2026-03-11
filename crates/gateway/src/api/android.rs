@@ -4,6 +4,7 @@
 
 pub use agent_mobile_platform_android::LogcatStream;
 
+/// Convenient result type for Android gateway operations.
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// High-level Android device API

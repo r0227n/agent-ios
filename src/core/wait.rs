@@ -36,6 +36,7 @@ pub struct WaitArgs {
     #[arg(long, default_value = "500")]
     pub interval: u64,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

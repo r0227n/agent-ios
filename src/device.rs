@@ -15,6 +15,7 @@ use crate::helpers::format::OutputFormat;
 /// Device command arguments.
 #[derive(Args, Debug)]
 pub struct DeviceArgs {
+    /// Optional device subcommand. If omitted, all devices are listed.
     #[command(subcommand)]
     pub command: Option<DeviceCommands>,
 
@@ -79,14 +80,20 @@ pub enum DeviceCommands {
 /// Unified device info for output.
 #[derive(Debug, Serialize)]
 pub struct DeviceInfo {
+    /// Human-readable device name.
     pub name: String,
+    /// Simulator UDID or Android device serial.
     pub udid: String,
+    /// Platform identifier such as `ios` or `android`.
     pub platform: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Current runtime state, when available.
     pub state: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Operating system version, when available.
     pub os_version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Platform-specific device classification, when available.
     pub device_type: Option<String>,
 }
 

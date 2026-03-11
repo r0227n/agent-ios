@@ -15,6 +15,7 @@ pub struct ConsoleArgs {
     #[arg(short = 'o', long)]
     pub output: Option<String>,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

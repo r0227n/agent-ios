@@ -88,7 +88,9 @@ pub(crate) fn load_framework() -> Result<(), CoreSimError> {
 
 /// Booted device information returned from CoreSimulator.
 pub struct BootedDevice {
+    /// Simulator UDID.
     pub udid: String,
+    /// Human-readable simulator name.
     pub name: String,
 }
 

@@ -32,6 +32,7 @@ pub struct LongPressArgs {
     #[arg(long, default_value_t = DEFAULT_LONG_PRESS_DURATION)]
     pub duration: f64,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }

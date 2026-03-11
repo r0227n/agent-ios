@@ -1,6 +1,7 @@
-//! `agent-mobile doctor` コマンド
+//! Health checks for external dependencies used by `agent-mobile`.
 //!
-//! 外部依存関係の状態を診断し、環境セットアップの問題を報告します。
+//! This module inspects required iOS and Android tooling and reports setup
+//! problems in either text or JSON format.
 
 use std::path::PathBuf;
 
@@ -9,6 +10,7 @@ use serde::Serialize;
 
 use crate::helpers::format::OutputFormat;
 
+/// Arguments for the `doctor` command.
 #[derive(Args)]
 pub struct DoctorArgs {
     /// Output format
@@ -20,43 +22,64 @@ pub struct DoctorArgs {
     pub json: bool,
 }
 
+/// Result classification for an individual environment check.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckStatus {
+    /// The check passed without issues.
     Ok,
+    /// The check passed with caveats.
     Warning,
+    /// The check failed.
     Error,
 }
 
+/// Platform area covered by an environment check.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckCategory {
+    /// Checks related to Apple platform tooling.
     Ios,
+    /// Checks related to Android tooling.
     Android,
 }
 
+/// Single environment check result reported by `doctor`.
 #[derive(Debug, Clone, Serialize)]
 pub struct CheckResult {
+    /// Short check name.
     pub name: String,
+    /// Platform category the check belongs to.
     pub category: CheckCategory,
+    /// Outcome severity for the check.
     pub status: CheckStatus,
+    /// Human-readable explanation of the result.
     pub message: String,
+    /// Whether this failure should cause a non-zero exit code.
     pub critical: bool,
 }
 
+/// Aggregate counts for the executed checks.
 #[derive(Debug, Serialize)]
 pub struct DoctorSummary {
+    /// Number of checks that passed.
     pub ok: usize,
+    /// Number of checks that produced warnings.
     pub warnings: usize,
+    /// Number of checks that failed.
     pub errors: usize,
 }
 
+/// Full `doctor` output containing checks and summary totals.
 #[derive(Debug, Serialize)]
 pub struct DoctorReport {
+    /// Individual check results.
     pub checks: Vec<CheckResult>,
+    /// Aggregate summary of all checks.
     pub summary: DoctorSummary,
 }
 
+/// Run all configured environment checks and print the report.
 pub async fn run(mut args: DoctorArgs) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // --json フラグが指定されている場合は format を Json に設定
     if args.json {

@@ -25,15 +25,25 @@ pub enum ElementTarget {
 /// Resolved element with coordinates
 #[derive(Debug, Clone)]
 pub struct ResolvedElement {
+    /// Snapshot reference ID such as `@e1`.
     pub ref_id: String,
+    /// Platform-normalized accessibility element type.
     pub element_type: String,
+    /// Accessibility label, if present.
     pub label: Option<String>,
+    /// Element bounds in snapshot coordinates.
     pub frame: Frame,
+    /// Whether the element is currently enabled.
     pub enabled: bool,
+    /// Element value, when the platform reports one.
     pub value: Option<String>,
+    /// Accessibility traits associated with the element.
     pub traits: Vec<String>,
+    /// Placeholder text for editable elements, when available.
     pub placeholder: Option<String>,
+    /// Depth in the accessibility tree.
     pub depth: u32,
+    /// Whether the element is considered actionable by the CLI.
     pub is_interactive: bool,
 }
 

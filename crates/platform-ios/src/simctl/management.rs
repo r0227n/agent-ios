@@ -8,18 +8,23 @@ use thiserror::Error;
 
 use super::helper::{run_simctl, run_simctl_tolerant};
 
+/// Errors returned by `xcrun simctl` management commands.
 #[derive(Debug, Error)]
 pub enum SimctlError {
     #[error("simctl command failed: {0}")]
+    /// `simctl` completed with a failure message.
     CommandFailed(String),
 
     #[error("simctl execution error: {0}")]
+    /// Launching the `simctl` process failed.
     ExecutionError(#[from] std::io::Error),
 
     #[error("Invalid output: {0}")]
+    /// `simctl` returned output that could not be parsed.
     InvalidOutput(String),
 }
 
+/// Convenient result type for simulator management helpers.
 pub type Result<T> = std::result::Result<T, SimctlError>;
 
 /// Boot a simulator
@@ -112,7 +117,9 @@ pub fn privacy_reset(udid: &str, service: &str, bundle_id: &str) -> Result<()> {
 /// Information about a booted simulator.
 #[derive(Debug, Clone)]
 pub struct BootedSimulator {
+    /// Simulator UDID.
     pub udid: String,
+    /// Human-readable simulator name.
     pub name: String,
 }
 
@@ -173,9 +180,13 @@ pub fn uninstall_app(udid: &str, bundle_id: &str) -> Result<()> {
 /// Simplified app info from simctl listapps.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SimctlAppInfo {
+    /// Application bundle identifier.
     pub bundle_id: String,
+    /// Display name reported by the application bundle.
     pub name: String,
+    /// Marketing version string.
     pub version: String,
+    /// Application classification such as `User` or `System`.
     pub app_type: String,
 }
 

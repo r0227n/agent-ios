@@ -5,9 +5,11 @@
 //! - Simulator management via simctl
 
 #[cfg(target_os = "macos")]
+/// CoreSimulator-backed helpers for booted simulator app management.
 pub mod coresim;
 pub mod simctl;
 pub mod snapshot;
+/// XCUITest Runner client types and lifecycle helpers.
 pub mod xcuitest;
 
 // Re-export main types

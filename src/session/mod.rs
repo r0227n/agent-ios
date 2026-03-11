@@ -25,6 +25,7 @@ use state::{SessionData, SessionState};
 /// Session management arguments
 #[derive(Args, Debug)]
 pub struct SessionArgs {
+    /// Session management action to execute.
     #[command(subcommand)]
     pub command: SessionCommands,
 }

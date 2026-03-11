@@ -59,6 +59,7 @@ pub struct SnapshotArgs {
     #[arg(long, default_value = "100")]
     pub scroll_delay: u64,
 
+    /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
 }
@@ -66,7 +67,9 @@ pub struct SnapshotArgs {
 /// Detected platform.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Platform {
+    /// Capture a snapshot from an iOS device or simulator.
     Ios,
+    /// Capture a snapshot from an Android device or emulator.
     Android,
 }
 

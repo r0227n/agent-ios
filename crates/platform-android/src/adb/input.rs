@@ -125,27 +125,49 @@ pub async fn keyevent_by_name(serial: Option<&str>, keyname: &str) -> Result<()>
 
 /// Common Android key codes.
 pub mod keycodes {
+    /// Key code for the Home button.
     pub const HOME: u32 = 3;
+    /// Key code for the Back button.
     pub const BACK: u32 = 4;
+    /// Key code for initiating a phone call.
     pub const CALL: u32 = 5;
+    /// Key code for ending a phone call.
     pub const ENDCALL: u32 = 6;
+    /// Key code for directional up navigation.
     pub const DPAD_UP: u32 = 19;
+    /// Key code for directional down navigation.
     pub const DPAD_DOWN: u32 = 20;
+    /// Key code for directional left navigation.
     pub const DPAD_LEFT: u32 = 21;
+    /// Key code for directional right navigation.
     pub const DPAD_RIGHT: u32 = 22;
+    /// Key code for directional center/confirm.
     pub const DPAD_CENTER: u32 = 23;
+    /// Key code for increasing the volume.
     pub const VOLUME_UP: u32 = 24;
+    /// Key code for decreasing the volume.
     pub const VOLUME_DOWN: u32 = 25;
+    /// Key code for the power button.
     pub const POWER: u32 = 26;
+    /// Key code for the hardware camera button.
     pub const CAMERA: u32 = 27;
+    /// Key code for the clear action.
     pub const CLEAR: u32 = 28;
+    /// Key code for the Enter key.
     pub const ENTER: u32 = 66;
+    /// Key code for the Delete key.
     pub const DEL: u32 = 67;
+    /// Key code for the Tab key.
     pub const TAB: u32 = 61;
+    /// Key code for the Space key.
     pub const SPACE: u32 = 62;
+    /// Key code for the Escape key.
     pub const ESCAPE: u32 = 111;
+    /// Key code for opening the menu.
     pub const MENU: u32 = 82;
+    /// Key code for the recent apps switcher.
     pub const APP_SWITCH: u32 = 187;
+    /// Key code for invoking search.
     pub const SEARCH: u32 = 84;
 }
 

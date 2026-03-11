@@ -4,6 +4,7 @@
 
 use agent_mobile_core::Platform;
 
+/// Convenient result type for platform resolution helpers.
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// Device resolver for platform detection
