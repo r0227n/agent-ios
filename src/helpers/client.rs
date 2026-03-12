@@ -39,9 +39,12 @@ where
     use agent_mobile_platform_ios::xcuitest::ensure_runner_started;
 
     // Ensure the Runner is started on the intended simulator.
-    let _resolved_udid = ensure_runner_started(XCUITestClient::DEFAULT_PORT, target_udid).await?;
+    let resolved_udid = ensure_runner_started(XCUITestClient::DEFAULT_PORT, target_udid).await?;
 
     let client = XCUITestClient::default();
+    if let Some(bundle_id) = crate::session::app_context::get_active_app(&resolved_udid)? {
+        client.set_app(&bundle_id).await?;
+    }
     f(client).await
 }
 

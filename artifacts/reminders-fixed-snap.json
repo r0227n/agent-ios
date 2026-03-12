@@ -1,0 +1,498 @@
+{
+  "snapshot_id": "snap_z7QHljcr",
+  "timestamp": "2026-03-12T11:58:15.550538Z",
+  "elements": [
+    {
+      "ref": "@e4",
+      "type": "Application",
+      "label": "リマインダー",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e5",
+      "type": "Window",
+      "frame": {
+        "x": 43.72386093941293,
+        "y": 95.0613295050918,
+        "width": 314.5522781211741,
+        "height": 683.8773409898165
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e6",
+      "type": "Other",
+      "frame": {
+        "x": 22.496484439427174,
+        "y": 48.91026716432674,
+        "width": 357.0070311211457,
+        "height": 776.1794656713464
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e7",
+      "type": "Other",
+      "frame": {
+        "x": 9.001885512771679,
+        "y": 19.571263527767258,
+        "width": 383.9962289744567,
+        "height": 834.8574729444656
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e8",
+      "type": "Other",
+      "frame": {
+        "x": 3.402099351526971,
+        "y": 7.396604062772609,
+        "width": 395.19580129694606,
+        "height": 859.2067918744549
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e9",
+      "type": "Other",
+      "frame": {
+        "x": 1.239008793032582,
+        "y": 2.693765385846973,
+        "width": 399.5219824139349,
+        "height": 868.6124692283063
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e10",
+      "type": "Other",
+      "frame": {
+        "x": 0.4396607522154454,
+        "y": 0.9558793468564204,
+        "width": 401.1206784955692,
+        "height": 872.088241306287
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e11",
+      "type": "Other",
+      "frame": {
+        "x": 0.1892490903456121,
+        "y": 0.41145200239321866,
+        "width": 401.6215018193087,
+        "height": 873.1770959952138
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e12",
+      "type": "NavigationBar",
+      "frame": {
+        "x": 0.0,
+        "y": 62.0,
+        "width": 402.0,
+        "height": 106.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e1",
+      "type": "Button",
+      "label": "戻る",
+      "frame": {
+        "x": 16.0,
+        "y": 62.0,
+        "width": 44.0,
+        "height": 44.0
+      },
+      "enabled": true,
+      "traits": [
+        "button"
+      ]
+    },
+    {
+      "ref": "@e2",
+      "type": "Button",
+      "label": "その他",
+      "frame": {
+        "x": 346.0,
+        "y": 66.0,
+        "width": 36.0,
+        "height": 36.0
+      },
+      "enabled": true,
+      "traits": [
+        "button"
+      ]
+    },
+    {
+      "ref": "@e13",
+      "type": "StaticText",
+      "label": "リマインダー",
+      "frame": {
+        "x": 15.999999999999986,
+        "y": 120.66666666666669,
+        "width": 185.33333333333337,
+        "height": 39.66666666666667
+      },
+      "enabled": true,
+      "traits": [
+        "static_text"
+      ]
+    },
+    {
+      "ref": "@e14",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e15",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e16",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e17",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e18",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e19",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e20",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e21",
+      "type": "CollectionView",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true,
+      "traits": [
+        "scrollable"
+      ]
+    },
+    {
+      "ref": "@e22",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e23",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e24",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e25",
+      "type": "Other",
+      "label": "垂直スクロールバー, 1ページ",
+      "frame": {
+        "x": 369.0,
+        "y": 116.0,
+        "width": 30.0,
+        "height": 672.0
+      },
+      "enabled": true,
+      "value": "0%"
+    },
+    {
+      "ref": "@e26",
+      "type": "Other",
+      "frame": {
+        "x": 396.0,
+        "y": 739.0,
+        "width": 3.0,
+        "height": 46.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e27",
+      "type": "Other",
+      "label": "水平スクロールバー, 1ページ",
+      "frame": {
+        "x": 62.0,
+        "y": 755.0,
+        "width": 278.0,
+        "height": 30.0
+      },
+      "enabled": true,
+      "value": "0%"
+    },
+    {
+      "ref": "@e28",
+      "type": "Other",
+      "frame": {
+        "x": 330.0,
+        "y": 782.0,
+        "width": 7.0,
+        "height": 3.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e29",
+      "type": "Other",
+      "label": "リマインダーリスト",
+      "frame": {
+        "x": 16.0,
+        "y": 425.0,
+        "width": 370.0,
+        "height": 24.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e30",
+      "type": "StaticText",
+      "label": "リマインダーなし",
+      "frame": {
+        "x": 126.0,
+        "y": 425.0,
+        "width": 150.0,
+        "height": 24.0
+      },
+      "enabled": true,
+      "traits": [
+        "static_text"
+      ]
+    },
+    {
+      "ref": "@e31",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e32",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e33",
+      "type": "Toolbar",
+      "label": "ツールバー",
+      "frame": {
+        "x": 0.0,
+        "y": 788.0,
+        "width": 402.0,
+        "height": 86.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e34",
+      "type": "Other",
+      "frame": {
+        "x": 28.0,
+        "y": 798.0,
+        "width": 346.0,
+        "height": 48.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e35",
+      "type": "Other",
+      "frame": {
+        "x": 28.0,
+        "y": 798.0,
+        "width": 346.0,
+        "height": 48.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e36",
+      "type": "Other",
+      "frame": {
+        "x": 28.0,
+        "y": 798.0,
+        "width": 0.0,
+        "height": 0.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e37",
+      "type": "Other",
+      "frame": {
+        "x": 326.0,
+        "y": 798.0,
+        "width": 48.0,
+        "height": 48.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e38",
+      "type": "Other",
+      "frame": {
+        "x": 326.0,
+        "y": 798.0,
+        "width": 48.0,
+        "height": 48.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e39",
+      "type": "Other",
+      "frame": {
+        "x": 331.0,
+        "y": 803.0,
+        "width": 38.0,
+        "height": 38.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e40",
+      "type": "Other",
+      "frame": {
+        "x": 331.0,
+        "y": 803.0,
+        "width": 38.0,
+        "height": 38.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e3",
+      "type": "Button",
+      "label": "新規",
+      "frame": {
+        "x": 331.0,
+        "y": 803.0,
+        "width": 38.0,
+        "height": 38.0
+      },
+      "enabled": true,
+      "traits": [
+        "button"
+      ]
+    },
+    {
+      "ref": "@e41",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    },
+    {
+      "ref": "@e42",
+      "type": "Other",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 402.0,
+        "height": 874.0
+      },
+      "enabled": true
+    }
+  ]
+}

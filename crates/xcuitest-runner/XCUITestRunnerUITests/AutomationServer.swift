@@ -3,6 +3,7 @@ import XCTest
 /// Main XCUITest entry point.
 /// Starts an HTTP server and routes requests to XCUITest API handlers.
 final class AutomationServer: XCTestCase {
+    private let springboardBundleId = "com.apple.springboard"
     private var server: HTTPServer!
     private var touchHandler: TouchHandler!
     private var inputHandler: InputHandler!
@@ -13,14 +14,16 @@ final class AutomationServer: XCTestCase {
 
     /// The target app (Springboard as default - allows controlling any app).
     private var app: XCUIApplication!
+    private var activeBundleId: String!
 
     override func setUp() {
         super.setUp()
         continueAfterFailure = true
 
         // Use Springboard as the base app to allow cross-app interactions
-        app = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        app = XCUIApplication(bundleIdentifier: springboardBundleId)
         app.activate()
+        activeBundleId = springboardBundleId
 
         touchHandler = TouchHandler(app: app)
         inputHandler = InputHandler(app: app)
@@ -68,6 +71,22 @@ final class AutomationServer: XCTestCase {
             payload["udid"] = udid
         }
         return payload
+    }
+
+    private func switchContext(to bundleId: String) {
+        let newApp = XCUIApplication(bundleIdentifier: bundleId)
+        let shouldActivate = activeBundleId != bundleId || newApp.state != .runningForeground
+
+        if shouldActivate {
+            newApp.activate()
+            _ = newApp.wait(for: .runningForeground, timeout: 5)
+        }
+
+        app = newApp
+        activeBundleId = bundleId
+        accessibilityHandler = AccessibilityHandler(app: newApp)
+        touchHandler = TouchHandler(app: newApp)
+        inputHandler = InputHandler(app: newApp)
     }
 
     // MARK: - Route Registration
@@ -245,12 +264,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.appHandler.launch(bundleIdentifier: bundleId)
-
-                    // After launching, update the accessibility handler to use the new app
-                    let newApp = XCUIApplication(bundleIdentifier: bundleId)
-                    self.accessibilityHandler = AccessibilityHandler(app: newApp)
-                    self.touchHandler = TouchHandler(app: newApp)
-                    self.inputHandler = InputHandler(app: newApp)
+                    self.switchContext(to: bundleId)
 
                     return .ok(["success": true, "bundleId": bundleId])
                 }, completion: completion)
@@ -267,12 +281,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.appHandler.terminate(bundleIdentifier: bundleId)
-
-                    // Revert handlers to Springboard
-                    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-                    self.accessibilityHandler = AccessibilityHandler(app: springboard)
-                    self.touchHandler = TouchHandler(app: springboard)
-                    self.inputHandler = InputHandler(app: springboard)
+                    self.switchContext(to: self.springboardBundleId)
 
                     return .ok(["success": true])
                 }, completion: completion)
@@ -325,10 +334,7 @@ final class AutomationServer: XCTestCase {
             }
             self.onMain(
                 {
-                    let newApp = XCUIApplication(bundleIdentifier: bundleId)
-                    self.accessibilityHandler = AccessibilityHandler(app: newApp)
-                    self.touchHandler = TouchHandler(app: newApp)
-                    self.inputHandler = InputHandler(app: newApp)
+                    self.switchContext(to: bundleId)
                     return .ok(["success": true, "bundleId": bundleId])
                 }, completion: completion)
         }

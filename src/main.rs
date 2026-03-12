@@ -34,6 +34,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
     let session = cli.session.as_deref();
 
+    if let Some(session_name) = session {
+        std::env::set_var("AGENT_MOBILE_SESSION", session_name);
+    }
+
     // Resolve UDID from session (if specified)
     let resolved_udid = if let Some(session_name) = session {
         let resolver = SessionResolver::new();
