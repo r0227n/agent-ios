@@ -104,8 +104,8 @@ pub async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandR
 }
 
 /// Get iOS screen size from snapshot's root element
-async fn get_ios_screen_size_from_snapshot(_udid: Option<&str>) -> CommandResult<(f64, f64)> {
-    with_xcuitest(|client| async move {
+async fn get_ios_screen_size_from_snapshot(udid: Option<&str>) -> CommandResult<(f64, f64)> {
+    with_xcuitest(udid, |client| async move {
         let json_str = client.accessibility_info(false).await?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
 
@@ -136,7 +136,7 @@ pub async fn take_snapshot(
 
     match platform {
         Platform::Ios => {
-            with_xcuitest(|client| async move {
+            with_xcuitest(udid, |client| async move {
                 let json_str = client.accessibility_info(true).await?;
                 let json: serde_json::Value = serde_json::from_str(&json_str)?;
                 let raw_elements = agent_mobile_platform_ios::snapshot::extract_ios_elements(&json);
@@ -171,7 +171,7 @@ pub async fn take_snapshot(
 pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
-            with_xcuitest(|client| async move {
+            with_xcuitest(udid, |client| async move {
                 client.tap(x, y).await?;
                 Ok(())
             })
@@ -194,7 +194,7 @@ async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> Comma
             // Hardware buttons
             if matches!(key_lower.as_str(), "home" | "lock" | "power" | "siri") {
                 let button = key_lower.clone();
-                return with_xcuitest(|client| async move {
+                return with_xcuitest(udid, |client| async move {
                     client.button_press(&button).await?;
                     Ok(())
                 })
@@ -222,7 +222,7 @@ async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> Comma
             };
 
             let key_name = key_name.to_string();
-            with_xcuitest(|client| async move {
+            with_xcuitest(udid, |client| async move {
                 client.key_press(&key_name).await?;
                 Ok(())
             })

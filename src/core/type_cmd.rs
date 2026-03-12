@@ -32,16 +32,16 @@ pub async fn run(args: TypeArgs) -> CommandResult {
     };
 
     match platform {
-        Platform::Ios => execute_type_ios(&args.text).await,
+        Platform::Ios => execute_type_ios(args.device.udid.as_deref(), &args.text).await,
         Platform::Android => execute_type_android(args.device.udid.as_deref(), &args.text).await,
     }
 }
 
 /// Execute type on iOS
-async fn execute_type_ios(text: &str) -> CommandResult {
+async fn execute_type_ios(udid: Option<&str>, text: &str) -> CommandResult {
     let text = text.to_string();
 
-    with_xcuitest(|client| async move {
+    with_xcuitest(udid, |client| async move {
         client.type_text(&text).await?;
         Ok(())
     })

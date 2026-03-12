@@ -487,7 +487,7 @@ async fn execute_fill(
         Platform::Ios => {
             let text = text.to_string();
 
-            with_xcuitest(|client| async move {
+            with_xcuitest(udid, |client| async move {
                 // 1. Tap to focus
                 client.tap(x, y).await?;
 
@@ -531,7 +531,7 @@ async fn execute_fill(
 async fn execute_clear(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
-            with_xcuitest(|client| async move {
+            with_xcuitest(udid, |client| async move {
                 // 1. Tap to focus
                 client.tap(x, y).await?;
 

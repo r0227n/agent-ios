@@ -25,21 +25,21 @@ pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sy
 /// use agent_mobile::helpers::client::{with_xcuitest, CommandResult};
 ///
 /// pub async fn run() -> CommandResult {
-///     with_xcuitest(|client| async move {
+///     with_xcuitest(None, |client| async move {
 ///         client.tap(100.0, 200.0).await?;
 ///         Ok(())
 ///     }).await
 /// }
 /// ```
-pub async fn with_xcuitest<F, Fut, T>(f: F) -> CommandResult<T>
+pub async fn with_xcuitest<F, Fut, T>(target_udid: Option<&str>, f: F) -> CommandResult<T>
 where
     F: FnOnce(XCUITestClient) -> Fut,
     Fut: std::future::Future<Output = CommandResult<T>>,
 {
     use agent_mobile_platform_ios::xcuitest::ensure_runner_started;
 
-    // Ensure the Runner is started (no-op if already running)
-    ensure_runner_started(XCUITestClient::DEFAULT_PORT).await?;
+    // Ensure the Runner is started on the intended simulator.
+    let _resolved_udid = ensure_runner_started(XCUITestClient::DEFAULT_PORT, target_udid).await?;
 
     let client = XCUITestClient::default();
     f(client).await

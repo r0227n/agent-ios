@@ -66,7 +66,7 @@ pub(crate) async fn execute_long_press(
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
-            with_xcuitest(|client| async move {
+            with_xcuitest(udid, |client| async move {
                 client.long_press(x, y, duration).await?;
                 Ok(())
             })

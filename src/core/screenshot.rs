@@ -192,13 +192,13 @@ pub async fn run(args: ScreenshotArgs) -> CommandResult {
 
 /// Execute screenshot on iOS using XCUITest Runner.
 async fn execute_screenshot_ios(
-    _udid: Option<&str>,
+    udid: Option<&str>,
     path: &str,
     format: ImageFormat,
 ) -> CommandResult {
     use crate::helpers::client::with_xcuitest;
 
-    let png_bytes = with_xcuitest(|client| async move { client.screenshot().await }).await?;
+    let png_bytes = with_xcuitest(udid, |client| async move { client.screenshot().await }).await?;
 
     let final_bytes = match format {
         ImageFormat::Png => png_bytes,

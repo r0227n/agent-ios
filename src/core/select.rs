@@ -134,6 +134,7 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
         // Alternate between up and down to cover both directions
         let swipe_direction = if attempt % 2 == 0 { -50.0 } else { 50.0 };
         execute_swipe_ios(
+            udid,
             picker_x,
             picker_y,
             picker_x,

@@ -1,5 +1,9 @@
 //! iOS utility functions for CLI integration tests.
 
+use std::process::Command;
+use std::thread;
+use std::time::{Duration, Instant};
+
 /// Get a booted iOS simulator UDID using simctl.
 ///
 /// # Panics
@@ -28,4 +32,33 @@ pub fn get_test_bundle_id() -> String {
 /// Ensure the device is ready for testing (no-op, kept for test compatibility).
 pub fn ensure_companion_running(_udid: &str) {
     // No-op: simctl and XCUITest Runner are used directly.
+}
+
+/// Stop the XCUITest Runner so tests can verify cold-start behavior.
+pub fn stop_xcuitest_runner(udid: &str) {
+    for bundle_id in [
+        "com.agent-mobile.xcuitest-runner-uitests.xctrunner",
+        "com.agent-mobile.xcuitest-runner",
+    ] {
+        let _ = Command::new("xcrun")
+            .args(["simctl", "terminate", udid, bundle_id])
+            .output();
+    }
+
+    let _ = Command::new("pkill")
+        .args(["-f", "XCUITestRunner.xcodeproj.*testStartAutomationServer"])
+        .output();
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        let still_running = Command::new("pgrep")
+            .args(["-f", "XCUITestRunner.xcodeproj.*testStartAutomationServer"])
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false);
+        if !still_running {
+            return;
+        }
+        thread::sleep(Duration::from_millis(200));
+    }
 }

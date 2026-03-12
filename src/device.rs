@@ -405,7 +405,7 @@ async fn execute_pbcopy(platform: Platform, _udid: &str, text: &str) -> CommandR
             use crate::helpers::client::with_xcuitest;
 
             let text = text.to_string();
-            with_xcuitest(|client| async move {
+            with_xcuitest(Some(_udid), |client| async move {
                 client.clipboard_copy(&text).await?;
                 println!("Copied to clipboard");
                 Ok(())
@@ -422,7 +422,7 @@ async fn execute_pbpaste(platform: Platform, _udid: &str) -> CommandResult {
         Platform::Ios => {
             use crate::helpers::client::with_xcuitest;
 
-            with_xcuitest(|client| async move {
+            with_xcuitest(Some(_udid), |client| async move {
                 let text = client.clipboard_paste().await?;
                 print!("{}", text);
                 Ok(())

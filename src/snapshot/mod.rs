@@ -139,7 +139,7 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
     let max_scrolls = args.max_scrolls;
     let scroll_delay = args.scroll_delay;
 
-    with_xcuitest(|client| async move {
+    with_xcuitest(args.device.udid.as_deref(), |client| async move {
         // Collect raw elements (with or without scrolling)
         let raw_elements = if no_scroll {
             // --no-scroll: Single accessibility info fetch (original behavior)

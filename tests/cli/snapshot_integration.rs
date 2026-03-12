@@ -5,8 +5,10 @@
 
 use crate::common::{
     assert_failure, assert_success, assert_valid_json, cleanup_temp_file, ensure_companion_running,
-    get_available_udid, get_temp_file_path, get_test_bundle_id, run_cli_command_with_udid,
+    get_available_udid, get_temp_file_path, get_test_bundle_id, run_cli_command_with_timeout,
+    run_cli_command_with_udid, stop_xcuitest_runner,
 };
+use std::time::Duration;
 
 // ============================================================================
 // Basic snapshot - Normal cases
@@ -59,6 +61,22 @@ fn test_snapshot_text_format() {
         stdout.contains("@e") || stdout.contains("$"),
         "Expected element references in snapshot output"
     );
+}
+
+/// Test snapshot cold-start path returns without hanging after the runner is stopped.
+#[test]
+fn test_snapshot_cold_start_recovers_without_hanging() {
+    let udid = get_available_udid();
+    stop_xcuitest_runner(&udid);
+
+    let output = run_cli_command_with_timeout(
+        "snapshot",
+        &["--no-scroll", "-f", "json", "--udid", &udid],
+        Duration::from_secs(60),
+    );
+
+    assert_success(&output, "snapshot cold start");
+    let _ = assert_valid_json(&output);
 }
 
 // ============================================================================

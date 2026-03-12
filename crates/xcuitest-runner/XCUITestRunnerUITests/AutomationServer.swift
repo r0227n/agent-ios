@@ -45,10 +45,9 @@ final class AutomationServer: XCTestCase {
         try server.start()
         NSLog("[XCUITestRunner] Automation server started on port 8200")
 
-        // Keep the test alive using RunLoop so the main thread stays responsive
-        while true {
-            RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 1.0))
-        }
+        // Keep the UI test session alive without monopolizing the main queue.
+        let keepAlive = expectation(description: "Keep automation server alive")
+        wait(for: [keepAlive], timeout: 60 * 60 * 24 * 365)
     }
 
     // MARK: - Helper to dispatch XCUITest calls on main thread
@@ -60,12 +59,35 @@ final class AutomationServer: XCTestCase {
         }
     }
 
+    private func runnerStatus(_ status: String) -> [String: Any] {
+        var payload: [String: Any] = [
+            "status": status,
+            "runner": "xcuitest",
+        ]
+        if let udid = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] {
+            payload["udid"] = udid
+        }
+        return payload
+    }
+
     // MARK: - Route Registration
 
     private func registerRoutes() {
         // Health check (no XCUITest API needed)
         server.get("/health") { _, completion in
-            completion(.ok(["status": "ok", "runner": "xcuitest"]))
+            completion(.ok(self.runnerStatus("ok")))
+        }
+
+        // Readiness check (must prove XCUITest APIs work on the main queue)
+        server.get("/ready") { [weak self] _, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            self.onMain(
+                {
+                    guard self.accessibilityHandler.isReady() else {
+                        return .error("Runner is not ready for accessibility access", status: 500)
+                    }
+                    return .ok(self.runnerStatus("ready"))
+                }, completion: completion)
         }
 
         // Screenshot

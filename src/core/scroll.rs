@@ -67,7 +67,9 @@ pub async fn run(args: ScrollArgs) -> CommandResult {
 
     // Execute scroll (same as swipe but with shorter distance and duration)
     match platform {
-        Platform::Ios => execute_scroll_ios(x1, y1, x2, y2, duration).await,
+        Platform::Ios => {
+            execute_scroll_ios(args.device.udid.as_deref(), x1, y1, x2, y2, duration).await
+        }
         Platform::Android => {
             execute_scroll_android(args.device.udid.as_deref(), x1, y1, x2, y2, duration).await
         }
@@ -120,8 +122,15 @@ async fn get_screen_center(platform: Platform, udid: Option<&str>) -> CommandRes
 }
 
 /// Execute scroll on iOS
-async fn execute_scroll_ios(x1: f64, y1: f64, x2: f64, y2: f64, duration: f64) -> CommandResult {
-    with_xcuitest(|client| async move {
+async fn execute_scroll_ios(
+    udid: Option<&str>,
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+    duration: f64,
+) -> CommandResult {
+    with_xcuitest(udid, |client| async move {
         client.swipe((x1, y1), (x2, y2), duration).await?;
         Ok(())
     })

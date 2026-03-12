@@ -123,6 +123,23 @@ final class HTTPServerRouteTests: XCTestCase {
         XCTAssertEqual(status, 404, "POST to a GET-only route should return 404")
     }
 
+    func testRouteCanRespondFromMainQueue() throws {
+        server.get("/ready") { _, completion in
+            DispatchQueue.main.async {
+                completion(.ok(["status": "ready"]))
+            }
+        }
+        try server.start()
+        Thread.sleep(forTimeInterval: 0.3)
+        guard let port = server.actualPort else {
+            throw NSError(domain: "test", code: 3, userInfo: [NSLocalizedDescriptionKey: "Server port not available"])
+        }
+
+        let (status, body) = try sendRequest(port: port, method: "GET", path: "/ready")
+        XCTAssertEqual(status, 200)
+        XCTAssertEqual(body["status"] as? String, "ready")
+    }
+
     func testServerStopAndRestart() throws {
         let port1 = try startServer()
         let (status1, _) = try sendRequest(port: port1, method: "GET", path: "/health")

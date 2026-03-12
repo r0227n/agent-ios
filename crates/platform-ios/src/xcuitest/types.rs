@@ -112,6 +112,8 @@ pub struct HealthResponse {
     pub status: String,
     /// Optional runner version or identifier string.
     pub runner: Option<String>,
+    /// Optional simulator UDID hosting the runner.
+    pub udid: Option<String>,
 }
 
 /// Response containing list of installed apps

@@ -66,7 +66,9 @@ pub async fn run(args: SwipeArgs) -> CommandResult {
 
     // Execute swipe
     match platform {
-        Platform::Ios => execute_swipe_ios(x1, y1, x2, y2, args.duration).await,
+        Platform::Ios => {
+            execute_swipe_ios(args.device.udid.as_deref(), x1, y1, x2, y2, args.duration).await
+        }
         Platform::Android => {
             execute_swipe_android(args.device.udid.as_deref(), x1, y1, x2, y2, args.duration).await
         }
@@ -138,6 +140,7 @@ async fn get_screen_center(platform: Platform, udid: Option<&str>) -> CommandRes
 
 /// Execute swipe on iOS
 pub(crate) async fn execute_swipe_ios(
+    udid: Option<&str>,
     x1: f64,
     y1: f64,
     x2: f64,
@@ -145,7 +148,7 @@ pub(crate) async fn execute_swipe_ios(
     duration: Option<f64>,
 ) -> CommandResult {
     let duration = duration.unwrap_or(0.3);
-    with_xcuitest(|client| async move {
+    with_xcuitest(udid, |client| async move {
         client.swipe((x1, y1), (x2, y2), duration).await?;
         Ok(())
     })

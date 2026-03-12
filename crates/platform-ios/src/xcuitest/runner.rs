@@ -1,7 +1,10 @@
+use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
-use tokio::process::Command;
-use tracing::{info, warn};
+use std::process::Stdio;
+use std::time::{Duration, Instant};
+use tokio::process::{Child, Command};
+use tracing::info;
 
 use super::client::XCUITestClient;
 
@@ -10,6 +13,15 @@ const RUNNER_HOST_BUNDLE_ID: &str = "com.agent-mobile.xcuitest-runner";
 
 /// Bundle ID for the XCUITest Runner test runner (xctrunner).
 const RUNNER_XCTRUNNER_BUNDLE_ID: &str = "com.agent-mobile.xcuitest-runner-uitests.xctrunner";
+/// Specific UI test entrypoint that keeps the automation server alive.
+const RUNNER_TEST_ENTRYPOINT: &str =
+    "XCUITestRunnerUITests/AutomationServer/testStartAutomationServer";
+/// Max time to wait for `/ready` after spawning xcodebuild.
+const READY_TIMEOUT: Duration = Duration::from_secs(30);
+/// Poll interval while waiting for the ready probe.
+const READY_POLL_INTERVAL: Duration = Duration::from_millis(500);
+/// Number of startup attempts before surfacing an error.
+const STARTUP_ATTEMPTS: usize = 2;
 
 /// Errors that can occur when starting the XCUITest Runner.
 #[derive(Debug, thiserror::Error)]
@@ -26,6 +38,24 @@ pub enum RunnerStartError {
     #[error("Build products not found (searched: {0})")]
     /// Expected runner app bundles could not be found after searching known paths.
     BuildProductsNotFound(String),
+    #[error(
+        "Failed to start XCUITest Runner for simulator {udid}: {details}. See log: {log_path}"
+    )]
+    /// Launching or supervising the xcodebuild test process failed.
+    StartFailed {
+        udid: String,
+        details: String,
+        log_path: String,
+    },
+    #[error(
+        "XCUITest Runner was not ready for simulator {udid} after {timeout_secs} seconds. See log: {log_path}"
+    )]
+    /// The runner did not pass the `/ready` probe before the timeout elapsed.
+    ReadyCheckTimeout {
+        udid: String,
+        timeout_secs: u64,
+        log_path: String,
+    },
     #[error("App install failed: {0}")]
     /// Installing one of the runner app bundles failed.
     InstallFailed(String),
@@ -167,9 +197,6 @@ impl RunnerBuildProducts {
 }
 
 /// Manages the lifecycle of the XCUITest Runner.
-///
-/// After the switch to CoreSimulator FFI, the runner is managed through
-/// install/launch/terminate rather than a child process.
 pub struct XCUITestRunner {
     /// UDID of the target simulator
     udid: String,
@@ -207,10 +234,7 @@ impl XCUITestRunner {
 
     /// Stop the XCUITest Runner via CoreSimulator terminate.
     pub fn stop(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Terminate the xctrunner (test runner app)
-        let _ = crate::coresim::terminate_app(&self.udid, RUNNER_XCTRUNNER_BUNDLE_ID);
-        // Also terminate the host app
-        let _ = crate::coresim::terminate_app(&self.udid, RUNNER_HOST_BUNDLE_ID);
+        cleanup_runner_apps(&self.udid);
         Ok(())
     }
 
@@ -222,60 +246,218 @@ impl XCUITestRunner {
 
 impl Drop for XCUITestRunner {
     fn drop(&mut self) {
-        let _ = crate::coresim::terminate_app(&self.udid, RUNNER_XCTRUNNER_BUNDLE_ID);
-        let _ = crate::coresim::terminate_app(&self.udid, RUNNER_HOST_BUNDLE_ID);
+        cleanup_runner_apps(&self.udid);
     }
 }
 
-/// Start the XCUITest Runner via CoreSimulator FFI (install + launch).
-///
-/// Installs both the host app and test runner app, then launches the test runner.
-/// Polls for health check readiness after launch.
-pub async fn start_runner_detached(
-    products: &RunnerBuildProducts,
+fn cleanup_runner_apps(udid: &str) {
+    let _ = crate::coresim::terminate_app(udid, RUNNER_XCTRUNNER_BUNDLE_ID);
+    let _ = crate::coresim::terminate_app(udid, RUNNER_HOST_BUNDLE_ID);
+    cleanup_runner_processes(udid);
+}
+
+fn runner_process_pattern(udid: &str) -> String {
+    format!(
+        "XCUITestRunner.xcodeproj.*id={}.*{}",
+        udid, RUNNER_TEST_ENTRYPOINT
+    )
+}
+
+fn cleanup_runner_processes(udid: &str) {
+    let pattern = runner_process_pattern(udid);
+
+    let _ = std::process::Command::new("pkill")
+        .args(["-TERM", "-f", &pattern])
+        .output();
+
+    std::thread::sleep(Duration::from_millis(500));
+
+    let still_running = std::process::Command::new("pgrep")
+        .args(["-f", &pattern])
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+
+    if still_running {
+        let _ = std::process::Command::new("pkill")
+            .args(["-KILL", "-f", &pattern])
+            .output();
+    }
+}
+
+fn runner_log_path(udid: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("agent-mobile-xcuitest-runner-{}.log", udid))
+}
+
+fn resolve_target_device(
+    target_udid: Option<&str>,
+) -> Result<crate::coresim::BootedDevice, RunnerStartError> {
+    match target_udid {
+        Some(udid) => {
+            let simulators = crate::simctl::list_simulators()
+                .map_err(|e| RunnerStartError::NoBootedSimulator(e.to_string()))?;
+            let device = simulators
+                .into_iter()
+                .find(|device| device.udid == udid)
+                .ok_or_else(|| {
+                    RunnerStartError::NoBootedSimulator(format!(
+                        "Simulator with UDID {} was not found",
+                        udid
+                    ))
+                })?;
+
+            if device.state.as_deref() != Some("Booted") {
+                return Err(RunnerStartError::NoBootedSimulator(format!(
+                    "Simulator {} is not booted",
+                    udid
+                )));
+            }
+
+            Ok(crate::coresim::BootedDevice {
+                udid: device.udid,
+                name: device.name,
+            })
+        }
+        None => crate::coresim::get_booted_device()
+            .map_err(|e| RunnerStartError::NoBootedSimulator(e.to_string())),
+    }
+}
+
+async fn ensure_build_products(
+    project_path: &Path,
     udid: &str,
-    port: u16,
+    force_build: bool,
 ) -> Result<(), RunnerStartError> {
-    // Install host app
-    crate::coresim::install_app(udid, &products.host_app)
-        .map_err(|e| RunnerStartError::InstallFailed(format!("host app: {}", e)))?;
+    if force_build || RunnerBuildProducts::find().is_none() {
+        eprintln!("Building XCUITest Runner for simulator {udid}...");
+        build_for_testing(project_path, udid).await?;
+    }
 
-    // Install test runner app
-    crate::coresim::install_app(udid, &products.runner_app)
-        .map_err(|e| RunnerStartError::InstallFailed(format!("runner app: {}", e)))?;
+    if RunnerBuildProducts::find().is_none() {
+        return Err(RunnerStartError::BuildProductsNotFound(
+            RunnerBuildProducts::searched_paths_description(),
+        ));
+    }
 
-    // Launch the test runner
-    let pid = crate::coresim::launch_app(udid, RUNNER_XCTRUNNER_BUNDLE_ID)
-        .map_err(|e| RunnerStartError::LaunchFailed(format!("{}", e)))?;
-    info!(pid, "XCUITest Runner launched");
+    Ok(())
+}
 
-    // Poll for readiness
-    let start = std::time::Instant::now();
-    let timeout = Duration::from_secs(120);
-    let retry_interval = Duration::from_millis(500);
-    let progress_interval = Duration::from_secs(10);
-    let mut last_progress = std::time::Instant::now();
+async fn stop_existing_runner(client: &XCUITestClient, fallback_udid: &str) {
+    if let Ok(health) = client.health_status().await {
+        if let Some(udid) = health.udid.as_deref() {
+            cleanup_runner_apps(udid);
+            if udid != fallback_udid {
+                cleanup_runner_apps(fallback_udid);
+            }
+            return;
+        }
+    }
+
+    cleanup_runner_apps(fallback_udid);
+}
+
+fn start_failed(udid: &str, log_path: &Path, details: impl Into<String>) -> RunnerStartError {
+    RunnerStartError::StartFailed {
+        udid: udid.to_string(),
+        details: details.into(),
+        log_path: log_path.display().to_string(),
+    }
+}
+
+/// Start the XCUITest Runner via `xcodebuild test-without-building`.
+pub async fn start_runner_detached(
+    project_path: &Path,
+    udid: &str,
+    log_path: &Path,
+) -> Result<Child, RunnerStartError> {
+    let project_str = project_path
+        .to_str()
+        .ok_or(RunnerStartError::ProjectNotFound)?;
+
+    let mut log_file = File::create(log_path)
+        .map_err(|e| start_failed(udid, log_path, format!("failed to create log file: {}", e)))?;
+    writeln!(
+        log_file,
+        "xcodebuild test-without-building -project {} -scheme XCUITestRunner -destination id={} -only-testing {}",
+        project_str, udid, RUNNER_TEST_ENTRYPOINT
+    )
+    .map_err(|e| start_failed(udid, log_path, format!("failed to write log header: {}", e)))?;
+
+    let stdout = log_file
+        .try_clone()
+        .map_err(|e| start_failed(udid, log_path, format!("failed to clone log file: {}", e)))?;
+
+    let mut command = Command::new("xcodebuild");
+    command.kill_on_drop(false);
+    command.args([
+        "test-without-building",
+        "-project",
+        project_str,
+        "-scheme",
+        "XCUITestRunner",
+        "-destination",
+        &format!("id={}", udid),
+        "-only-testing",
+        RUNNER_TEST_ENTRYPOINT,
+    ]);
+    command.stdout(Stdio::from(stdout));
+    command.stderr(Stdio::from(log_file));
+
+    let child = command
+        .spawn()
+        .map_err(|e| start_failed(udid, log_path, format!("failed to spawn xcodebuild: {}", e)))?;
+
+    Ok(child)
+}
+
+async fn wait_for_runner_ready(
+    child: &mut Child,
+    port: u16,
+    udid: &str,
+    log_path: &Path,
+) -> Result<(), RunnerStartError> {
     let client = XCUITestClient::new(port);
+    let start = Instant::now();
+    let mut last_progress = Instant::now();
 
     loop {
-        if client.health_check().await.unwrap_or(false) {
-            return Ok(());
+        if let Ok(ready) = client.ready_status().await {
+            if ready.status == "ready" && ready.udid.as_deref() == Some(udid) {
+                return Ok(());
+            }
         }
 
-        let elapsed = start.elapsed();
-        if elapsed >= timeout {
-            return Err(RunnerStartError::HealthCheckTimeout(timeout.as_secs()));
+        if let Some(status) = child.try_wait().map_err(|e| {
+            start_failed(udid, log_path, format!("failed to poll xcodebuild: {}", e))
+        })? {
+            return Err(start_failed(
+                udid,
+                log_path,
+                format!(
+                    "xcodebuild exited before /ready succeeded (status: {})",
+                    status
+                ),
+            ));
         }
 
-        if last_progress.elapsed() >= progress_interval {
-            info!(
-                elapsed_secs = elapsed.as_secs(),
-                "Still waiting for XCUITest Runner to become ready"
+        if start.elapsed() >= READY_TIMEOUT {
+            return Err(RunnerStartError::ReadyCheckTimeout {
+                udid: udid.to_string(),
+                timeout_secs: READY_TIMEOUT.as_secs(),
+                log_path: log_path.display().to_string(),
+            });
+        }
+
+        if last_progress.elapsed() >= Duration::from_secs(5) {
+            eprintln!(
+                "Still waiting for XCUITest Runner on simulator {} ({}s elapsed)...",
+                udid,
+                start.elapsed().as_secs()
             );
-            last_progress = std::time::Instant::now();
+            last_progress = Instant::now();
         }
 
-        tokio::time::sleep(retry_interval).await;
+        tokio::time::sleep(READY_POLL_INTERVAL).await;
     }
 }
 
@@ -323,50 +505,102 @@ pub async fn build_for_testing(project_path: &Path, udid: &str) -> Result<(), Ru
     Ok(())
 }
 
-/// Ensure the XCUITest Runner is started and ready to accept connections.
-///
-/// Flow:
-/// 1. If the runner is already healthy, returns immediately.
-/// 2. Looks for pre-built products and installs/launches via CoreSimulator.
-/// 3. If products not found, falls back to `xcodebuild build-for-testing` and retries.
-pub async fn ensure_runner_started(port: u16) -> Result<(), RunnerStartError> {
+/// Ensure the XCUITest Runner is started on the intended simulator and ready
+/// to accept XCUITest-backed requests.
+pub async fn ensure_runner_started(
+    port: u16,
+    target_udid: Option<&str>,
+) -> Result<String, RunnerStartError> {
+    let target = resolve_target_device(target_udid)?;
     let client = XCUITestClient::new(port);
 
-    // Fast path: runner is already up.
-    if client.health_check().await.unwrap_or(false) {
-        return Ok(());
+    if let Ok(ready) = client.ready_status().await {
+        if ready.status == "ready" && ready.udid.as_deref() == Some(target.udid.as_str()) {
+            return Ok(target.udid);
+        }
     }
 
-    info!("XCUITest Runner is not running. Starting automatically...");
+    if let Ok(health) = client.health_status().await {
+        if health.udid.as_deref() != Some(target.udid.as_str()) {
+            eprintln!(
+                "Stopping stale XCUITest Runner before switching to simulator {} ({})...",
+                target.name, target.udid
+            );
+        } else {
+            eprintln!(
+                "Restarting stale XCUITest Runner on simulator {} ({})...",
+                target.name, target.udid
+            );
+        }
+        stop_existing_runner(&client, &target.udid).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
 
-    let booted = crate::coresim::get_booted_device()
-        .map_err(|e| RunnerStartError::NoBootedSimulator(e.to_string()))?;
+    let project_path =
+        XCUITestRunner::bundled_project_path().ok_or(RunnerStartError::ProjectNotFound)?;
 
-    // Try pre-built products first
-    if let Some(products) = RunnerBuildProducts::find() {
-        match start_runner_detached(&products, &booted.udid, port).await {
+    for attempt in 1..=STARTUP_ATTEMPTS {
+        let force_build = attempt > 1;
+        ensure_build_products(&project_path, &target.udid, force_build).await?;
+
+        cleanup_runner_apps(&target.udid);
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        let log_path = runner_log_path(&target.udid);
+        eprintln!(
+            "Starting XCUITest Runner on simulator {} ({}) [attempt {}/{}]...",
+            target.name, target.udid, attempt, STARTUP_ATTEMPTS
+        );
+        let mut child = start_runner_detached(&project_path, &target.udid, &log_path).await?;
+
+        match wait_for_runner_ready(&mut child, port, &target.udid, &log_path).await {
             Ok(()) => {
-                info!(simulator = %booted.name, "XCUITest Runner started successfully");
-                return Ok(());
+                info!(simulator = %target.name, udid = %target.udid, "XCUITest Runner started successfully");
+                return Ok(target.udid.clone());
             }
-            Err(e) => {
-                warn!(%e, "Failed to start from pre-built products. Falling back to build...");
+            Err(error) if attempt < STARTUP_ATTEMPTS => {
+                eprintln!(
+                    "XCUITest Runner was not ready on simulator {} ({}). Cleaning up and retrying once...",
+                    target.name, target.udid
+                );
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+                cleanup_runner_apps(&target.udid);
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                let _ = error;
+            }
+            Err(error) => {
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+                cleanup_runner_apps(&target.udid);
+                return Err(error);
             }
         }
     }
 
-    // Fallback: build and retry
-    let project_path =
-        XCUITestRunner::bundled_project_path().ok_or(RunnerStartError::ProjectNotFound)?;
+    unreachable!("startup attempts are bounded and always return")
+}
 
-    build_for_testing(&project_path, &booted.udid).await?;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    // After building, products should be available in DerivedData
-    let products = RunnerBuildProducts::find().ok_or_else(|| {
-        RunnerStartError::BuildProductsNotFound(RunnerBuildProducts::searched_paths_description())
-    })?;
+    #[test]
+    fn test_runner_log_path_contains_udid() {
+        let path = runner_log_path("ABC-123");
+        assert!(path.to_string_lossy().contains("ABC-123"));
+    }
 
-    start_runner_detached(&products, &booted.udid, port).await?;
-    info!(simulator = %booted.name, "XCUITest Runner started successfully");
-    Ok(())
+    #[test]
+    fn test_searched_paths_description_mentions_derived_data() {
+        let description = RunnerBuildProducts::searched_paths_description();
+        assert!(description.contains("DerivedData"));
+    }
+
+    #[test]
+    fn test_runner_process_pattern_targets_udid_and_entrypoint() {
+        let pattern = runner_process_pattern("ABC-123");
+        assert!(pattern.contains("ABC-123"));
+        assert!(pattern.contains("testStartAutomationServer"));
+    }
 }

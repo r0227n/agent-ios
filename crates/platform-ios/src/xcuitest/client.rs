@@ -10,6 +10,8 @@ pub struct XCUITestClient {
     base_url: String,
     /// General-purpose HTTP client (30 s timeout).
     http: reqwest::Client,
+    /// Short-timeout client for readiness probes.
+    http_ready: reqwest::Client,
     /// HTTP client with a long timeout for full accessibility tree traversal.
     http_long: reqwest::Client,
 }
@@ -23,6 +25,8 @@ impl Default for XCUITestClient {
 impl XCUITestClient {
     /// Default port for the XCUITest Runner HTTP server.
     pub const DEFAULT_PORT: u16 = 8200;
+    const READY_CHECK_TIMEOUT: Duration = Duration::from_secs(3);
+    const READY_CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
 
     /// Create a new client connected to localhost on the given port.
     pub fn new(port: u16) -> Self {
@@ -31,6 +35,12 @@ impl XCUITestClient {
             .connect_timeout(Duration::from_secs(5))
             .build()
             .expect("Failed to create HTTP client");
+
+        let http_ready = reqwest::Client::builder()
+            .timeout(Self::READY_CHECK_TIMEOUT)
+            .connect_timeout(Self::READY_CONNECT_TIMEOUT)
+            .build()
+            .expect("Failed to create readiness HTTP client");
 
         let http_long = reqwest::Client::builder()
             .timeout(Duration::from_secs(120))
@@ -41,19 +51,43 @@ impl XCUITestClient {
         Self {
             base_url: format!("http://localhost:{}", port),
             http,
+            http_ready,
             http_long,
         }
     }
 
     /// Check if the runner is healthy and accepting connections.
     pub async fn health_check(&self) -> Result<bool> {
+        Ok(self.health_status().await?.status == "ok")
+    }
+
+    /// Get the raw health response payload.
+    pub async fn health_status(&self) -> Result<HealthResponse> {
         let resp = self
             .http
             .get(format!("{}/health", self.base_url))
             .send()
             .await?;
-        let health: HealthResponse = resp.json().await?;
-        Ok(health.status == "ok")
+        Ok(resp.json().await?)
+    }
+
+    /// Check if the runner is ready to execute XCUITest-backed commands.
+    ///
+    /// Unlike `/health`, this route must exercise a lightweight XCUITest API
+    /// on the main queue, so it can detect false positives where the HTTP
+    /// listener is alive but UI commands would hang.
+    pub async fn ready_check(&self) -> Result<bool> {
+        Ok(self.ready_status().await?.status == "ready")
+    }
+
+    /// Get the raw readiness response payload.
+    pub async fn ready_status(&self) -> Result<HealthResponse> {
+        let resp = self
+            .http_ready
+            .get(format!("{}/ready", self.base_url))
+            .send()
+            .await?;
+        Ok(resp.json().await?)
     }
 
     /// Wait for the runner to become available (with retries).
@@ -62,7 +96,7 @@ impl XCUITestClient {
         let retry_interval = Duration::from_millis(500);
 
         loop {
-            match self.health_check().await {
+            match self.ready_check().await {
                 Ok(true) => return Ok(()),
                 _ => {
                     if start.elapsed() > timeout {
@@ -85,7 +119,7 @@ impl XCUITestClient {
         let mut last_progress = std::time::Instant::now();
 
         loop {
-            match self.health_check().await {
+            match self.ready_check().await {
                 Ok(true) => return Ok(()),
                 _ => {
                     if last_progress.elapsed() >= progress_interval {
