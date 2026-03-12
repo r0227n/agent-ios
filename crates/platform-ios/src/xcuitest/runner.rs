@@ -56,6 +56,15 @@ pub enum RunnerStartError {
         timeout_secs: u64,
         log_path: String,
     },
+    #[error("App install failed: {0}")]
+    /// Installing one of the runner app bundles failed.
+    InstallFailed(String),
+    #[error("App launch failed: {0}")]
+    /// Launching the runner app failed.
+    LaunchFailed(String),
+    #[error("Health check timed out after {0} seconds")]
+    /// The runner did not become healthy before the timeout elapsed.
+    HealthCheckTimeout(u64),
 }
 
 /// Pre-built .app bundle paths for the XCUITest Runner.
