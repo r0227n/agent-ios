@@ -6,8 +6,9 @@
 use crate::common::{
     assert_failure, assert_success, assert_valid_jpeg_file, assert_valid_png_file,
     cleanup_temp_file, ensure_companion_running, get_available_udid, get_temp_file_path,
-    run_cli_command_with_udid,
+    run_cli_command_with_timeout, run_cli_command_with_udid, stop_xcuitest_runner,
 };
+use std::time::Duration;
 
 // ============================================================================
 // Basic screenshot - Normal cases
@@ -25,6 +26,24 @@ fn test_screenshot_basic() {
     assert_success(&output, "screenshot basic");
     assert_valid_png_file(&file_path);
 
+    cleanup_temp_file(&file_path);
+}
+
+/// Test screenshot cold-start path returns without hanging after the runner is stopped.
+#[test]
+fn test_screenshot_cold_start_recovers_without_hanging() {
+    let udid = get_available_udid();
+    stop_xcuitest_runner(&udid);
+
+    let file_path = get_temp_file_path("png");
+    let output = run_cli_command_with_timeout(
+        "screenshot",
+        &["-o", &file_path, "--udid", &udid],
+        Duration::from_secs(60),
+    );
+
+    assert_success(&output, "screenshot cold start");
+    assert_valid_png_file(&file_path);
     cleanup_temp_file(&file_path);
 }
 

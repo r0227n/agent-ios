@@ -4,7 +4,8 @@
 
 #![allow(dead_code)]
 
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant};
 
 // Platform abstraction modules
 mod android;
@@ -14,7 +15,9 @@ mod platform;
 mod ios;
 
 // Re-export iOS common functions
-pub use ios::{ensure_companion_running, get_available_udid, get_test_bundle_id};
+pub use ios::{
+    ensure_companion_running, get_available_udid, get_test_bundle_id, stop_xcuitest_runner,
+};
 
 // Re-export Android utilities
 pub use android::get_available_serial;
@@ -48,6 +51,46 @@ pub fn run_cli_command_with_udid(feature: &str, args: &[&str], udid: &str) -> Ou
     full_args.push(udid);
 
     run_cli_command(feature, &full_args)
+}
+
+/// Run an agent-mobile CLI feature command with a hard timeout.
+///
+/// The process must exit before `timeout`, otherwise the test fails.
+pub fn run_cli_command_with_timeout(feature: &str, args: &[&str], timeout: Duration) -> Output {
+    let mut full_args = vec![feature];
+    full_args.extend_from_slice(args);
+
+    let mut child = Command::new("./target/debug/agent-mobile")
+        .args(&full_args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn agent-mobile");
+
+    let start = Instant::now();
+    loop {
+        match child.try_wait().expect("Failed to poll agent-mobile") {
+            Some(_) => {
+                return child
+                    .wait_with_output()
+                    .expect("Failed to collect agent-mobile output");
+            }
+            None if start.elapsed() >= timeout => {
+                let _ = child.kill();
+                let output = child
+                    .wait_with_output()
+                    .expect("Failed to collect timed-out agent-mobile output");
+                panic!(
+                    "agent-mobile {:?} timed out after {:?}\nstdout: {}\nstderr: {}",
+                    full_args,
+                    timeout,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            None => std::thread::sleep(Duration::from_millis(100)),
+        }
+    }
 }
 
 /// Run an agent-mobile CLI feature command with DeviceIdentifier.

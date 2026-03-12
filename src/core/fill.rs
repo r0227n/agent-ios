@@ -46,7 +46,7 @@ pub async fn run(args: FillArgs) -> CommandResult {
 
     // Execute fill: tap -> clear -> type
     match platform {
-        Platform::Ios => execute_fill_ios(x, y, &args.text).await,
+        Platform::Ios => execute_fill_ios(args.device.udid.as_deref(), x, y, &args.text).await,
         Platform::Android => {
             // Calculate clear length from existing value (Android still uses delete loop)
             let clear_len = element
@@ -60,10 +60,10 @@ pub async fn run(args: FillArgs) -> CommandResult {
 }
 
 /// Execute fill on iOS
-async fn execute_fill_ios(x: f64, y: f64, text: &str) -> CommandResult {
+async fn execute_fill_ios(udid: Option<&str>, x: f64, y: f64, text: &str) -> CommandResult {
     let text = text.to_string();
 
-    with_xcuitest(|client| async move {
+    with_xcuitest(udid, |client| async move {
         // 1. Tap to focus
         client.tap(x, y).await?;
 

@@ -8,6 +8,33 @@ final class AccessibilityHandler {
         self.app = app
     }
 
+    /// Perform a lightweight probe against the current app context.
+    ///
+    /// This is intentionally much cheaper than building a full tree or taking
+    /// a screenshot, but still touches XCUITest APIs deeply enough to detect
+    /// a dead or disconnected session.
+    func isReady() -> Bool {
+        _ = app.state
+
+        if app.windows.firstMatch.exists {
+            return true
+        }
+
+        if app.otherElements.firstMatch.exists {
+            return true
+        }
+
+        if app.navigationBars.firstMatch.exists {
+            return true
+        }
+
+        if app.tabBars.firstMatch.exists {
+            return true
+        }
+
+        return app.exists
+    }
+
     /// Get the accessibility tree as JSON.
     ///
     /// - Parameters:
