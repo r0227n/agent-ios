@@ -14,7 +14,10 @@ final class AccessibilityHandler {
     /// a screenshot, but still touches XCUITest APIs deeply enough to detect
     /// a dead or disconnected session.
     func isReady() -> Bool {
-        _ = app.state
+        let state = app.state
+        if state != .unknown {
+            return true
+        }
 
         if app.windows.firstMatch.exists {
             return true

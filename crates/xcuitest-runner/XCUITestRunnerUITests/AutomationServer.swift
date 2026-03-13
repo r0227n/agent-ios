@@ -20,10 +20,12 @@ final class AutomationServer: XCTestCase {
         super.setUp()
         continueAfterFailure = true
 
-        // Use Springboard as the base app to allow cross-app interactions
+        // Keep SpringBoard as the neutral coordinate/accessibility context, but
+        // do not activate it here. Activating SpringBoard during runner startup
+        // causes a visible jump to the Home screen before we restore the target
+        // app for the actual command.
         app = XCUIApplication(bundleIdentifier: springboardBundleId)
-        app.activate()
-        activeBundleId = springboardBundleId
+        activeBundleId = nil
 
         touchHandler = TouchHandler(app: app)
         inputHandler = InputHandler(app: app)
