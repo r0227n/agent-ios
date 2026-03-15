@@ -15,8 +15,8 @@ use agent_mobile_core::Platform;
 use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, ElementTarget};
-use super::tap::take_snapshot;
+use super::ref_resolver::ElementTarget;
+use super::tap::{current_ui_hash_ios, query_exists_ios, resolve_element, take_snapshot};
 use agent_mobile_gateway::DeviceResolver;
 
 /// Arguments for the wait command
@@ -114,11 +114,14 @@ async fn wait_visible(
     let deadline = Instant::now() + timeout;
 
     loop {
-        // Take a fresh snapshot
-        let snapshot = take_snapshot(platform, udid).await?;
+        let found = match (&platform, &target) {
+            (Platform::Ios, ElementTarget::Text(text)) => {
+                query_exists_ios(udid, "text", text, false, false, None).await?
+            }
+            _ => resolve_element(&target, platform, udid).await.is_ok(),
+        };
 
-        // Try to find element
-        if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_ok() {
+        if found {
             println!("Found: {}", target_str);
             return Ok(());
         }
@@ -147,11 +150,14 @@ async fn wait_gone(
     let deadline = Instant::now() + timeout;
 
     loop {
-        // Take a fresh snapshot
-        let snapshot = take_snapshot(platform, udid).await?;
+        let gone = match (&platform, &target) {
+            (Platform::Ios, ElementTarget::Text(text)) => {
+                !query_exists_ios(udid, "text", text, false, false, None).await?
+            }
+            _ => resolve_element(&target, platform, udid).await.is_err(),
+        };
 
-        // Check if element is gone
-        if ref_resolver::resolve_from_snapshot(&snapshot, &target).is_err() {
+        if gone {
             println!("Gone: {}", target_str);
             return Ok(());
         }
@@ -176,18 +182,21 @@ async fn wait_idle(
     interval: Duration,
 ) -> CommandResult {
     let deadline = Instant::now() + timeout;
-    let mut last_element_count: Option<usize> = None;
+    let mut last_state: Option<String> = None;
     let mut stable_count = 0;
     const REQUIRED_STABLE_CHECKS: usize = 3;
 
     loop {
-        // Take snapshot
-        let snapshot = take_snapshot(platform, udid).await?;
-        let current_count = snapshot.elements.len();
+        let current_state = match platform {
+            Platform::Ios => current_ui_hash_ios(udid, Some("screenshot"), Some(1)).await?,
+            Platform::Android => {
+                let snapshot = take_snapshot(platform, udid).await?;
+                snapshot.elements.len().to_string()
+            }
+        };
 
-        // Check stability
-        if let Some(last_count) = last_element_count {
-            if last_count == current_count {
+        if let Some(last_state) = &last_state {
+            if last_state == &current_state {
                 stable_count += 1;
                 if stable_count >= REQUIRED_STABLE_CHECKS {
                     println!("UI is idle");
@@ -198,7 +207,7 @@ async fn wait_idle(
             }
         }
 
-        last_element_count = Some(current_count);
+        last_state = Some(current_state);
 
         if Instant::now() >= deadline {
             return Err(format!(
@@ -224,20 +233,22 @@ async fn wait_text(
     let text_lower = text.to_lowercase();
 
     loop {
-        // Take snapshot
-        let snapshot = take_snapshot(platform, udid).await?;
-
-        // Search for text in any element's label or value
-        let found = snapshot.elements.iter().any(|e| {
-            e.label
-                .as_ref()
-                .map(|l| l.to_lowercase().contains(&text_lower))
-                .unwrap_or(false)
-                || e.value
-                    .as_ref()
-                    .map(|v| v.to_lowercase().contains(&text_lower))
-                    .unwrap_or(false)
-        });
+        let found = match platform {
+            Platform::Ios => query_exists_ios(udid, "text", text, false, false, None).await?,
+            Platform::Android => {
+                let snapshot = take_snapshot(platform, udid).await?;
+                snapshot.elements.iter().any(|e| {
+                    e.label
+                        .as_ref()
+                        .map(|l| l.to_lowercase().contains(&text_lower))
+                        .unwrap_or(false)
+                        || e.value
+                            .as_ref()
+                            .map(|v| v.to_lowercase().contains(&text_lower))
+                            .unwrap_or(false)
+                })
+            }
+        };
 
         if found {
             println!("Found text: {}", text);

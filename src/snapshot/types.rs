@@ -101,6 +101,14 @@ pub struct Snapshot {
     /// Timestamp when snapshot was taken
     pub timestamp: DateTime<Utc>,
 
+    /// Active app bundle identifier at capture time, when available.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub active_bundle_id: Option<String>,
+
+    /// Runner-side UI generation at capture time, when available.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub snapshot_generation: Option<u64>,
+
     /// Flattened list of all elements with refs
     pub elements: Vec<SnapshotElement>,
 }
@@ -111,6 +119,10 @@ pub struct SnapshotElement {
     /// Reference ID for quick interaction (e.g., "@e1", "@e2")
     #[serde(rename = "ref")]
     pub ref_id: String,
+
+    /// Runner-side element identifier, when available.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub element_id: Option<String>,
 
     /// Element type (e.g., "Button", "TextField", "StaticText")
     #[serde(rename = "type")]
@@ -127,7 +139,7 @@ pub struct SnapshotElement {
     pub enabled: bool,
 
     /// Accessibility traits
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub traits: Vec<String>,
 
     /// Placeholder text (for text fields)
@@ -167,6 +179,7 @@ mod tests {
     ) -> SnapshotElement {
         SnapshotElement {
             ref_id: "@e1".to_string(),
+            element_id: None,
             element_type: "Button".to_string(),
             label: label.map(String::from),
             frame: Frame::zero(),

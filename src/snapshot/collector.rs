@@ -12,6 +12,8 @@ use agent_mobile_platform_android::snapshot::extract_android_elements;
 use agent_mobile_platform_ios::snapshot::extract_ios_elements;
 use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
+use super::types::{Snapshot, SnapshotElement};
+
 /// Configuration for snapshot collection with scrolling.
 #[derive(Debug, Clone)]
 pub struct SnapshotCollectorConfig {
@@ -173,6 +175,127 @@ impl SnapshotCollector {
         Self { config }
     }
 
+    /// Collect a merged fast snapshot with automatic scrolling.
+    pub async fn collect_snapshot(
+        &self,
+        client: &XCUITestClient,
+        progress_fn: Option<ProgressCallback>,
+    ) -> CommandResult<Snapshot> {
+        let mut all_elements: Vec<SnapshotElement> = Vec::new();
+        let mut seen_ids: HashSet<String> = HashSet::new();
+
+        let initial_snapshot = super::capture_ios_snapshot(client, None).await?;
+        let initial_count = merge_snapshot_elements(
+            &mut all_elements,
+            initial_snapshot.elements.clone(),
+            &mut seen_ids,
+        );
+
+        if let Some(ref progress) = progress_fn {
+            progress(CollectionProgress {
+                scrolling_to_top: false,
+                scroll_number: 0,
+                total_elements: seen_ids.len(),
+                new_elements: initial_count,
+                completed: false,
+                completion_reason: None,
+            });
+        }
+
+        if !has_scrollable_snapshot_elements(&all_elements) {
+            return Ok(rebuild_snapshot(initial_snapshot, all_elements));
+        }
+
+        if let Some(ref progress) = progress_fn {
+            progress(CollectionProgress {
+                scrolling_to_top: true,
+                scroll_number: 0,
+                total_elements: seen_ids.len(),
+                new_elements: 0,
+                completed: false,
+                completion_reason: None,
+            });
+        }
+
+        self.scroll_to_top(client).await?;
+
+        let baseline_snapshot = super::capture_ios_snapshot(client, None).await?;
+        all_elements.clear();
+        seen_ids.clear();
+        merge_snapshot_elements(
+            &mut all_elements,
+            baseline_snapshot.elements.clone(),
+            &mut seen_ids,
+        );
+
+        let mut previous_hash = client
+            .ui_hash(Some("screenshot"), Some(1), true)
+            .await?
+            .hash;
+        let mut latest_snapshot = baseline_snapshot;
+
+        for scroll_num in 1..=self.config.max_scrolls {
+            if self.scroll_down(client).await.is_err() {
+                break;
+            }
+
+            tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
+
+            let current_hash = match client.ui_hash(Some("screenshot"), Some(1), true).await {
+                Ok(hash) => hash.hash,
+                Err(_) => break,
+            };
+
+            if current_hash == previous_hash {
+                if let Some(ref progress) = progress_fn {
+                    progress(CollectionProgress {
+                        scrolling_to_top: false,
+                        scroll_number: scroll_num,
+                        total_elements: seen_ids.len(),
+                        new_elements: 0,
+                        completed: true,
+                        completion_reason: Some(CompletionReason::NoNewElements),
+                    });
+                }
+                break;
+            }
+
+            let snapshot = match super::capture_ios_snapshot(client, None).await {
+                Ok(snapshot) => snapshot,
+                Err(_) => break,
+            };
+            latest_snapshot = snapshot.clone();
+            let new_count =
+                merge_snapshot_elements(&mut all_elements, snapshot.elements, &mut seen_ids);
+            previous_hash = current_hash;
+
+            let (completed, reason) = if scroll_num >= self.config.max_scrolls {
+                (true, Some(CompletionReason::MaxScrollsReached))
+            } else if new_count == 0 {
+                (true, Some(CompletionReason::NoNewElements))
+            } else {
+                (false, None)
+            };
+
+            if let Some(ref progress) = progress_fn {
+                progress(CollectionProgress {
+                    scrolling_to_top: false,
+                    scroll_number: scroll_num,
+                    total_elements: seen_ids.len(),
+                    new_elements: new_count,
+                    completed,
+                    completion_reason: reason.clone(),
+                });
+            }
+
+            if completed {
+                break;
+            }
+        }
+
+        Ok(rebuild_snapshot(latest_snapshot, all_elements))
+    }
+
     /// Collect all elements with automatic scrolling.
     ///
     /// Returns the merged tree of RawElements from all scroll positions.
@@ -330,9 +453,8 @@ impl SnapshotCollector {
     async fn scroll_to_top(&self, client: &XCUITestClient) -> CommandResult<()> {
         const MAX_SCROLL_UP: u32 = 3;
 
-        // Capture state before any scrolling (shallow depth for speed)
-        let mut prev_snapshot = match client.accessibility_info_with_depth(true, Some(1)).await {
-            Ok(s) => s,
+        let mut previous_hash = match client.ui_hash(Some("screenshot"), Some(1), true).await {
+            Ok(hash) => hash.hash,
             Err(_) => return Ok(()), // Runner unresponsive → skip scroll-to-top
         };
 
@@ -340,17 +462,61 @@ impl SnapshotCollector {
             self.scroll_up(client).await?;
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
-            let json_str = match client.accessibility_info_with_depth(true, Some(1)).await {
-                Ok(s) => s,
+            let current_hash = match client.ui_hash(Some("screenshot"), Some(1), true).await {
+                Ok(hash) => hash.hash,
                 Err(_) => break, // Timeout → stop scrolling
             };
-            if json_str == prev_snapshot {
+            if current_hash == previous_hash {
                 break; // No change → already at top
             }
-            prev_snapshot = json_str;
+            previous_hash = current_hash;
         }
         Ok(())
     }
+}
+
+fn rebuild_snapshot(mut snapshot: Snapshot, mut elements: Vec<SnapshotElement>) -> Snapshot {
+    for element in &mut elements {
+        element.ref_id.clear();
+        element.children_indices.clear();
+        element.parent_index = None;
+        element.depth = 0;
+    }
+
+    super::infer_hierarchy_from_frames(&mut elements);
+    super::ref_generator::assign_refs(&mut elements);
+    snapshot.elements = elements;
+    snapshot
+}
+
+fn merge_snapshot_elements(
+    existing: &mut Vec<SnapshotElement>,
+    new_elements: Vec<SnapshotElement>,
+    seen_ids: &mut HashSet<String>,
+) -> usize {
+    let mut new_count = 0;
+
+    for element in new_elements {
+        let key = element.element_id.clone().unwrap_or_else(|| {
+            format!(
+                "{}|{:0.0}|{:0.0}",
+                element.element_type, element.frame.x, element.frame.y
+            )
+        });
+
+        if seen_ids.insert(key) {
+            new_count += 1;
+            existing.push(element);
+        }
+    }
+
+    new_count
+}
+
+fn has_scrollable_snapshot_elements(elements: &[SnapshotElement]) -> bool {
+    elements
+        .iter()
+        .any(|element| is_scrollable_type(&element.element_type))
 }
 
 /// Check if the element tree contains scrollable containers.

@@ -21,6 +21,7 @@ pub fn generate_refs(raw_elements: &[RawElement]) -> Vec<SnapshotElement> {
         .iter()
         .map(|fe| SnapshotElement {
             ref_id: String::new(), // Will be assigned later
+            element_id: None,
             element_type: fe.raw.element_type.clone(),
             label: fe.raw.label.clone(),
             frame: fe.raw.frame.clone(),
@@ -42,7 +43,13 @@ pub fn generate_refs(raw_elements: &[RawElement]) -> Vec<SnapshotElement> {
         }
     }
 
-    // Collect interactive and non-interactive indices
+    assign_refs(&mut elements);
+
+    elements
+}
+
+/// Assign `@eN` refs in-place, prioritizing interactive elements.
+pub fn assign_refs(elements: &mut [SnapshotElement]) {
     let interactive_indices: Vec<usize> = elements
         .iter()
         .enumerate()
@@ -57,7 +64,6 @@ pub fn generate_refs(raw_elements: &[RawElement]) -> Vec<SnapshotElement> {
         .map(|(i, _)| i)
         .collect();
 
-    // Assign refs: interactive elements first, then non-interactive
     let mut ref_counter = 1;
 
     for idx in interactive_indices {
@@ -69,8 +75,6 @@ pub fn generate_refs(raw_elements: &[RawElement]) -> Vec<SnapshotElement> {
         elements[idx].ref_id = format!("@e{}", ref_counter);
         ref_counter += 1;
     }
-
-    elements
 }
 
 /// Temporary structure for flattening.
@@ -256,6 +260,7 @@ mod tests {
     fn test_is_empty_structure() {
         let element = SnapshotElement {
             ref_id: "@e1".to_string(),
+            element_id: None,
             element_type: "View".to_string(),
             label: None,
             frame: Frame::zero(),

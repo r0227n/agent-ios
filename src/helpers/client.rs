@@ -3,10 +3,31 @@
 //! This module provides utilities for connecting to the XCUITest Runner,
 //! reducing boilerplate across command implementations.
 
+use agent_mobile_platform_ios::xcuitest::types::HealthResponse;
 use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 /// Standard result type for CLI commands
 pub type CommandResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+/// Prepare a runner client and synchronize the app context if needed.
+pub async fn prepare_xcuitest(
+    target_udid: Option<&str>,
+) -> CommandResult<(String, XCUITestClient, HealthResponse)> {
+    use agent_mobile_platform_ios::xcuitest::ensure_runner_started;
+
+    let resolved_udid = ensure_runner_started(XCUITestClient::DEFAULT_PORT, target_udid).await?;
+    let client = XCUITestClient::default();
+    let mut ready = client.ready_status().await?;
+
+    if let Some(bundle_id) = crate::session::app_context::get_active_app(&resolved_udid)? {
+        if ready.active_bundle_id.as_deref() != Some(bundle_id.as_str()) {
+            client.set_app(&bundle_id).await?;
+            ready = client.ready_status().await?;
+        }
+    }
+
+    Ok((resolved_udid, client, ready))
+}
 
 /// Execute a command with an XCUITestClient connection.
 ///
@@ -36,15 +57,7 @@ where
     F: FnOnce(XCUITestClient) -> Fut,
     Fut: std::future::Future<Output = CommandResult<T>>,
 {
-    use agent_mobile_platform_ios::xcuitest::ensure_runner_started;
-
-    // Ensure the Runner is started on the intended simulator.
-    let resolved_udid = ensure_runner_started(XCUITestClient::DEFAULT_PORT, target_udid).await?;
-
-    let client = XCUITestClient::default();
-    if let Some(bundle_id) = crate::session::app_context::get_active_app(&resolved_udid)? {
-        client.set_app(&bundle_id).await?;
-    }
+    let (_, client, _) = prepare_xcuitest(target_udid).await?;
     f(client).await
 }
 

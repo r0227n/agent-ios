@@ -196,6 +196,7 @@ mod tests {
     ) -> SnapshotElement {
         SnapshotElement {
             ref_id: ref_id.to_string(),
+            element_id: None,
             element_type: element_type.to_string(),
             label: label.map(String::from),
             frame: Frame::zero(),

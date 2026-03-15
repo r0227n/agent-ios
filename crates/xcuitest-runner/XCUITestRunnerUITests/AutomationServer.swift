@@ -1,3 +1,4 @@
+import CryptoKit
 import XCTest
 
 /// Main XCUITest entry point.
@@ -15,6 +16,8 @@ final class AutomationServer: XCTestCase {
     /// The target app (Springboard as default - allows controlling any app).
     private var app: XCUIApplication!
     private var activeBundleId: String!
+    private var snapshotGeneration: UInt64 = 0
+    private var snapshotSequence: UInt64 = 0
 
     override func setUp() {
         super.setUp()
@@ -68,11 +71,46 @@ final class AutomationServer: XCTestCase {
         var payload: [String: Any] = [
             "status": status,
             "runner": "xcuitest",
+            "snapshot_generation": Int(snapshotGeneration),
         ]
         if let udid = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] {
             payload["udid"] = udid
         }
+        if let activeBundleId {
+            payload["active_bundle_id"] = activeBundleId
+        }
         return payload
+    }
+
+    private func advanceSnapshotGeneration() {
+        snapshotGeneration += 1
+    }
+
+    private func nextSnapshotId() -> String {
+        snapshotSequence += 1
+        return "snap_\(snapshotGeneration)_\(snapshotSequence)"
+    }
+
+    private func queryBool(_ request: HTTPRequest, name: String, defaultValue: Bool) -> Bool {
+        guard let value = request.queryValue(name)?.lowercased() else {
+            return defaultValue
+        }
+        switch value {
+        case "1", "true", "yes", "on":
+            return true
+        case "0", "false", "no", "off":
+            return false
+        default:
+            return defaultValue
+        }
+    }
+
+    private func queryInt(_ request: HTTPRequest, name: String) -> Int? {
+        request.queryValue(name).flatMap(Int.init)
+    }
+
+    private func sha256Hex(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private func switchContext(to bundleId: String) {
@@ -123,6 +161,123 @@ final class AutomationServer: XCTestCase {
                 }, completion: completion)
         }
 
+        // Fast flat snapshot for agent-mobile.
+        server.get("/snapshot") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            let depth = self.queryInt(request, name: "depth")
+            let interactiveOnly = self.queryBool(request, name: "interactive_only", defaultValue: false)
+            let compact = self.queryBool(request, name: "compact", defaultValue: false)
+            let visibleOnly = self.queryBool(request, name: "visible_only", defaultValue: true)
+            let maxNodes = self.queryInt(request, name: "max_nodes")
+
+            self.onMain(
+                {
+                    .ok(
+                        self.accessibilityHandler.snapshotPayload(
+                            snapshotId: self.nextSnapshotId(),
+                            snapshotGeneration: self.snapshotGeneration,
+                            activeBundleId: self.activeBundleId,
+                            maxDepth: depth,
+                            interactiveOnly: interactiveOnly,
+                            compact: compact,
+                            visibleOnly: visibleOnly,
+                            maxNodes: maxNodes))
+                }, completion: completion)
+        }
+
+        // Lightweight UI stability hash.
+        server.get("/ui-hash") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            let source = request.queryValue("source")?.lowercased() ?? "screenshot"
+            let visibleOnly = self.queryBool(request, name: "visible_only", defaultValue: true)
+            let maxDepth = self.queryInt(request, name: "depth") ?? 1
+
+            self.onMain(
+                {
+                    let digest: String
+                    switch source {
+                    case "accessibility":
+                        digest = self.sha256Hex(
+                            Data(
+                                self.accessibilityHandler
+                                    .snapshotDigestSource(maxDepth: maxDepth, visibleOnly: visibleOnly)
+                                    .utf8))
+                    default:
+                        guard let pngData = self.screenshotHandler.captureScreenshot() else {
+                            return .error("Failed to capture screenshot for ui-hash", status: 500)
+                        }
+                        digest = self.sha256Hex(pngData)
+                    }
+
+                    var payload = self.runnerStatus("ok")
+                    payload["hash"] = digest
+                    payload["source"] = source
+                    return .ok(payload)
+                }, completion: completion)
+        }
+
+        // Fast query for first matching element.
+        server.post("/query/first") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            guard let json = request.json(),
+                let locator = json["locator"] as? String,
+                let value = json["value"] as? String
+            else {
+                return completion(.error("Missing required fields: locator, value"))
+            }
+
+            let exact = json["exact"] as? Bool ?? false
+            let caseSensitive = json["caseSensitive"] as? Bool ?? false
+            let visibleOnly = json["visibleOnly"] as? Bool ?? true
+            let maxDepth = json["maxDepth"] as? Int
+
+            self.onMain(
+                {
+                    var payload = self.runnerStatus("ok")
+                    let element = self.accessibilityHandler.queryFirst(
+                        locator: locator,
+                        value: value,
+                        exact: exact,
+                        caseSensitive: caseSensitive,
+                        visibleOnly: visibleOnly,
+                        maxDepth: maxDepth)
+                    payload["found"] = element != nil
+                    if let element {
+                        payload["element"] = element
+                    }
+                    return .ok(payload)
+                }, completion: completion)
+        }
+
+        // Fast existence check for matching element.
+        server.post("/query/exists") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            guard let json = request.json(),
+                let locator = json["locator"] as? String,
+                let value = json["value"] as? String
+            else {
+                return completion(.error("Missing required fields: locator, value"))
+            }
+
+            let exact = json["exact"] as? Bool ?? false
+            let caseSensitive = json["caseSensitive"] as? Bool ?? false
+            let visibleOnly = json["visibleOnly"] as? Bool ?? true
+            let maxDepth = json["maxDepth"] as? Int
+
+            self.onMain(
+                {
+                    var payload = self.runnerStatus("ok")
+                    payload["exists"] = self.accessibilityHandler.queryExists(
+                        locator: locator,
+                        value: value,
+                        exact: exact,
+                        caseSensitive: caseSensitive,
+                        visibleOnly: visibleOnly,
+                        maxDepth: maxDepth)
+                    return .ok(payload)
+                }, completion: completion)
+        }
+
         // Tap
         server.post("/tap") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
@@ -135,6 +290,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.touchHandler.tap(x: x, y: y)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -152,6 +308,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.touchHandler.longPress(x: x, y: y, duration: duration)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -171,6 +328,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.touchHandler.swipe(startX: startX, startY: startY, endX: endX, endY: endY, duration: duration)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -186,6 +344,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.inputHandler.typeText(text)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -201,6 +360,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     if self.inputHandler.keyPress(key) {
+                        self.advanceSnapshotGeneration()
                         return .ok(["success": true])
                     } else {
                         return .error("Unknown key: \(key)")
@@ -214,6 +374,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.inputHandler.clearText()
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -229,6 +390,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     if self.touchHandler.pressButton(button) {
+                        self.advanceSnapshotGeneration()
                         return .ok(["success": true])
                     } else {
                         return .error("Unknown button: \(button). Valid: home, volume_up, volume_down")
@@ -239,15 +401,8 @@ final class AutomationServer: XCTestCase {
         // Accessibility tree
         server.get("/accessibility") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            // Parse nested flag from query string (default: true)
-            let isNested = !request.path.contains("nested=false")
-            // Parse optional depth parameter (e.g. depth=1)
-            var maxDepth: Int? = nil
-            if let range = request.path.range(of: "depth=") {
-                let afterDepth = request.path[range.upperBound...]
-                let valueStr = afterDepth.prefix(while: { $0.isNumber })
-                maxDepth = Int(valueStr)
-            }
+            let isNested = self.queryBool(request, name: "nested", defaultValue: true)
+            let maxDepth = self.queryInt(request, name: "depth")
             self.onMain(
                 {
                     let tree = self.accessibilityHandler.getAccessibilityTree(nested: isNested, maxDepth: maxDepth)
@@ -267,6 +422,7 @@ final class AutomationServer: XCTestCase {
                 {
                     self.appHandler.launch(bundleIdentifier: bundleId)
                     self.switchContext(to: bundleId)
+                    self.advanceSnapshotGeneration()
 
                     return .ok(["success": true, "bundleId": bundleId])
                 }, completion: completion)
@@ -284,6 +440,7 @@ final class AutomationServer: XCTestCase {
                 {
                     self.appHandler.terminate(bundleIdentifier: bundleId)
                     self.switchContext(to: self.springboardBundleId)
+                    self.advanceSnapshotGeneration()
 
                     return .ok(["success": true])
                 }, completion: completion)
@@ -300,6 +457,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.switchContext(to: bundleId)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true, "bundleId": bundleId])
                 }, completion: completion)
         }

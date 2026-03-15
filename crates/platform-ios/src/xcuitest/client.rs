@@ -280,6 +280,65 @@ impl XCUITestClient {
         Ok(resp.bytes().await?.to_vec())
     }
 
+    /// Capture a fast flat snapshot from the runner.
+    pub async fn snapshot(
+        &self,
+        max_depth: Option<u32>,
+        interactive_only: bool,
+        compact: bool,
+        visible_only: bool,
+        max_nodes: Option<u32>,
+    ) -> Result<RunnerSnapshotResponse> {
+        let mut url = format!("{}/snapshot?visible_only={}", self.base_url, visible_only);
+        if let Some(depth) = max_depth {
+            url.push_str(&format!("&depth={depth}"));
+        }
+        if interactive_only {
+            url.push_str("&interactive_only=true");
+        }
+        if compact {
+            url.push_str("&compact=true");
+        }
+        if let Some(max_nodes) = max_nodes {
+            url.push_str(&format!("&max_nodes={max_nodes}"));
+        }
+
+        let resp = self.http.get(&url).send().await?;
+        Ok(resp.json().await?)
+    }
+
+    /// Query the first matching element via the fast runner-side matcher.
+    pub async fn query_first(&self, request: &QueryRequest) -> Result<QueryFirstResponse> {
+        let url = format!("{}/query/first", self.base_url);
+        let resp = self.http.post(&url).json(request).send().await?;
+        Ok(resp.json().await?)
+    }
+
+    /// Check whether a matching element exists.
+    pub async fn query_exists(&self, request: &QueryRequest) -> Result<QueryExistsResponse> {
+        let url = format!("{}/query/exists", self.base_url);
+        let resp = self.http.post(&url).json(request).send().await?;
+        Ok(resp.json().await?)
+    }
+
+    /// Compute a lightweight hash for the current UI state.
+    pub async fn ui_hash(
+        &self,
+        source: Option<&str>,
+        max_depth: Option<u32>,
+        visible_only: bool,
+    ) -> Result<UiHashResponse> {
+        let mut url = format!("{}/ui-hash?visible_only={}", self.base_url, visible_only);
+        if let Some(source) = source {
+            url.push_str(&format!("&source={source}"));
+        }
+        if let Some(max_depth) = max_depth {
+            url.push_str(&format!("&depth={max_depth}"));
+        }
+        let resp = self.http.get(&url).send().await?;
+        Ok(resp.json().await?)
+    }
+
     /// Set the active app context (for accessibility queries) without launching.
     pub async fn set_app(&self, bundle_id: &str) -> Result<()> {
         self.post(
