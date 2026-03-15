@@ -268,49 +268,6 @@ impl XCUITestClient {
         .await
     }
 
-    /// Install an app on the simulator.
-    pub async fn install_app(&self, path: &str) -> Result<()> {
-        self.post(
-            "/install",
-            &InstallRequest {
-                path: path.to_string(),
-            },
-        )
-        .await
-    }
-
-    /// Uninstall an app from the simulator.
-    pub async fn uninstall_app(&self, bundle_id: &str) -> Result<()> {
-        self.post(
-            "/uninstall",
-            &UninstallRequest {
-                bundle_id: bundle_id.to_string(),
-            },
-        )
-        .await
-    }
-
-    /// List installed apps on the simulator.
-    pub async fn list_apps(&self) -> Result<Vec<AppInfo>> {
-        let url = format!("{}/list-apps", self.base_url);
-        let resp = self.http.get(&url).send().await?;
-        let body: ListAppsResponse = resp.json().await?;
-
-        // Parse the apps array from the response
-        match body.apps {
-            serde_json::Value::Array(arr) => {
-                let mut apps = Vec::new();
-                for item in arr {
-                    if let Ok(app) = serde_json::from_value::<AppInfo>(item) {
-                        apps.push(app);
-                    }
-                }
-                Ok(apps)
-            }
-            _ => Ok(Vec::new()),
-        }
-    }
-
     /// Capture a screenshot and return PNG bytes.
     pub async fn screenshot(&self) -> Result<Vec<u8>> {
         let url = format!("{}/screenshot", self.base_url);

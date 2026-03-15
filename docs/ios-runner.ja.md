@@ -59,7 +59,7 @@ graph TB
 | Rust CLI | コマンド受付、セッション解決、出力整形 | `src/`, `src/helpers/client.rs` |
 | `platform-ios` | runner 起動、HTTP クライアント、simctl ラッパー | `crates/platform-ios/src/xcuitest/*.rs`, `crates/platform-ios/src/simctl/*.rs` |
 | XCUITest Runner | Simulator 内で HTTP を受けて XCUITest API を実行 | `crates/xcuitest-runner/XCUITestRunnerUITests/*.swift` |
-| `simctl` | Simulator の boot/install/uninstall/screenshot など | `xcrun simctl` |
+| `simctl` | Simulator の boot/install/uninstall/listapps/screenshot など | `xcrun simctl` |
 
 ## なぜ hybrid 構成なのか
 
@@ -198,14 +198,6 @@ sequenceDiagram
 | `/clipboard/copy` | POST | クリップボード書き込み | `ClipboardHandler.swift` |
 | `/clipboard/paste` | GET | クリップボード読み取り | `ClipboardHandler.swift` |
 | `/clipboard/clear` | POST | クリップボード消去 | `ClipboardHandler.swift` |
-
-### 注意が必要な API
-
-- `/install`
-- `/uninstall`
-- `/list-apps`
-
-これらの route は存在しますが、runner 内では実行できず `501` を返します。iOS 上では `Process` を使えないため、実際の install/uninstall/listapps は host 側の `simctl` を使う前提です。
 
 ## アクセシビリティ取得の流れ
 

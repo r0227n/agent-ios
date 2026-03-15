@@ -289,43 +289,6 @@ final class AutomationServer: XCTestCase {
                 }, completion: completion)
         }
 
-        // Install app
-        server.post("/install") { [weak self] request, completion in
-            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            guard let json = request.json(),
-                let path = json["path"] as? String
-            else {
-                return completion(.error("Missing required field: path"))
-            }
-            self.onMain(
-                {
-                    self.appHandler.install(path: path)
-                }, completion: completion)
-        }
-
-        // Uninstall app
-        server.post("/uninstall") { [weak self] request, completion in
-            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            guard let json = request.json(),
-                let bundleId = json["bundleId"] as? String
-            else {
-                return completion(.error("Missing required field: bundleId"))
-            }
-            self.onMain(
-                {
-                    self.appHandler.uninstall(bundleId: bundleId)
-                }, completion: completion)
-        }
-
-        // List installed apps
-        server.get("/list-apps") { [weak self] _, completion in
-            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            self.onMain(
-                {
-                    self.appHandler.listApps()
-                }, completion: completion)
-        }
-
         // Set active app (switch context without launching)
         server.post("/set-app") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }

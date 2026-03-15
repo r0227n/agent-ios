@@ -67,21 +67,6 @@ pub struct AppRequest {
     pub bundle_id: String,
 }
 
-/// Request for app installation
-#[derive(Debug, Serialize)]
-pub struct InstallRequest {
-    /// Local filesystem path to the app bundle to install.
-    pub path: String,
-}
-
-/// Request for app uninstallation
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UninstallRequest {
-    /// Bundle identifier of the app to uninstall.
-    pub bundle_id: String,
-}
-
 /// Request to copy text to the clipboard
 #[derive(Debug, Serialize)]
 pub struct ClipboardCopyRequest {
@@ -114,23 +99,4 @@ pub struct HealthResponse {
     pub runner: Option<String>,
     /// Optional simulator UDID hosting the runner.
     pub udid: Option<String>,
-}
-
-/// Response containing list of installed apps
-#[derive(Debug, Deserialize)]
-pub struct ListAppsResponse {
-    /// Raw list of applications returned by the runner.
-    pub apps: serde_json::Value,
-}
-
-/// Simplified app info returned from list-apps endpoint.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppInfo {
-    /// Bundle identifier of the installed application.
-    pub bundle_id: Option<String>,
-    /// Human-readable application name.
-    pub name: Option<String>,
-    /// Marketing version string.
-    pub version: Option<String>,
 }
