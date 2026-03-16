@@ -17,7 +17,7 @@ use agent_mobile_platform_ios::xcuitest::types::{RunnerSnapshotElement, RunnerSn
 use chrono::Utc;
 use clap::Args;
 
-use crate::helpers::client::{prepare_xcuitest, CommandResult};
+use crate::helpers::client::{prepare_xcuitest_with_policy, AppContextPolicy, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
 use types::Snapshot;
@@ -143,7 +143,11 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
     let max_scrolls = args.max_scrolls;
     let scroll_delay = args.scroll_delay;
 
-    let (resolved_udid, client, _) = prepare_xcuitest(args.device.udid.as_deref()).await?;
+    let (resolved_udid, client, _) = prepare_xcuitest_with_policy(
+        args.device.udid.as_deref(),
+        AppContextPolicy::RestoreIfUnset,
+    )
+    .await?;
 
     let snapshot = if no_scroll {
         capture_ios_snapshot(&client, depth).await?

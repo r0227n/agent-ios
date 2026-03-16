@@ -15,7 +15,9 @@ use clap::Args;
 use agent_mobile_core::{extract_traits_for_type, is_interactive_type, Platform};
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::client::{prepare_xcuitest, with_xcuitest, CommandResult};
+use crate::helpers::client::{
+    prepare_xcuitest, prepare_xcuitest_with_policy, with_xcuitest, AppContextPolicy, CommandResult,
+};
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget, ResolvedElement};
@@ -148,7 +150,8 @@ pub async fn take_snapshot(
 
     match platform {
         Platform::Ios => {
-            let (_, client, _) = prepare_xcuitest(udid).await?;
+            let (_, client, _) =
+                prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
             crate::snapshot::capture_ios_snapshot(&client, None).await
         }
         Platform::Android => {
@@ -175,7 +178,8 @@ async fn resolve_ios_element(
     target: &ElementTarget,
     udid: Option<&str>,
 ) -> CommandResult<ResolvedElement> {
-    let (resolved_udid, client, ready) = prepare_xcuitest(udid).await?;
+    let (resolved_udid, client, _) =
+        prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
 
     match target {
         ElementTarget::Text(text) => query_first_ios(&client, "text", text, false, false, None)
@@ -199,15 +203,6 @@ async fn resolve_ios_element(
                 )
                 })?;
 
-            let generation_matches = cached_snapshot.snapshot_generation.is_some()
-                && cached_snapshot.snapshot_generation == ready.snapshot_generation;
-            let bundle_matches = cached_snapshot.active_bundle_id.is_none()
-                || cached_snapshot.active_bundle_id == ready.active_bundle_id;
-
-            if generation_matches && bundle_matches {
-                return Ok(ref_resolver::to_resolved(cached_element));
-            }
-
             if let Some(element_id) = &cached_element.element_id {
                 if let Some(mut resolved) =
                     query_first_ios(&client, "element_id", element_id, true, true, None).await?
@@ -215,6 +210,12 @@ async fn resolve_ios_element(
                     resolved.ref_id = ref_id.clone();
                     return Ok(resolved);
                 }
+            } else {
+                return Err(format!(
+                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                    ref_id
+                )
+                .into());
             }
 
             Err(format!(
@@ -269,7 +270,8 @@ pub(crate) async fn query_exists_ios(
     case_sensitive: bool,
     max_depth: Option<u32>,
 ) -> CommandResult<bool> {
-    let (_, client, _) = prepare_xcuitest(udid).await?;
+    let (_, client, _) =
+        prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
     let response = client
         .query_exists(&agent_mobile_platform_ios::xcuitest::types::QueryRequest {
             locator: locator.to_string(),
@@ -288,7 +290,8 @@ pub(crate) async fn current_ui_hash_ios(
     source: Option<&str>,
     max_depth: Option<u32>,
 ) -> CommandResult<String> {
-    let (_, client, _) = prepare_xcuitest(udid).await?;
+    let (_, client, _) =
+        prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
     Ok(client.ui_hash(source, max_depth, true).await?.hash)
 }
 
