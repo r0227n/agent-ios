@@ -27,8 +27,6 @@ pub enum ElementTarget {
 pub struct ResolvedElement {
     /// Snapshot reference ID such as `@e1`.
     pub ref_id: String,
-    /// Runner-side element identifier, when available.
-    pub element_id: Option<String>,
     /// Platform-normalized accessibility element type.
     pub element_type: String,
     /// Accessibility label, if present.
@@ -74,7 +72,6 @@ impl ResolvedElement {
     pub fn from_coords(x: f64, y: f64) -> Self {
         Self {
             ref_id: format!("coords({},{})", x, y),
-            element_id: None,
             element_type: "Coordinate".to_string(),
             label: None,
             frame: Frame {
@@ -214,7 +211,6 @@ pub fn find_by_text<'a>(snapshot: &'a Snapshot, text: &str) -> Option<&'a Snapsh
 pub fn to_resolved(elem: &SnapshotElement) -> ResolvedElement {
     ResolvedElement {
         ref_id: elem.ref_id.clone(),
-        element_id: elem.element_id.clone(),
         element_type: elem.element_type.clone(),
         label: elem.label.clone(),
         frame: elem.frame.clone(),
@@ -322,7 +318,6 @@ mod tests {
     fn test_resolved_element_center() {
         let elem = ResolvedElement {
             ref_id: "@e1".to_string(),
-            element_id: None,
             element_type: "Button".to_string(),
             label: Some("Login".to_string()),
             frame: Frame {
@@ -345,7 +340,6 @@ mod tests {
     fn test_resolved_element_is_text_input() {
         let elem = ResolvedElement {
             ref_id: "@e1".to_string(),
-            element_id: None,
             element_type: "TextField".to_string(),
             label: None,
             frame: Frame::zero(),
@@ -360,7 +354,6 @@ mod tests {
 
         let elem = ResolvedElement {
             ref_id: "@e1".to_string(),
-            element_id: None,
             element_type: "Button".to_string(),
             label: None,
             frame: Frame::zero(),

@@ -265,8 +265,8 @@ pub(crate) fn infer_hierarchy_from_frames(elements: &mut [types::SnapshotElement
         let mut best_parent = 0usize;
         let mut best_area = f64::INFINITY;
 
-        for candidate in 0..index {
-            let parent_frame = &elements[candidate].frame;
+        for (candidate, parent) in elements.iter().enumerate().take(index) {
+            let parent_frame = &parent.frame;
             if !frame_contains(parent_frame, &child_frame) {
                 continue;
             }

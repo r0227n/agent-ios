@@ -249,7 +249,6 @@ pub(crate) async fn query_first_ios(
 
     Ok(response.element.map(|element| ResolvedElement {
         ref_id: element.element_id.clone(),
-        element_id: Some(element.element_id),
         element_type: element.element_type.clone(),
         label: element.label,
         frame: element.frame,
