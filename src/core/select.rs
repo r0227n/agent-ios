@@ -14,13 +14,13 @@ use serde::Serialize;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::client::CommandResult;
+use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
 
 use super::ref_resolver::{self, ElementTarget};
-use super::swipe::execute_swipe_ios;
-use super::tap::{execute_tap, take_snapshot};
+use super::swipe::execute_ios_swipe;
+use super::tap::{execute_ios_tap, execute_tap, take_ios_snapshot_with_client, take_snapshot};
 
 /// Arguments for the select command
 #[derive(Args, Debug)]
@@ -72,85 +72,76 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
     let udid = args.device.udid.as_deref();
     let format = args.format;
 
-    // 1. Find and tap the picker to activate it
-    let snapshot = take_snapshot(Platform::Ios, udid).await?;
-    let picker_element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
-    let (picker_x, picker_y) = picker_element.center();
+    with_xcuitest(udid, |client| async move {
+        let snapshot = take_ios_snapshot_with_client(&client).await?;
+        let picker_element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+        let (picker_x, picker_y) = picker_element.center();
 
-    execute_tap(Platform::Ios, udid, picker_x, picker_y).await?;
+        execute_ios_tap(&client, picker_x, picker_y).await?;
+        tokio::time::sleep(Duration::from_millis(500)).await;
 
-    // Wait for picker to open
-    tokio::time::sleep(Duration::from_millis(500)).await;
+        for attempt in 0..args.max_swipes {
+            let snapshot = take_ios_snapshot_with_client(&client).await?;
 
-    // 2. Try to find and select the value by scrolling the picker
-    for attempt in 0..args.max_swipes {
-        // Take a fresh snapshot
-        let snapshot = take_snapshot(Platform::Ios, udid).await?;
-
-        // Look for the value in the current snapshot
-        if let Some(element) = snapshot.elements.iter().find(|e| {
-            e.label
-                .as_ref()
-                .map(|l| l.to_lowercase().contains(&value_lower))
-                .unwrap_or(false)
-                || e.value
-                    .as_ref()
-                    .map(|v| v.to_lowercase().contains(&value_lower))
-                    .unwrap_or(false)
-        }) {
-            // Found it - tap to select
-            let (x, y) = element.frame.center();
-            execute_tap(Platform::Ios, udid, x, y).await?;
-
-            // Wait a moment then try to dismiss (tap "Done" or outside)
-            tokio::time::sleep(Duration::from_millis(300)).await;
-
-            // Try to find and tap "Done" button
-            let snapshot = take_snapshot(Platform::Ios, udid).await?;
-            if let Some(done_btn) = snapshot.elements.iter().find(|e| {
+            if let Some(element) = snapshot.elements.iter().find(|e| {
                 e.label
                     .as_ref()
-                    .map(|l| l == "Done" || l == "完了")
+                    .map(|l| l.to_lowercase().contains(&value_lower))
                     .unwrap_or(false)
+                    || e.value
+                        .as_ref()
+                        .map(|v| v.to_lowercase().contains(&value_lower))
+                        .unwrap_or(false)
             }) {
-                let (dx, dy) = done_btn.frame.center();
-                execute_tap(Platform::Ios, udid, dx, dy).await?;
+                let (x, y) = element.frame.center();
+                execute_ios_tap(&client, x, y).await?;
+                tokio::time::sleep(Duration::from_millis(300)).await;
+
+                let snapshot = take_ios_snapshot_with_client(&client).await?;
+                if let Some(done_btn) = snapshot.elements.iter().find(|e| {
+                    e.label
+                        .as_ref()
+                        .map(|l| l == "Done" || l == "完了")
+                        .unwrap_or(false)
+                }) {
+                    let (dx, dy) = done_btn.frame.center();
+                    execute_ios_tap(&client, dx, dy).await?;
+                }
+
+                if format.is_json() {
+                    let output = SelectOutput {
+                        target: args.target.clone(),
+                        value: args.value.clone(),
+                        status: "success".to_string(),
+                    };
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                } else {
+                    println!("Selected: {}", args.value);
+                }
+                return Ok(());
             }
 
-            if format.is_json() {
-                let output = SelectOutput {
-                    target: args.target.clone(),
-                    value: args.value.clone(),
-                    status: "success".to_string(),
-                };
-                println!("{}", serde_json::to_string_pretty(&output)?);
-            } else {
-                println!("Selected: {}", args.value);
-            }
-            return Ok(());
+            let swipe_direction = if attempt % 2 == 0 { -50.0 } else { 50.0 };
+            execute_ios_swipe(
+                &client,
+                picker_x,
+                picker_y,
+                picker_x,
+                picker_y + swipe_direction,
+                0.2,
+            )
+            .await?;
+
+            tokio::time::sleep(Duration::from_millis(300)).await;
         }
 
-        // Not found yet - swipe the picker wheel
-        // Alternate between up and down to cover both directions
-        let swipe_direction = if attempt % 2 == 0 { -50.0 } else { 50.0 };
-        execute_swipe_ios(
-            udid,
-            picker_x,
-            picker_y,
-            picker_x,
-            picker_y + swipe_direction,
-            Some(0.2),
+        Err(format!(
+            "Could not find '{}' in picker after {} swipes",
+            args.value, args.max_swipes
         )
-        .await?;
-
-        tokio::time::sleep(Duration::from_millis(300)).await;
-    }
-
-    Err(format!(
-        "Could not find '{}' in picker after {} swipes",
-        args.value, args.max_swipes
-    )
-    .into())
+        .into())
+    })
+    .await
 }
 
 /// Execute select on Android (Spinner dropdown)

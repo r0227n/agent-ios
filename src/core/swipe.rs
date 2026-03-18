@@ -9,6 +9,7 @@
 use clap::Args;
 
 use agent_mobile_core::{Platform, ScrollDirection};
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
@@ -155,10 +156,21 @@ pub(crate) async fn execute_swipe_ios(
 ) -> CommandResult {
     let duration = duration.unwrap_or(0.3);
     with_xcuitest(udid, |client| async move {
-        client.swipe((x1, y1), (x2, y2), duration).await?;
-        Ok(())
+        execute_ios_swipe(&client, x1, y1, x2, y2, duration).await
     })
     .await
+}
+
+pub(crate) async fn execute_ios_swipe(
+    client: &XCUITestClient,
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+    duration: f64,
+) -> CommandResult {
+    client.swipe((x1, y1), (x2, y2), duration).await?;
+    Ok(())
 }
 
 /// Execute swipe on Android

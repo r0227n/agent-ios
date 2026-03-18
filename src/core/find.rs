@@ -26,13 +26,15 @@ use serde::Serialize;
 
 use agent_mobile_core::snapshot::Frame;
 use agent_mobile_core::Platform;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 use crate::snapshot::types::{Snapshot, SnapshotElement};
 
-use super::long_press::{execute_long_press, DEFAULT_LONG_PRESS_DURATION};
-use super::tap::{execute_tap, take_snapshot};
+use super::fill::execute_fill_ios_with_client;
+use super::long_press::{execute_ios_long_press, execute_long_press, DEFAULT_LONG_PRESS_DURATION};
+use super::tap::{execute_ios_tap, execute_tap, take_ios_snapshot_with_client, take_snapshot};
 use agent_mobile_gateway::DeviceResolver;
 
 /// Estimated max text length for clearing text fields when value is None.
@@ -232,6 +234,42 @@ pub async fn run(args: FindArgs) -> CommandResult {
         None => DeviceResolver::detect_platform().await?,
     };
 
+    match platform {
+        Platform::Ios => run_ios(args).await,
+        Platform::Android => run_android(args).await,
+    }
+}
+
+async fn run_ios(args: FindArgs) -> CommandResult {
+    let (action_str, action_value) = extract_action(&args.locator);
+    let action = if let Some(action_str) = action_str {
+        Some(FindAction::parse(action_str, action_value.as_deref())?)
+    } else {
+        None
+    };
+    let udid = args.device.udid.clone();
+
+    if args.all && action.is_some() {
+        return Err("--all cannot be used with an action (tap, fill, etc.)".into());
+    }
+
+    with_xcuitest(udid.as_deref(), |client| async move {
+        let snapshot = take_ios_snapshot_with_client(&client).await?;
+        finish_run(
+            &args,
+            &snapshot,
+            Platform::Ios,
+            Some(&client),
+            action.as_ref(),
+        )
+        .await
+    })
+    .await
+}
+
+async fn run_android(args: FindArgs) -> CommandResult {
+    let platform = Platform::Android;
+
     // Extract action from locator
     let (action_str, action_value) = extract_action(&args.locator);
     let action = if let Some(action_str) = action_str {
@@ -248,8 +286,18 @@ pub async fn run(args: FindArgs) -> CommandResult {
     // Get snapshot
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
+    finish_run(&args, &snapshot, platform, None, action.as_ref()).await
+}
+
+async fn finish_run(
+    args: &FindArgs,
+    snapshot: &Snapshot,
+    platform: Platform,
+    ios_client: Option<&XCUITestClient>,
+    action: Option<&FindAction>,
+) -> CommandResult {
     // Find matching elements
-    let matches = find_elements(&snapshot, &args.locator);
+    let matches = find_elements(snapshot, &args.locator);
 
     if matches.is_empty() {
         return Err(format!(
@@ -267,10 +315,13 @@ pub async fn run(args: FindArgs) -> CommandResult {
             return Err("Cannot perform action on multiple elements. Use --first, --last, or --nth to select one.".into());
         }
         let element = selected[0];
-        execute_action(platform, args.device.udid.as_deref(), element, &action).await?;
+        match (platform, ios_client) {
+            (Platform::Ios, Some(client)) => execute_ios_action(client, element, action).await?,
+            _ => execute_action(platform, args.device.udid.as_deref(), element, action).await?,
+        }
 
         // Output action result
-        let action_desc = match &action {
+        let action_desc = match action {
             FindAction::Tap => "Tapped".to_string(),
             FindAction::LongPress => "Long-pressed".to_string(),
             FindAction::Fill(text) => format!("Filled with \"{}\"", text),
@@ -474,6 +525,23 @@ async fn execute_action(
     }
 }
 
+async fn execute_ios_action(
+    client: &XCUITestClient,
+    element: &SnapshotElement,
+    action: &FindAction,
+) -> CommandResult {
+    let (x, y) = element.frame.center();
+
+    match action {
+        FindAction::Tap => execute_ios_tap(client, x, y).await,
+        FindAction::LongPress => {
+            execute_ios_long_press(client, x, y, DEFAULT_LONG_PRESS_DURATION).await
+        }
+        FindAction::Fill(text) => execute_fill_ios_with_client(client, x, y, text).await,
+        FindAction::Clear => execute_clear_ios_with_client(client, x, y).await,
+    }
+}
+
 /// Execute fill (tap + clear + type)
 async fn execute_fill(
     platform: Platform,
@@ -527,21 +595,19 @@ async fn execute_fill(
     }
 }
 
+async fn execute_clear_ios_with_client(client: &XCUITestClient, x: f64, y: f64) -> CommandResult {
+    client.tap(x, y).await?;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    client.clear_text().await?;
+    Ok(())
+}
+
 /// Execute clear (tap + select all + delete)
 async fn execute_clear(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
         Platform::Ios => {
             with_xcuitest(udid, |client| async move {
-                // 1. Tap to focus
-                client.tap(x, y).await?;
-
-                // Small delay to ensure focus
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-                // 2. Clear existing text (Select All + Delete)
-                client.clear_text().await?;
-
-                Ok(())
+                execute_clear_ios_with_client(&client, x, y).await
             })
             .await
         }

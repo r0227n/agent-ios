@@ -8,12 +8,13 @@
 use clap::Args;
 
 use agent_mobile_core::Platform;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
-use super::tap::take_snapshot;
+use super::tap::{take_ios_snapshot_with_client, take_snapshot};
 use agent_mobile_gateway::DeviceResolver;
 
 /// Arguments for the fill command
@@ -36,18 +37,14 @@ pub async fn run(args: FillArgs) -> CommandResult {
         Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
         None => DeviceResolver::detect_platform().await?,
     };
-    let target = ElementTarget::parse(&args.target);
-
-    // Get snapshot and resolve element
-    let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
-
-    let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
-    let (x, y) = element.center();
-
-    // Execute fill: tap -> clear -> type
     match platform {
-        Platform::Ios => execute_fill_ios(args.device.udid.as_deref(), x, y, &args.text).await,
+        Platform::Ios => run_ios(args).await,
         Platform::Android => {
+            let target = ElementTarget::parse(&args.target);
+            let snapshot = take_snapshot(Platform::Android, args.device.udid.as_deref()).await?;
+            let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+            let (x, y) = element.center();
+
             // Calculate clear length from existing value (Android still uses delete loop)
             let clear_len = element
                 .value
@@ -59,26 +56,29 @@ pub async fn run(args: FillArgs) -> CommandResult {
     }
 }
 
-/// Execute fill on iOS
-async fn execute_fill_ios(udid: Option<&str>, x: f64, y: f64, text: &str) -> CommandResult {
-    let text = text.to_string();
+async fn run_ios(args: FillArgs) -> CommandResult {
+    let target = ElementTarget::parse(&args.target);
 
-    with_xcuitest(udid, |client| async move {
-        // 1. Tap to focus
-        client.tap(x, y).await?;
-
-        // Small delay to ensure focus
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-        // 2. Clear existing text (Select All + Delete)
-        client.clear_text().await?;
-
-        // 3. Type new text
-        client.type_text(&text).await?;
-
-        Ok(())
+    with_xcuitest(args.device.udid.as_deref(), |client| async move {
+        let snapshot = take_ios_snapshot_with_client(&client).await?;
+        let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+        let (x, y) = element.center();
+        execute_fill_ios_with_client(&client, x, y, &args.text).await
     })
     .await
+}
+
+pub(crate) async fn execute_fill_ios_with_client(
+    client: &XCUITestClient,
+    x: f64,
+    y: f64,
+    text: &str,
+) -> CommandResult {
+    client.tap(x, y).await?;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    client.clear_text().await?;
+    client.type_text(text).await?;
+    Ok(())
 }
 
 /// Execute fill on Android

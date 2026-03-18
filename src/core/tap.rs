@@ -14,10 +14,11 @@ use clap::Args;
 
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
-use crate::helpers::ios::get_ios_screen_size;
+use crate::helpers::ios::{get_ios_screen_size, get_ios_screen_size_from_client};
 
 use super::ref_resolver::{self, ElementTarget};
 
@@ -38,18 +39,35 @@ pub async fn run(args: TapArgs) -> CommandResult {
         Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
         None => DeviceResolver::detect_platform().await?,
     };
+    match platform {
+        Platform::Ios => run_ios(args).await,
+        Platform::Android => run_android(args).await,
+    }
+}
+
+async fn run_ios(args: TapArgs) -> CommandResult {
     let target = ElementTarget::parse(&args.target);
 
-    // Handle special keys
+    with_xcuitest(args.device.udid.as_deref(), |client| async move {
+        if let ElementTarget::Key(key) = &target {
+            return execute_ios_key(&client, key).await;
+        }
+
+        let (x, y) = resolve_ios_coords(&target, &client).await?;
+        execute_ios_tap(&client, x, y).await
+    })
+    .await
+}
+
+async fn run_android(args: TapArgs) -> CommandResult {
+    let target = ElementTarget::parse(&args.target);
+
     if let ElementTarget::Key(key) = &target {
-        return execute_key(platform, args.device.udid.as_deref(), key).await;
+        return execute_key(Platform::Android, args.device.udid.as_deref(), key).await;
     }
 
-    // Get coordinates from target
-    let (x, y) = resolve_coords(&target, platform, args.device.udid.as_deref()).await?;
-
-    // Execute tap
-    execute_tap(platform, args.device.udid.as_deref(), x, y).await
+    let (x, y) = resolve_coords(&target, Platform::Android, args.device.udid.as_deref()).await?;
+    execute_tap(Platform::Android, args.device.udid.as_deref(), x, y).await
 }
 
 /// Resolve target to coordinates
@@ -74,6 +92,22 @@ pub async fn resolve_coords(
     }
 }
 
+async fn resolve_ios_coords(
+    target: &ElementTarget,
+    client: &XCUITestClient,
+) -> CommandResult<(f64, f64)> {
+    match target {
+        ElementTarget::Coords(x, y) => Ok((*x, *y)),
+        ElementTarget::Position(pos) => resolve_ios_position(pos, client).await,
+        ElementTarget::Ref(_) | ElementTarget::Text(_) => {
+            let snapshot = take_ios_snapshot_with_client(client).await?;
+            let element = ref_resolver::resolve_from_snapshot(&snapshot, target)?;
+            Ok(element.center())
+        }
+        ElementTarget::Key(_) => Err("Cannot resolve key to coordinates".into()),
+    }
+}
+
 /// Resolve special position to coordinates
 pub async fn resolve_position(
     position: &str,
@@ -82,6 +116,18 @@ pub async fn resolve_position(
 ) -> CommandResult<(f64, f64)> {
     // Get screen dimensions
     let (width, height) = get_screen_size(platform, udid).await?;
+
+    match position {
+        "center" => Ok((width / 2.0, height / 2.0)),
+        _ => Err(format!("Unknown position: {}", position).into()),
+    }
+}
+
+async fn resolve_ios_position(
+    position: &str,
+    client: &XCUITestClient,
+) -> CommandResult<(f64, f64)> {
+    let (width, height) = get_ios_screen_size_from_client(client).await?;
 
     match position {
         "center" => Ok((width / 2.0, height / 2.0)),
@@ -142,6 +188,23 @@ pub async fn take_snapshot(
     }
 }
 
+pub(crate) async fn take_ios_snapshot_with_client(
+    client: &XCUITestClient,
+) -> CommandResult<crate::snapshot::types::Snapshot> {
+    use crate::snapshot::types::Snapshot;
+    use chrono::Utc;
+
+    let json_str = client.accessibility_info(true).await?;
+    let json: serde_json::Value = serde_json::from_str(&json_str)?;
+    let raw_elements = agent_mobile_platform_ios::snapshot::extract_ios_elements(&json);
+    let elements = crate::snapshot::ref_generator::generate_refs(&raw_elements);
+    Ok(Snapshot {
+        snapshot_id: format!("snap_{}", nanoid::nanoid!(8)),
+        timestamp: Utc::now(),
+        elements,
+    })
+}
+
 /// Execute tap gesture
 pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64) -> CommandResult {
     match platform {
@@ -160,47 +223,19 @@ pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64)
     }
 }
 
+pub(crate) async fn execute_ios_tap(client: &XCUITestClient, x: f64, y: f64) -> CommandResult {
+    client.tap(x, y).await?;
+    Ok(())
+}
+
 /// Execute key press
 async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            let key_lower = key.to_lowercase();
-
-            // Hardware buttons
-            if matches!(key_lower.as_str(), "home" | "lock" | "power" | "siri") {
-                let button = key_lower.clone();
-                return with_xcuitest(udid, |client| async move {
-                    client.button_press(&button).await?;
-                    Ok(())
-                })
-                .await;
-            }
-
-            // Keyboard keys
-            let key_name = match key_lower.as_str() {
-                "enter" | "return" => "return",
-                "escape" | "esc" => "escape",
-                "delete" | "backspace" => "delete",
-                "tab" => "tab",
-                "space" => "space",
-                "up" => "up",
-                "down" => "down",
-                "left" => "left",
-                "right" => "right",
-                _ => {
-                    return Err(format!(
-                        "Unknown key: {}. Valid keys: home, lock, siri, enter, tab, space, escape, delete, up, down, left, right",
-                        key
-                    )
-                    .into())
-                }
-            };
-
-            let key_name = key_name.to_string();
-            with_xcuitest(udid, |client| async move {
-                client.key_press(&key_name).await?;
-                Ok(())
-            })
+            with_xcuitest(
+                udid,
+                |client| async move { execute_ios_key(&client, key).await },
+            )
             .await
         }
         Platform::Android => {
@@ -236,4 +271,35 @@ async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> Comma
             Ok(())
         }
     }
+}
+
+pub(crate) async fn execute_ios_key(client: &XCUITestClient, key: &str) -> CommandResult {
+    let key_lower = key.to_lowercase();
+
+    if matches!(key_lower.as_str(), "home" | "lock" | "power" | "siri") {
+        client.button_press(&key_lower).await?;
+        return Ok(());
+    }
+
+    let key_name = match key_lower.as_str() {
+        "enter" | "return" => "return",
+        "escape" | "esc" => "escape",
+        "delete" | "backspace" => "delete",
+        "tab" => "tab",
+        "space" => "space",
+        "up" => "up",
+        "down" => "down",
+        "left" => "left",
+        "right" => "right",
+        _ => {
+            return Err(format!(
+                "Unknown key: {}. Valid keys: home, lock, siri, enter, tab, space, escape, delete, up, down, left, right",
+                key
+            )
+            .into())
+        }
+    };
+
+    client.key_press(key_name).await?;
+    Ok(())
 }
