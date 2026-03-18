@@ -8,7 +8,7 @@
 //! - `session list` - List all active sessions
 //! - `session show` - Show current session information
 //! - `session create <name> --udid <udid>` - Create a new session
-//! - `session destroy <name>` - Destroy an existing session
+//! - `session rm [name]` - Remove an existing session (defaults to `--session` / `AGENT_MOBILE_SESSION`)
 
 pub mod app_context;
 pub mod resolver;
@@ -58,10 +58,11 @@ pub enum SessionCommands {
         udid: String,
     },
 
-    /// Destroy an existing session
-    Destroy {
-        /// Session name to destroy
-        name: String,
+    /// Remove an existing session
+    #[command(name = "rm")]
+    Rm {
+        /// Session name to remove (defaults to --session / AGENT_MOBILE_SESSION)
+        name: Option<String>,
     },
 }
 
@@ -71,7 +72,7 @@ pub async fn run(args: SessionArgs, current_session: Option<&str>) -> CommandRes
         SessionCommands::List { format } => list_sessions(format).await,
         SessionCommands::Show { format } => show_session(current_session, format).await,
         SessionCommands::Create { name, udid } => create_session(name, udid).await,
-        SessionCommands::Destroy { name } => destroy_session(name).await,
+        SessionCommands::Rm { name } => remove_session(name, current_session).await,
     }
 }
 
@@ -216,16 +217,20 @@ async fn create_session(name: String, udid: String) -> CommandResult {
     Ok(())
 }
 
-/// Destroy an existing session
-async fn destroy_session(name: String) -> CommandResult {
+/// Remove an existing session
+async fn remove_session(name: Option<String>, current_session: Option<&str>) -> CommandResult {
     let state = SessionState::new();
+    let name = name
+        .or_else(|| current_session.map(ToOwned::to_owned))
+        .ok_or("No active session. Pass a session name or use --session / AGENT_MOBILE_SESSION.")?;
 
-    if !state.session_exists(&name) {
-        return Err(format!("Session '{}' does not exist", name).into());
+    if state.get_session(&name)?.is_none() {
+        println!("Session '{}' already absent", name);
+        return Ok(());
     }
 
     state.destroy_session(&name)?;
 
-    println!("Session '{}' destroyed", name);
+    println!("Session '{}' removed", name);
     Ok(())
 }

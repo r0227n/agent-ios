@@ -239,7 +239,7 @@ agent-mobile doctor --json
 | Media and logs | `screenshot`, `record`, `console` |
 | App management | `app launch`, `app terminate`, `app install`, `app uninstall`, `app list`, `app grant`, `app revoke`, `app reset` |
 | Device management | `device list`, `device boot`, `device shutdown`, `device pbcopy`, `device pbpaste` |
-| Session management | `session create`, `session list`, `session show`, `session destroy` |
+| Session management | `session create`, `session list`, `session show`, `session rm` |
 | Environment checks | `doctor` |
 
 Run `agent-mobile <command> --help` for command-specific details.

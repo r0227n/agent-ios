@@ -239,7 +239,7 @@ agent-mobile doctor --json
 | 画像とログ | `screenshot`, `record`, `console` |
 | アプリ管理 | `app launch`, `app terminate`, `app install`, `app uninstall`, `app list`, `app grant`, `app revoke`, `app reset` |
 | デバイス管理 | `device list`, `device boot`, `device shutdown`, `device pbcopy`, `device pbpaste` |
-| セッション管理 | `session create`, `session list`, `session show`, `session destroy` |
+| セッション管理 | `session create`, `session list`, `session show`, `session rm` |
 | 環境診断 | `doctor` |
 
 詳細は `agent-mobile <command> --help` を参照してください。

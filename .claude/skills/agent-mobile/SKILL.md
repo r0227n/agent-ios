@@ -216,7 +216,7 @@ agent-mobile snapshot
 | `session create <name>` | セッションを作成 | `session create test --udid ABC-123 -p ios` |
 | `session list` | セッション一覧 | `session list`, `session list -f json` |
 | `session show` | 現在のセッション情報 | `session show` (requires --session) |
-| `session destroy <name>` | セッションを削除 | `session destroy test` |
+| `session rm [name]` | セッションを削除 | `session rm test` |
 
 ## Global Options
 
