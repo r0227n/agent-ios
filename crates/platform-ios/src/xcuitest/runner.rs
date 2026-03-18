@@ -318,8 +318,14 @@ fn resolve_target_device(
                 name: device.name,
             })
         }
-        None => crate::coresim::get_booted_device()
-            .map_err(|e| RunnerStartError::NoBootedSimulator(e.to_string())),
+        None => {
+            let device = crate::simctl::get_booted_simulator()
+                .map_err(|e| RunnerStartError::NoBootedSimulator(e.to_string()))?;
+            Ok(crate::coresim::BootedDevice {
+                udid: device.udid,
+                name: device.name,
+            })
+        }
     }
 }
 

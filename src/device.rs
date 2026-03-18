@@ -374,19 +374,7 @@ async fn get_default_udid(
     platform: Platform,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match platform {
-        Platform::Ios => {
-            let targets = agent_mobile_platform_ios::simctl::list_simulators().unwrap_or_default();
-
-            // Find first booted simulator
-            let booted = targets
-                .iter()
-                .find(|t| t.state.as_deref() == Some("Booted"));
-
-            match booted {
-                Some(t) => Ok(t.udid.clone()),
-                None => Err("No booted iOS simulator found".into()),
-            }
-        }
+        Platform::Ios => Ok(agent_mobile_platform_ios::simctl::get_booted_simulator()?.udid),
         Platform::Android => {
             let devices = agent_mobile_platform_android::adb::list_devices()?;
             if let Some((serial, _)) = devices.first() {
