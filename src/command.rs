@@ -85,7 +85,7 @@ pub enum Commands {
     /// Device management (list, boot, shutdown)
     Device(crate::device::DeviceArgs),
 
-    /// Session management (list, show, create, destroy)
+    /// Session management (list, show, create, rm)
     Session(crate::session::SessionArgs),
 
     /// Check external dependency availability and status

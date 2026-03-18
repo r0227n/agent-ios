@@ -1,7 +1,7 @@
 //! Session feature integration tests.
 //!
 //! Tests for `agent-mobile session` commands.
-//! Tests session management (list, show, create, destroy).
+//! Tests session management (list, show, create, rm).
 
 use crate::common::{
     assert_failure, assert_success, assert_valid_json, ensure_companion_running,
@@ -30,9 +30,9 @@ fn create_test_session(udid: &str) -> String {
     name
 }
 
-/// Destroy a test session.
+/// Remove a test session.
 fn destroy_test_session(name: &str) {
-    let _ = run_cli_command("session", &["destroy", "--session", name]);
+    let _ = run_cli_command("session", &["rm", "--session", name]);
 }
 
 // ============================================================================
@@ -163,37 +163,37 @@ fn test_session_show_json() {
 }
 
 // ============================================================================
-// session destroy - Normal cases
+// session rm - Normal cases
 // ============================================================================
 
-/// Test session destroy command.
+/// Test session rm command.
 #[test]
-fn test_session_destroy() {
+fn test_session_rm() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
     let name = create_test_session(&udid);
 
-    let output = run_cli_command("session", &["destroy", "--session", &name]);
+    let output = run_cli_command("session", &["rm", "--session", &name]);
 
-    assert_success(&output, &format!("session destroy {}", name));
+    assert_success(&output, &format!("session rm {}", name));
 }
 
-/// Test destroyed session removed from list.
+/// Test removed session removed from list.
 #[test]
-fn test_session_destroy_removes_from_list() {
+fn test_session_rm_removes_from_list() {
     let udid = get_available_udid();
     ensure_companion_running(&udid);
 
     let name = create_test_session(&udid);
 
-    // Destroy it
-    let destroy_output = run_cli_command("session", &["destroy", "--session", &name]);
-    assert_success(&destroy_output, "session destroy");
+    // Remove it
+    let remove_output = run_cli_command("session", &["rm", "--session", &name]);
+    assert_success(&remove_output, "session rm");
 
     // Verify it's gone from list
     let list_output = run_cli_command("session", &["list", "-f", "json"]);
-    assert_success(&list_output, "session list after destroy");
+    assert_success(&list_output, "session list after rm");
 
     let json = assert_valid_json(&list_output);
     let sessions = json.as_array().expect("Expected array");
@@ -202,14 +202,14 @@ fn test_session_destroy_removes_from_list() {
         .iter()
         .any(|s| s.get("name").and_then(|n| n.as_str()) == Some(&name));
 
-    assert!(!found, "Destroyed session should not appear in list");
+    assert!(!found, "Removed session should not appear in list");
 }
 
 // ============================================================================
 // session lifecycle - Normal cases
 // ============================================================================
 
-/// Test full session lifecycle: create, show, destroy.
+/// Test full session lifecycle: create, show, rm.
 #[test]
 fn test_session_lifecycle() {
     let udid = get_available_udid();
@@ -224,9 +224,9 @@ fn test_session_lifecycle() {
     let show_output = run_cli_command("session", &["show", "--session", &name]);
     assert_success(&show_output, "session show");
 
-    // Destroy
-    let destroy_output = run_cli_command("session", &["destroy", "--session", &name]);
-    assert_success(&destroy_output, "session destroy");
+    // Remove
+    let remove_output = run_cli_command("session", &["rm", "--session", &name]);
+    assert_success(&remove_output, "session rm");
 }
 
 /// Test multiple sessions can coexist.
@@ -313,20 +313,20 @@ fn test_session_show_non_existent() {
     assert_failure(&output, "session show non-existent");
 }
 
-/// Test session destroy without session flag.
+/// Test session rm without session flag.
 #[test]
-fn test_session_destroy_missing_session() {
-    let output = run_cli_command("session", &["destroy"]);
+fn test_session_rm_missing_session() {
+    let output = run_cli_command("session", &["rm"]);
 
-    assert_failure(&output, "session destroy without session");
+    assert_failure(&output, "session rm without session");
 }
 
-/// Test session destroy with non-existent session.
+/// Test session rm with non-existent session.
 #[test]
-fn test_session_destroy_non_existent() {
+fn test_session_rm_non_existent() {
     let output = run_cli_command(
         "session",
-        &["destroy", "--session", "non-existent-session-12345"],
+        &["rm", "--session", "non-existent-session-12345"],
     );
 
     // May succeed (idempotent) or fail depending on implementation
