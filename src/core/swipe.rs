@@ -12,6 +12,7 @@ use agent_mobile_core::{Platform, ScrollDirection};
 
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::ios::get_ios_screen_size;
 
 use super::ref_resolver::{self, ElementTarget};
 use super::tap::take_snapshot;
@@ -134,7 +135,12 @@ async fn get_screen_center(platform: Platform, udid: Option<&str>) -> CommandRes
                 Err(_) => Ok((DEFAULT_SCREEN_WIDTH / 2.0, DEFAULT_SCREEN_HEIGHT / 2.0)),
             }
         }
-        Platform::Ios => Ok((DEFAULT_SCREEN_WIDTH / 2.0, DEFAULT_SCREEN_HEIGHT / 2.0)),
+        Platform::Ios => {
+            let (w, h) = get_ios_screen_size(udid)
+                .await
+                .unwrap_or((DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT));
+            Ok((w / 2.0, h / 2.0))
+        }
     }
 }
 

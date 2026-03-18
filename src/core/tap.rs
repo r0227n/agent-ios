@@ -17,6 +17,7 @@ use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::ios::get_ios_screen_size;
 
 use super::ref_resolver::{self, ElementTarget};
 
@@ -91,39 +92,13 @@ pub async fn resolve_position(
 /// Get screen dimensions
 pub async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandResult<(f64, f64)> {
     match platform {
-        Platform::Ios => {
-            // Get screen size from snapshot's root element
-            get_ios_screen_size_from_snapshot(udid).await
-        }
+        Platform::Ios => get_ios_screen_size(udid).await,
         Platform::Android => {
             // Use adb to get actual screen size
             let (w, h) = agent_mobile_platform_android::adb::input::get_screen_size(udid).await?;
             Ok((w as f64, h as f64))
         }
     }
-}
-
-/// Get iOS screen size from snapshot's root element
-async fn get_ios_screen_size_from_snapshot(udid: Option<&str>) -> CommandResult<(f64, f64)> {
-    with_xcuitest(udid, |client| async move {
-        let json_str = client.accessibility_info(false).await?;
-        let json: serde_json::Value = serde_json::from_str(&json_str)?;
-
-        // The root element's frame represents the screen bounds
-        if let Some(frame) = json.get("frame") {
-            if let (Some(w), Some(h)) = (
-                frame.get("width").and_then(|v| v.as_f64()),
-                frame.get("height").and_then(|v| v.as_f64()),
-            ) {
-                if w > 0.0 && h > 0.0 {
-                    return Ok((w, h));
-                }
-            }
-        }
-
-        Err("Could not determine screen size from accessibility info".into())
-    })
-    .await
 }
 
 /// Take a fresh snapshot

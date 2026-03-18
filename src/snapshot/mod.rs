@@ -18,6 +18,7 @@ use clap::Args;
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
+use crate::helpers::ios::get_ios_screen_size_from_client;
 use types::Snapshot;
 
 /// Snapshot command arguments.
@@ -148,9 +149,14 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
             extract_ios_elements(&json)
         } else {
             // Default: Use collector with scrolling to capture all elements
+            let (screen_width, screen_height) = get_ios_screen_size_from_client(&client)
+                .await
+                .unwrap_or((390.0, 844.0));
             let config = collector::SnapshotCollectorConfig {
                 max_scrolls,
                 delay_ms: scroll_delay,
+                screen_width,
+                screen_height,
                 ..Default::default()
             };
             let snapshot_collector = collector::SnapshotCollector::new(config);
