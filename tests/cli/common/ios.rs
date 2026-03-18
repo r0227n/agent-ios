@@ -25,8 +25,9 @@ pub fn get_available_udid() -> String {
 ///
 /// Returns the bundle ID of a known test app, or a default.
 pub fn get_test_bundle_id() -> String {
-    // Safari is always available on iOS simulators
-    "com.apple.mobilesafari".to_string()
+    // The iOS CLI integration tests assert against Settings-specific text such as
+    // "General", so use Settings as the canonical built-in app under test.
+    "com.apple.Preferences".to_string()
 }
 
 /// Ensure the device is ready for testing (no-op, kept for test compatibility).

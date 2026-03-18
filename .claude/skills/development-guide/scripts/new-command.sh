@@ -8,14 +8,15 @@
 # - src/core/<command-name>.rs (command implementation)
 # - tests/cli/<command-name>_integration.rs (integration test)
 # Manual addition needed:
-# - src/command.rs (Commands enum variant + match branch)
+# - src/command.rs (Commands enum variant)
+# - src/main.rs (match branch)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Navigate to project root (.claude/skills/agent-mobile-dev/scripts -> ../..)
+# Navigate to project root (.claude/skills/development-guide/scripts -> ../..)
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-# Project root is 3 levels up from skill dir (.claude/skills/agent-mobile-dev -> ../../..)
+# Project root is 3 levels up from skill dir (.claude/skills/development-guide -> ../../..)
 PROJECT_DIR="$(cd "$SKILL_DIR/../../.." && pwd)"
 
 # Check arguments

@@ -69,30 +69,32 @@ SESSIONS=()
 
 # Create iOS sessions
 if [ $IOS_COUNT -gt 0 ] && command -v jq &> /dev/null; then
-  echo "$IOS_DEVICES" | jq -r '.[] | select(.state == "Booted") | "\(.name)|\(.udid)"' | \
   while IFS='|' read -r name udid; do
     session_name=$(echo "ios-${name}" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
     agent-mobile session create "$session_name" --udid "$udid" -p ios 2>/dev/null || true
     echo "  Created session: $session_name (iOS)"
     SESSIONS+=("$session_name")
-  done
+  done < <(echo "$IOS_DEVICES" | jq -r '.[] | select(.state == "Booted") | "\(.name)|\(.udid)"')
 fi
 
 # Create Android sessions
 if [ $ANDROID_COUNT -gt 0 ] && command -v jq &> /dev/null; then
-  echo "$ANDROID_DEVICES" | jq -r '.[] | select(.state == "device") | "\(.name)|\(.udid)"' | \
   while IFS='|' read -r name udid; do
     session_name=$(echo "android-${name}" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
     agent-mobile session create "$session_name" --udid "$udid" -p android 2>/dev/null || true
     echo "  Created session: $session_name (Android)"
     SESSIONS+=("$session_name")
-  done
+  done < <(echo "$ANDROID_DEVICES" | jq -r '.[] | select(.state == "device") | "\(.name)|\(.udid)"')
 fi
 
 # Get session list for execution
-SESSIONS=($(agent-mobile session list -f json 2>/dev/null | \
-           jq -r '.[].name' 2>/dev/null || \
-           agent-mobile session list 2>/dev/null | awk '{print $1}' | tail -n +3))
+SESSION_LIST=($(agent-mobile session list -f json 2>/dev/null | \
+                jq -r '.[].name' 2>/dev/null || \
+                agent-mobile session list 2>/dev/null | awk '{print $1}' | tail -n +3))
+
+if [ ${#SESSION_LIST[@]} -gt 0 ]; then
+  SESSIONS=("${SESSION_LIST[@]}")
+fi
 
 if [ ${#SESSIONS[@]} -eq 0 ]; then
   echo "Error: No sessions created"

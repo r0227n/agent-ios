@@ -3,6 +3,7 @@ import XCTest
 /// Handles tap, long press, and button press operations via XCUITest API.
 final class TouchHandler {
     private let app: XCUIApplication
+    private let coordinateSpace = XCUIApplication(bundleIdentifier: "com.apple.springboard")
 
     init(app: XCUIApplication) {
         self.app = app
@@ -10,21 +11,23 @@ final class TouchHandler {
 
     /// Tap at absolute screen coordinates.
     func tap(x: Double, y: Double) {
-        let normalized = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        // Absolute screen coordinates are most stable when anchored to
+        // SpringBoard's coordinate space, even while another app is active.
+        let normalized = coordinateSpace.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
         let target = normalized.withOffset(CGVector(dx: x, dy: y))
         target.tap()
     }
 
     /// Long press at absolute screen coordinates.
     func longPress(x: Double, y: Double, duration: Double) {
-        let normalized = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        let normalized = coordinateSpace.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
         let target = normalized.withOffset(CGVector(dx: x, dy: y))
         target.press(forDuration: duration)
     }
 
     /// Swipe from one point to another with specified duration.
     func swipe(startX: Double, startY: Double, endX: Double, endY: Double, duration: Double) {
-        let normalized = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        let normalized = coordinateSpace.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
         let start = normalized.withOffset(CGVector(dx: startX, dy: startY))
         let end = normalized.withOffset(CGVector(dx: endX, dy: endY))
 

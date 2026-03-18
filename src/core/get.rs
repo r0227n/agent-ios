@@ -14,7 +14,7 @@ use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
 
 use super::ref_resolver::{self, ElementTarget};
-use super::tap::take_snapshot;
+use super::tap::{resolve_element, take_snapshot};
 use agent_mobile_gateway::DeviceResolver;
 
 /// Arguments for the get command
@@ -57,11 +57,9 @@ pub async fn run(args: GetArgs) -> CommandResult {
         );
     };
 
-    // Get snapshot
-    let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
-
     // Special handling for 'count' property (doesn't require element resolution)
     if property.to_lowercase() == "count" {
+        let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
         let target = ElementTarget::parse(&target_str);
         let count = match target {
             ElementTarget::Ref(_) => {
@@ -100,7 +98,7 @@ pub async fn run(args: GetArgs) -> CommandResult {
 
     // Resolve element for other properties
     let target = ElementTarget::parse(&target_str);
-    let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+    let element = resolve_element(&target, platform, args.device.udid.as_deref()).await?;
 
     // Get the requested property
     let output = match property.to_lowercase().as_str() {

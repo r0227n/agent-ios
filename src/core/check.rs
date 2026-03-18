@@ -15,8 +15,8 @@ use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
 
-use super::ref_resolver::{self, ElementTarget};
-use super::tap::{execute_tap, take_snapshot};
+use super::ref_resolver::ElementTarget;
+use super::tap::{execute_tap, resolve_element};
 
 /// Arguments for the check/uncheck command
 #[derive(Args, Debug)]
@@ -53,9 +53,7 @@ pub async fn run(args: CheckArgs, should_check: bool) -> CommandResult {
     };
     let target = ElementTarget::parse(&args.target);
 
-    // Get snapshot and resolve element
-    let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
-    let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+    let element = resolve_element(&target, platform, args.device.udid.as_deref()).await?;
 
     // Check current state from element.value
     // iOS: "1" = checked, "0" = unchecked

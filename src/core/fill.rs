@@ -10,11 +10,11 @@ use clap::Args;
 use agent_mobile_core::Platform;
 use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
-use crate::helpers::client::{with_xcuitest, CommandResult};
+use crate::helpers::client::{prepare_xcuitest_with_policy, AppContextPolicy, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, ElementTarget};
-use super::tap::{take_ios_snapshot_with_client, take_snapshot};
+use super::ref_resolver::ElementTarget;
+use super::tap::{resolve_element, resolve_ios_element_with_client};
 use super::text_input::fill_text_input_ios;
 use agent_mobile_gateway::DeviceResolver;
 
@@ -42,8 +42,7 @@ pub async fn run(args: FillArgs) -> CommandResult {
         Platform::Ios => run_ios(args).await,
         Platform::Android => {
             let target = ElementTarget::parse(&args.target);
-            let snapshot = take_snapshot(Platform::Android, args.device.udid.as_deref()).await?;
-            let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+            let element = resolve_element(&target, platform, args.device.udid.as_deref()).await?;
             let (x, y) = element.center();
 
             // Calculate clear length from existing value (Android still uses delete loop)
@@ -59,14 +58,15 @@ pub async fn run(args: FillArgs) -> CommandResult {
 
 async fn run_ios(args: FillArgs) -> CommandResult {
     let target = ElementTarget::parse(&args.target);
+    let (resolved_udid, client, _) = prepare_xcuitest_with_policy(
+        args.device.udid.as_deref(),
+        AppContextPolicy::RestoreIfUnset,
+    )
+    .await?;
 
-    with_xcuitest(args.device.udid.as_deref(), |client| async move {
-        let snapshot = take_ios_snapshot_with_client(&client).await?;
-        let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
-        let (x, y) = element.center();
-        execute_fill_ios_with_client(&client, x, y, &args.text).await
-    })
-    .await
+    let element = resolve_ios_element_with_client(&target, &resolved_udid, &client).await?;
+    let (x, y) = element.center();
+    execute_fill_ios_with_client(&client, x, y, &args.text).await
 }
 
 pub(crate) async fn execute_fill_ios_with_client(

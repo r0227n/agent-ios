@@ -9,8 +9,9 @@ use std::time::Duration;
 use crate::helpers::client::CommandResult;
 use agent_mobile_core::snapshot::RawElement;
 use agent_mobile_platform_android::snapshot::extract_android_elements;
-use agent_mobile_platform_ios::snapshot::extract_ios_elements;
 use agent_mobile_platform_ios::xcuitest::XCUITestClient;
+
+use super::types::{Snapshot, SnapshotElement};
 
 /// Configuration for snapshot collection with scrolling.
 #[derive(Debug, Clone)]
@@ -173,102 +174,116 @@ impl SnapshotCollector {
         Self { config }
     }
 
-    /// Collect all elements with automatic scrolling.
-    ///
-    /// Returns the merged tree of RawElements from all scroll positions.
-    ///
-    /// Optimizations:
-    /// - If the initial tree contains no scrollable containers, returns immediately.
-    /// - Stops after a single scroll that yields no new elements.
-    pub async fn collect_all(
+    /// Collect a merged fast snapshot with automatic scrolling.
+    pub async fn collect_snapshot(
         &self,
         client: &XCUITestClient,
         progress_fn: Option<ProgressCallback>,
-    ) -> CommandResult<Vec<RawElement>> {
-        let mut all_elements: Vec<RawElement> = Vec::new();
-        let mut seen_keys: HashSet<String> = HashSet::new();
+    ) -> CommandResult<Snapshot> {
+        let mut all_elements: Vec<SnapshotElement> = Vec::new();
+        let mut seen_ids: HashSet<String> = HashSet::new();
 
-        // Get initial elements FIRST (before any scrolling)
-        let json_str = client.accessibility_info(true).await?;
-        let json: serde_json::Value = serde_json::from_str(&json_str)?;
-        let initial_elements = extract_ios_elements(&json);
-        let initial_count =
-            merge_element_trees(&mut all_elements, initial_elements, &mut seen_keys);
+        let initial_snapshot = super::capture_ios_snapshot(client, None).await?;
+        let initial_count = merge_snapshot_elements(
+            &mut all_elements,
+            initial_snapshot.elements.clone(),
+            &mut seen_ids,
+        );
 
         if let Some(ref progress) = progress_fn {
             progress(CollectionProgress {
                 scrolling_to_top: false,
                 scroll_number: 0,
-                total_elements: seen_keys.len(),
+                total_elements: seen_ids.len(),
                 new_elements: initial_count,
                 completed: false,
                 completion_reason: None,
             });
         }
 
-        // Fast path: if no scrollable containers exist, skip scrolling entirely
-        if !has_scrollable_content(&all_elements) {
+        if !has_scrollable_snapshot_elements(&all_elements) {
             if let Some(ref progress) = progress_fn {
                 progress(CollectionProgress {
                     scrolling_to_top: false,
                     scroll_number: 0,
-                    total_elements: seen_keys.len(),
+                    total_elements: seen_ids.len(),
                     new_elements: 0,
                     completed: true,
                     completion_reason: Some(CompletionReason::NoNewElements),
                 });
             }
-            return Ok(all_elements);
+            return Ok(rebuild_snapshot(initial_snapshot, all_elements));
         }
 
-        // Scroll to top before collecting (only when scrollable content exists)
         if let Some(ref progress) = progress_fn {
             progress(CollectionProgress {
                 scrolling_to_top: true,
                 scroll_number: 0,
-                total_elements: seen_keys.len(),
+                total_elements: seen_ids.len(),
                 new_elements: 0,
                 completed: false,
                 completion_reason: None,
             });
         }
+
         self.scroll_to_top(client).await?;
 
-        // Re-fetch after scrolling to top (position may have changed)
-        let json_str = client.accessibility_info(true).await?;
-        let json: serde_json::Value = serde_json::from_str(&json_str)?;
-        let top_elements = extract_ios_elements(&json);
-        // Reset and use top-of-page elements as baseline
+        let baseline_snapshot = super::capture_ios_snapshot(client, None).await?;
         all_elements.clear();
-        seen_keys.clear();
-        merge_element_trees(&mut all_elements, top_elements, &mut seen_keys);
+        seen_ids.clear();
+        merge_snapshot_elements(
+            &mut all_elements,
+            baseline_snapshot.elements.clone(),
+            &mut seen_ids,
+        );
 
-        // Scroll and collect — errors in this loop are non-fatal; we return
-        // whatever elements have been collected so far.
+        let mut previous_hash = client
+            .ui_hash(Some("screenshot"), Some(1), true)
+            .await?
+            .hash;
+        let mut latest_snapshot = baseline_snapshot;
+
         for scroll_num in 1..=self.config.max_scrolls {
-            // Perform scroll down
             if self.scroll_down(client).await.is_err() {
                 break;
             }
 
-            // Wait for UI to settle
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
-            // Get elements after scroll (NESTED format)
-            let json_str = match client.accessibility_info(true).await {
-                Ok(s) => s,
+            let current_hash = match client.ui_hash(Some("screenshot"), Some(1), true).await {
+                Ok(hash) => hash.hash,
                 Err(_) => break,
             };
-            let new_elements = match serde_json::from_str::<serde_json::Value>(&json_str) {
-                Ok(json) => extract_ios_elements(&json),
+
+            if current_hash == previous_hash {
+                if let Some(ref progress) = progress_fn {
+                    progress(CollectionProgress {
+                        scrolling_to_top: false,
+                        scroll_number: scroll_num,
+                        total_elements: seen_ids.len(),
+                        new_elements: 0,
+                        completed: true,
+                        completion_reason: Some(CompletionReason::NoNewElements),
+                    });
+                }
+                break;
+            }
+
+            let snapshot = match super::capture_ios_snapshot(client, None).await {
+                Ok(snapshot) => snapshot,
                 Err(_) => break,
             };
-            let new_count = merge_element_trees(&mut all_elements, new_elements, &mut seen_keys);
+            let new_count = merge_snapshot_elements(
+                &mut all_elements,
+                snapshot.elements.clone(),
+                &mut seen_ids,
+            );
+            latest_snapshot = snapshot;
+            previous_hash = current_hash;
 
             let (completed, reason) = if scroll_num >= self.config.max_scrolls {
                 (true, Some(CompletionReason::MaxScrollsReached))
             } else if new_count == 0 {
-                // Stop immediately when a single scroll yields no new elements
                 (true, Some(CompletionReason::NoNewElements))
             } else {
                 (false, None)
@@ -278,7 +293,7 @@ impl SnapshotCollector {
                 progress(CollectionProgress {
                     scrolling_to_top: false,
                     scroll_number: scroll_num,
-                    total_elements: seen_keys.len(),
+                    total_elements: seen_ids.len(),
                     new_elements: new_count,
                     completed,
                     completion_reason: reason.clone(),
@@ -290,7 +305,7 @@ impl SnapshotCollector {
             }
         }
 
-        Ok(all_elements)
+        Ok(rebuild_snapshot(latest_snapshot, all_elements))
     }
 
     /// Perform a scroll down gesture via XCUITestClient.
@@ -330,9 +345,8 @@ impl SnapshotCollector {
     async fn scroll_to_top(&self, client: &XCUITestClient) -> CommandResult<()> {
         const MAX_SCROLL_UP: u32 = 3;
 
-        // Capture state before any scrolling (shallow depth for speed)
-        let mut prev_snapshot = match client.accessibility_info_with_depth(true, Some(1)).await {
-            Ok(s) => s,
+        let mut previous_hash = match client.ui_hash(Some("screenshot"), Some(1), true).await {
+            Ok(hash) => hash.hash,
             Err(_) => return Ok(()), // Runner unresponsive → skip scroll-to-top
         };
 
@@ -340,33 +354,61 @@ impl SnapshotCollector {
             self.scroll_up(client).await?;
             tokio::time::sleep(Duration::from_millis(self.config.delay_ms)).await;
 
-            let json_str = match client.accessibility_info_with_depth(true, Some(1)).await {
-                Ok(s) => s,
+            let current_hash = match client.ui_hash(Some("screenshot"), Some(1), true).await {
+                Ok(hash) => hash.hash,
                 Err(_) => break, // Timeout → stop scrolling
             };
-            if json_str == prev_snapshot {
+            if current_hash == previous_hash {
                 break; // No change → already at top
             }
-            prev_snapshot = json_str;
+            previous_hash = current_hash;
         }
         Ok(())
     }
 }
 
-/// Check if the element tree contains scrollable containers.
-///
-/// Returns `true` if any element in the tree is a ScrollView, Table,
-/// CollectionView, or WebView (which typically support scrolling).
-fn has_scrollable_content(elements: &[RawElement]) -> bool {
-    elements.iter().any(|e| {
-        is_scrollable_type(&e.element_type) || has_scrollable_content_recursive(&e.children)
-    })
+fn rebuild_snapshot(mut snapshot: Snapshot, mut elements: Vec<SnapshotElement>) -> Snapshot {
+    for element in &mut elements {
+        element.ref_id.clear();
+        element.children_indices.clear();
+        element.parent_index = None;
+        element.depth = 0;
+    }
+
+    super::infer_hierarchy_from_frames(&mut elements);
+    super::ref_generator::assign_refs(&mut elements);
+    snapshot.elements = elements;
+    snapshot
 }
 
-fn has_scrollable_content_recursive(children: &[RawElement]) -> bool {
-    children.iter().any(|e| {
-        is_scrollable_type(&e.element_type) || has_scrollable_content_recursive(&e.children)
-    })
+fn merge_snapshot_elements(
+    existing: &mut Vec<SnapshotElement>,
+    new_elements: Vec<SnapshotElement>,
+    seen_ids: &mut HashSet<String>,
+) -> usize {
+    let mut new_count = 0;
+
+    for element in new_elements {
+        let key = element.element_id.clone().unwrap_or_else(|| {
+            format!(
+                "{}|{:.0},{:.0}",
+                element.element_type, element.frame.x, element.frame.y
+            )
+        });
+
+        if seen_ids.insert(key) {
+            new_count += 1;
+            existing.push(element);
+        }
+    }
+
+    new_count
+}
+
+fn has_scrollable_snapshot_elements(elements: &[SnapshotElement]) -> bool {
+    elements
+        .iter()
+        .any(|element| is_scrollable_type(&element.element_type))
 }
 
 fn is_scrollable_type(element_type: &str) -> bool {
@@ -709,51 +751,5 @@ mod tests {
             CompletionReason::NoNewElements.to_string(),
             "no new elements found"
         );
-    }
-
-    #[test]
-    fn test_has_scrollable_content_false() {
-        let elements = vec![make_raw(
-            "Window",
-            Some("Main"),
-            Frame::zero(),
-            vec![
-                make_raw("Button", Some("Login"), Frame::zero(), vec![]),
-                make_raw("StaticText", Some("Hello"), Frame::zero(), vec![]),
-            ],
-        )];
-        assert!(!has_scrollable_content(&elements));
-    }
-
-    #[test]
-    fn test_has_scrollable_content_true() {
-        let elements = vec![make_raw(
-            "Window",
-            Some("Main"),
-            Frame::zero(),
-            vec![make_raw(
-                "ScrollView",
-                None,
-                Frame::zero(),
-                vec![make_raw("Button", Some("Item"), Frame::zero(), vec![])],
-            )],
-        )];
-        assert!(has_scrollable_content(&elements));
-    }
-
-    #[test]
-    fn test_has_scrollable_content_nested_table() {
-        let elements = vec![make_raw(
-            "Window",
-            Some("Main"),
-            Frame::zero(),
-            vec![make_raw(
-                "Other",
-                None,
-                Frame::zero(),
-                vec![make_raw("Table", None, Frame::zero(), vec![])],
-            )],
-        )];
-        assert!(has_scrollable_content(&elements));
     }
 }

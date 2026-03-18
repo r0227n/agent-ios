@@ -1,8 +1,10 @@
+import CryptoKit
 import XCTest
 
 /// Main XCUITest entry point.
 /// Starts an HTTP server and routes requests to XCUITest API handlers.
 final class AutomationServer: XCTestCase {
+    private let springboardBundleId = "com.apple.springboard"
     private var server: HTTPServer!
     private var touchHandler: TouchHandler!
     private var inputHandler: InputHandler!
@@ -13,14 +15,20 @@ final class AutomationServer: XCTestCase {
 
     /// The target app (Springboard as default - allows controlling any app).
     private var app: XCUIApplication!
+    private var activeBundleId: String!
+    private var snapshotGeneration: UInt64 = 0
+    private var snapshotSequence: UInt64 = 0
 
     override func setUp() {
         super.setUp()
         continueAfterFailure = true
 
-        // Use Springboard as the base app to allow cross-app interactions
-        app = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        app.activate()
+        // Keep SpringBoard as the neutral coordinate/accessibility context, but
+        // do not activate it here. Activating SpringBoard during runner startup
+        // causes a visible jump to the Home screen before we restore the target
+        // app for the actual command.
+        app = XCUIApplication(bundleIdentifier: springboardBundleId)
+        activeBundleId = nil
 
         touchHandler = TouchHandler(app: app)
         inputHandler = InputHandler(app: app)
@@ -63,11 +71,67 @@ final class AutomationServer: XCTestCase {
         var payload: [String: Any] = [
             "status": status,
             "runner": "xcuitest",
+            "snapshot_generation": NSNumber(value: snapshotGeneration),
         ]
         if let udid = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] {
             payload["udid"] = udid
         }
+        if let activeBundleId {
+            payload["active_bundle_id"] = activeBundleId
+        }
         return payload
+    }
+
+    private func advanceSnapshotGeneration() {
+        snapshotGeneration += 1
+    }
+
+    private func nextSnapshotId() -> String {
+        snapshotSequence += 1
+        return "snap_\(snapshotGeneration)_\(snapshotSequence)"
+    }
+
+    private func queryBool(_ request: HTTPRequest, name: String, defaultValue: Bool) -> Bool {
+        guard let value = request.queryValue(name)?.lowercased() else {
+            return defaultValue
+        }
+        switch value {
+        case "1", "true", "yes", "on":
+            return true
+        case "0", "false", "no", "off":
+            return false
+        default:
+            return defaultValue
+        }
+    }
+
+    private func queryInt(_ request: HTTPRequest, name: String) -> Int? {
+        request.queryValue(name).flatMap(Int.init)
+    }
+
+    private func sha256Hex(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func switchContext(to bundleId: String) -> Bool {
+        let newApp = XCUIApplication(bundleIdentifier: bundleId)
+        let shouldActivate = activeBundleId != bundleId || newApp.state != .runningForeground
+
+        if shouldActivate {
+            newApp.activate()
+            let activated = newApp.wait(for: .runningForeground, timeout: 5)
+            guard activated else {
+                NSLog("[XCUITestRunner] Failed to activate bundle \(bundleId)")
+                return false
+            }
+        }
+
+        app = newApp
+        activeBundleId = bundleId
+        accessibilityHandler = AccessibilityHandler(app: newApp)
+        touchHandler = TouchHandler(app: newApp)
+        inputHandler = InputHandler(app: newApp)
+        return true
     }
 
     // MARK: - Route Registration
@@ -102,6 +166,126 @@ final class AutomationServer: XCTestCase {
                 }, completion: completion)
         }
 
+        // Fast flat snapshot for agent-mobile.
+        server.get("/snapshot") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            let depth = self.queryInt(request, name: "depth")
+            let interactiveOnly = self.queryBool(request, name: "interactive_only", defaultValue: false)
+            let compact = self.queryBool(request, name: "compact", defaultValue: false)
+            let visibleOnly = self.queryBool(request, name: "visible_only", defaultValue: true)
+            let maxNodes = self.queryInt(request, name: "max_nodes")
+
+            self.onMain(
+                {
+                    .ok(
+                        self.accessibilityHandler.snapshotPayload(
+                            snapshotId: self.nextSnapshotId(),
+                            snapshotGeneration: self.snapshotGeneration,
+                            activeBundleId: self.activeBundleId,
+                            maxDepth: depth,
+                            interactiveOnly: interactiveOnly,
+                            compact: compact,
+                            visibleOnly: visibleOnly,
+                            maxNodes: maxNodes))
+                }, completion: completion)
+        }
+
+        // Lightweight UI stability hash.
+        server.get("/ui-hash") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            let source = request.queryValue("source")?.lowercased() ?? "screenshot"
+            let visibleOnly = self.queryBool(request, name: "visible_only", defaultValue: true)
+            let maxDepth = self.queryInt(request, name: "depth") ?? 1
+
+            self.onMain(
+                {
+                    let digest: String
+                    let effectiveSource: String
+                    switch source {
+                    case "accessibility":
+                        effectiveSource = "accessibility"
+                        digest = self.sha256Hex(
+                            Data(
+                                self.accessibilityHandler
+                                    .snapshotDigestSource(maxDepth: maxDepth, visibleOnly: visibleOnly)
+                                    .utf8))
+                    default:
+                        effectiveSource = "screenshot"
+                        guard let pngData = self.screenshotHandler.captureScreenshot() else {
+                            return .error("Failed to capture screenshot for ui-hash", status: 500)
+                        }
+                        digest = self.sha256Hex(pngData)
+                    }
+
+                    var payload = self.runnerStatus("ok")
+                    payload["hash"] = digest
+                    payload["source"] = effectiveSource
+                    return .ok(payload)
+                }, completion: completion)
+        }
+
+        // Fast query for first matching element.
+        server.post("/query/first") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            guard let json = request.json(),
+                let locator = json["locator"] as? String,
+                let value = json["value"] as? String
+            else {
+                return completion(.error("Missing required fields: locator, value"))
+            }
+
+            let exact = json["exact"] as? Bool ?? false
+            let caseSensitive = json["caseSensitive"] as? Bool ?? false
+            let visibleOnly = json["visibleOnly"] as? Bool ?? true
+            let maxDepth = json["maxDepth"] as? Int
+
+            self.onMain(
+                {
+                    var payload = self.runnerStatus("ok")
+                    let element = self.accessibilityHandler.queryFirst(
+                        locator: locator,
+                        value: value,
+                        exact: exact,
+                        caseSensitive: caseSensitive,
+                        visibleOnly: visibleOnly,
+                        maxDepth: maxDepth)
+                    payload["found"] = element != nil
+                    if let element {
+                        payload["element"] = element
+                    }
+                    return .ok(payload)
+                }, completion: completion)
+        }
+
+        // Fast existence check for matching element.
+        server.post("/query/exists") { [weak self] request, completion in
+            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
+            guard let json = request.json(),
+                let locator = json["locator"] as? String,
+                let value = json["value"] as? String
+            else {
+                return completion(.error("Missing required fields: locator, value"))
+            }
+
+            let exact = json["exact"] as? Bool ?? false
+            let caseSensitive = json["caseSensitive"] as? Bool ?? false
+            let visibleOnly = json["visibleOnly"] as? Bool ?? true
+            let maxDepth = json["maxDepth"] as? Int
+
+            self.onMain(
+                {
+                    var payload = self.runnerStatus("ok")
+                    payload["exists"] = self.accessibilityHandler.queryExists(
+                        locator: locator,
+                        value: value,
+                        exact: exact,
+                        caseSensitive: caseSensitive,
+                        visibleOnly: visibleOnly,
+                        maxDepth: maxDepth)
+                    return .ok(payload)
+                }, completion: completion)
+        }
+
         // Tap
         server.post("/tap") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
@@ -114,6 +298,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.touchHandler.tap(x: x, y: y)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -131,6 +316,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.touchHandler.longPress(x: x, y: y, duration: duration)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -150,6 +336,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.touchHandler.swipe(startX: startX, startY: startY, endX: endX, endY: endY, duration: duration)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -165,6 +352,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.inputHandler.typeText(text)
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -180,6 +368,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     if self.inputHandler.keyPress(key) {
+                        self.advanceSnapshotGeneration()
                         return .ok(["success": true])
                     } else {
                         return .error("Unknown key: \(key)")
@@ -193,6 +382,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.inputHandler.clearText()
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true])
                 }, completion: completion)
         }
@@ -208,6 +398,7 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     if self.touchHandler.pressButton(button) {
+                        self.advanceSnapshotGeneration()
                         return .ok(["success": true])
                     } else {
                         return .error("Unknown button: \(button). Valid: home, volume_up, volume_down")
@@ -218,15 +409,8 @@ final class AutomationServer: XCTestCase {
         // Accessibility tree
         server.get("/accessibility") { [weak self] request, completion in
             guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            // Parse nested flag from query string (default: true)
-            let isNested = !request.path.contains("nested=false")
-            // Parse optional depth parameter (e.g. depth=1)
-            var maxDepth: Int? = nil
-            if let range = request.path.range(of: "depth=") {
-                let afterDepth = request.path[range.upperBound...]
-                let valueStr = afterDepth.prefix(while: { $0.isNumber })
-                maxDepth = Int(valueStr)
-            }
+            let isNested = self.queryBool(request, name: "nested", defaultValue: true)
+            let maxDepth = self.queryInt(request, name: "depth")
             self.onMain(
                 {
                     let tree = self.accessibilityHandler.getAccessibilityTree(nested: isNested, maxDepth: maxDepth)
@@ -245,12 +429,10 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.appHandler.launch(bundleIdentifier: bundleId)
-
-                    // After launching, update the accessibility handler to use the new app
-                    let newApp = XCUIApplication(bundleIdentifier: bundleId)
-                    self.accessibilityHandler = AccessibilityHandler(app: newApp)
-                    self.touchHandler = TouchHandler(app: newApp)
-                    self.inputHandler = InputHandler(app: newApp)
+                    guard self.switchContext(to: bundleId) else {
+                        return .error("Failed to switch context to \(bundleId)", status: 500)
+                    }
+                    self.advanceSnapshotGeneration()
 
                     return .ok(["success": true, "bundleId": bundleId])
                 }, completion: completion)
@@ -267,51 +449,12 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.appHandler.terminate(bundleIdentifier: bundleId)
-
-                    // Revert handlers to Springboard
-                    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-                    self.accessibilityHandler = AccessibilityHandler(app: springboard)
-                    self.touchHandler = TouchHandler(app: springboard)
-                    self.inputHandler = InputHandler(app: springboard)
+                    guard self.switchContext(to: self.springboardBundleId) else {
+                        return .error("Failed to restore SpringBoard context", status: 500)
+                    }
+                    self.advanceSnapshotGeneration()
 
                     return .ok(["success": true])
-                }, completion: completion)
-        }
-
-        // Install app
-        server.post("/install") { [weak self] request, completion in
-            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            guard let json = request.json(),
-                let path = json["path"] as? String
-            else {
-                return completion(.error("Missing required field: path"))
-            }
-            self.onMain(
-                {
-                    self.appHandler.install(path: path)
-                }, completion: completion)
-        }
-
-        // Uninstall app
-        server.post("/uninstall") { [weak self] request, completion in
-            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            guard let json = request.json(),
-                let bundleId = json["bundleId"] as? String
-            else {
-                return completion(.error("Missing required field: bundleId"))
-            }
-            self.onMain(
-                {
-                    self.appHandler.uninstall(bundleId: bundleId)
-                }, completion: completion)
-        }
-
-        // List installed apps
-        server.get("/list-apps") { [weak self] _, completion in
-            guard let self = self else { return completion(.error("Server unavailable", status: 500)) }
-            self.onMain(
-                {
-                    self.appHandler.listApps()
                 }, completion: completion)
         }
 
@@ -325,10 +468,10 @@ final class AutomationServer: XCTestCase {
             }
             self.onMain(
                 {
-                    let newApp = XCUIApplication(bundleIdentifier: bundleId)
-                    self.accessibilityHandler = AccessibilityHandler(app: newApp)
-                    self.touchHandler = TouchHandler(app: newApp)
-                    self.inputHandler = InputHandler(app: newApp)
+                    guard self.switchContext(to: bundleId) else {
+                        return .error("Failed to switch context to \(bundleId)", status: 500)
+                    }
+                    self.advanceSnapshotGeneration()
                     return .ok(["success": true, "bundleId": bundleId])
                 }, completion: completion)
         }

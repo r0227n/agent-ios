@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 use tokio::process::{Child, Command};
 use tracing::info;
 
@@ -334,7 +334,7 @@ async fn ensure_build_products(
     udid: &str,
     force_build: bool,
 ) -> Result<(), RunnerStartError> {
-    if force_build || RunnerBuildProducts::find().is_none() {
+    if force_build || build_products_need_refresh(project_path) {
         eprintln!("Building XCUITest Runner for simulator {udid}...");
         build_for_testing(project_path, udid).await?;
     }
@@ -346,6 +346,70 @@ async fn ensure_build_products(
     }
 
     Ok(())
+}
+
+fn build_products_need_refresh(project_path: &Path) -> bool {
+    let Some(products) = RunnerBuildProducts::find() else {
+        return true;
+    };
+
+    let Some(project_root) = project_path.parent() else {
+        return false;
+    };
+
+    let built_at = earliest_product_mtime(&products).unwrap_or(SystemTime::UNIX_EPOCH);
+    latest_source_mtime(project_root)
+        .map(|source_mtime| source_mtime > built_at)
+        .unwrap_or(false)
+}
+
+fn earliest_product_mtime(products: &RunnerBuildProducts) -> Option<SystemTime> {
+    [products.host_app.as_path(), products.runner_app.as_path()]
+        .into_iter()
+        .filter_map(|path| std::fs::metadata(path).ok()?.modified().ok())
+        .min()
+}
+
+fn latest_source_mtime(root: &Path) -> Option<SystemTime> {
+    latest_source_mtime_recursive(root, &mut None)
+}
+
+fn latest_source_mtime_recursive(
+    path: &Path,
+    latest: &mut Option<SystemTime>,
+) -> Option<SystemTime> {
+    let entries = std::fs::read_dir(path).ok()?;
+
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        let file_name = entry.file_name();
+        if file_name == "build" || file_name == ".build" || file_name == "DerivedData" {
+            continue;
+        }
+
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(_) => continue,
+        };
+
+        if file_type.is_dir() {
+            latest_source_mtime_recursive(&entry_path, latest);
+            continue;
+        }
+
+        if !file_type.is_file() {
+            continue;
+        }
+
+        if let Ok(modified) = entry.metadata().and_then(|metadata| metadata.modified()) {
+            let update = latest.map(|current| modified > current).unwrap_or(true);
+            if update {
+                *latest = Some(modified);
+            }
+        }
+    }
+
+    *latest
 }
 
 async fn stop_existing_runner(client: &XCUITestClient, fallback_udid: &str) {

@@ -50,7 +50,7 @@ sys.exit(1)
 if [ -z "$SIMULATOR_UDID" ]; then
     echo "No booted simulator found. Starting one..."
     # Find first available iPhone simulator
-    SIMULATOR_UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE "[A-F0-9-]{36}" | head -1)
+    SIMULATOR_UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE "[A-Fa-f0-9-]{36}" | head -1)
     if [ -z "$SIMULATOR_UDID" ]; then
         echo "Error: No iPhone simulator found"
         exit 1

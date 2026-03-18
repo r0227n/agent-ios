@@ -10,6 +10,7 @@
 //! - `session create <name> --udid <udid>` - Create a new session
 //! - `session destroy <name>` - Destroy an existing session
 
+pub mod app_context;
 pub mod resolver;
 pub mod state;
 

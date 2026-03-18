@@ -160,6 +160,26 @@ struct HTTPRequest {
         return try? JSONSerialization.jsonObject(with: body) as? [String: Any]
     }
 
+    /// Parse query parameters from the request path.
+    func queryParameters() -> [String: String] {
+        guard let components = URLComponents(string: "http://localhost\(path)"),
+            let items = components.queryItems
+        else {
+            return [:]
+        }
+
+        var params: [String: String] = [:]
+        for item in items {
+            params[item.name] = item.value ?? ""
+        }
+        return params
+    }
+
+    /// Get a single query parameter by name.
+    func queryValue(_ name: String) -> String? {
+        queryParameters()[name]
+    }
+
     /// Parse HTTP request from raw data.
     static func parse(from data: Data) -> HTTPRequest? {
         // Find header/body separator (\r\n\r\n) in raw bytes

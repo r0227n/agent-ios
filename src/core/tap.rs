@@ -12,15 +12,17 @@
 
 use clap::Args;
 
-use agent_mobile_core::Platform;
+use agent_mobile_core::{extract_traits_for_type, is_interactive_type, Platform};
 use agent_mobile_gateway::DeviceResolver;
 use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
-use crate::helpers::client::{with_xcuitest, CommandResult};
+use crate::helpers::client::{
+    prepare_xcuitest_with_policy, with_xcuitest, AppContextPolicy, CommandResult,
+};
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::ios::{get_ios_screen_size, get_ios_screen_size_from_client};
 
-use super::ref_resolver::{self, ElementTarget};
+use super::ref_resolver::{self, ElementTarget, ResolvedElement};
 
 /// Arguments for the tap command
 #[derive(Args, Debug)]
@@ -47,16 +49,18 @@ pub async fn run(args: TapArgs) -> CommandResult {
 
 async fn run_ios(args: TapArgs) -> CommandResult {
     let target = ElementTarget::parse(&args.target);
+    let (resolved_udid, client, _) = prepare_xcuitest_with_policy(
+        args.device.udid.as_deref(),
+        AppContextPolicy::RestoreIfUnset,
+    )
+    .await?;
 
-    with_xcuitest(args.device.udid.as_deref(), |client| async move {
-        if let ElementTarget::Key(key) = &target {
-            return execute_ios_key(&client, key).await;
-        }
+    if let ElementTarget::Key(key) = &target {
+        return execute_ios_key(&client, key).await;
+    }
 
-        let (x, y) = resolve_ios_coords(&target, &client).await?;
-        execute_ios_tap(&client, x, y).await
-    })
-    .await
+    let (x, y) = resolve_ios_coords(&target, &resolved_udid, &client).await?;
+    execute_ios_tap(&client, x, y).await
 }
 
 async fn run_android(args: TapArgs) -> CommandResult {
@@ -83,9 +87,7 @@ pub async fn resolve_coords(
             resolve_position(pos, platform, udid).await
         }
         ElementTarget::Ref(_) | ElementTarget::Text(_) => {
-            // Take a fresh snapshot
-            let snapshot = take_snapshot(platform, udid).await?;
-            let element = ref_resolver::resolve_from_snapshot(&snapshot, target)?;
+            let element = resolve_element(target, platform, udid).await?;
             Ok(element.center())
         }
         ElementTarget::Key(_) => Err("Cannot resolve key to coordinates".into()),
@@ -94,18 +96,48 @@ pub async fn resolve_coords(
 
 async fn resolve_ios_coords(
     target: &ElementTarget,
+    resolved_udid: &str,
     client: &XCUITestClient,
 ) -> CommandResult<(f64, f64)> {
     match target {
         ElementTarget::Coords(x, y) => Ok((*x, *y)),
-        ElementTarget::Position(pos) => resolve_ios_position(pos, client).await,
+        ElementTarget::Position(position) => resolve_ios_position(position, client).await,
         ElementTarget::Ref(_) | ElementTarget::Text(_) => {
-            let snapshot = take_ios_snapshot_with_client(client).await?;
-            let element = ref_resolver::resolve_from_snapshot(&snapshot, target)?;
+            let element = resolve_ios_element_with_client(target, resolved_udid, client).await?;
             Ok(element.center())
         }
         ElementTarget::Key(_) => Err("Cannot resolve key to coordinates".into()),
     }
+}
+
+/// Resolve a target into a live element, using the fast iOS query/cache path when available.
+pub async fn resolve_element(
+    target: &ElementTarget,
+    platform: Platform,
+    udid: Option<&str>,
+) -> CommandResult<ResolvedElement> {
+    match target {
+        ElementTarget::Coords(x, y) => Ok(ResolvedElement::from_coords(*x, *y)),
+        ElementTarget::Position(position) => {
+            let (x, y) = resolve_position(position, platform, udid).await?;
+            Ok(ResolvedElement::from_coords(x, y))
+        }
+        ElementTarget::Key(_) => Err("Cannot resolve key to an element".into()),
+        ElementTarget::Ref(_) | ElementTarget::Text(_) => match platform {
+            Platform::Ios => resolve_ios_element(target, udid).await,
+            Platform::Android => {
+                let snapshot = take_snapshot(platform, udid).await?;
+                ref_resolver::resolve_from_snapshot(&snapshot, target)
+            }
+        },
+    }
+}
+
+pub(crate) fn is_element_not_found_error(error: &(dyn std::error::Error + Send + Sync)) -> bool {
+    let message = error.to_string();
+    message.starts_with("Element not found:")
+        || message.starts_with("Element with text '")
+        || message.contains("not found in snapshot")
 }
 
 /// Resolve special position to coordinates
@@ -157,18 +189,9 @@ pub async fn take_snapshot(
 
     match platform {
         Platform::Ios => {
-            with_xcuitest(udid, |client| async move {
-                let json_str = client.accessibility_info(true).await?;
-                let json: serde_json::Value = serde_json::from_str(&json_str)?;
-                let raw_elements = agent_mobile_platform_ios::snapshot::extract_ios_elements(&json);
-                let elements = crate::snapshot::ref_generator::generate_refs(&raw_elements);
-                Ok(Snapshot {
-                    snapshot_id: format!("snap_{}", nanoid::nanoid!(8)),
-                    timestamp: Utc::now(),
-                    elements,
-                })
-            })
-            .await
+            let (_, client, _) =
+                prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
+            crate::snapshot::capture_ios_snapshot(&client, None).await
         }
         Platform::Android => {
             use agent_mobile_platform_android::adb::uiautomator;
@@ -182,6 +205,8 @@ pub async fn take_snapshot(
             Ok(Snapshot {
                 snapshot_id: format!("snap_{}", nanoid::nanoid!(8)),
                 timestamp: Utc::now(),
+                active_bundle_id: None,
+                snapshot_generation: None,
                 elements,
             })
         }
@@ -191,18 +216,179 @@ pub async fn take_snapshot(
 pub(crate) async fn take_ios_snapshot_with_client(
     client: &XCUITestClient,
 ) -> CommandResult<crate::snapshot::types::Snapshot> {
-    use crate::snapshot::types::Snapshot;
-    use chrono::Utc;
+    crate::snapshot::capture_ios_snapshot(client, None).await
+}
 
-    let json_str = client.accessibility_info(true).await?;
-    let json: serde_json::Value = serde_json::from_str(&json_str)?;
-    let raw_elements = agent_mobile_platform_ios::snapshot::extract_ios_elements(&json);
-    let elements = crate::snapshot::ref_generator::generate_refs(&raw_elements);
-    Ok(Snapshot {
-        snapshot_id: format!("snap_{}", nanoid::nanoid!(8)),
-        timestamp: Utc::now(),
-        elements,
-    })
+async fn resolve_ios_element(
+    target: &ElementTarget,
+    udid: Option<&str>,
+) -> CommandResult<ResolvedElement> {
+    let (resolved_udid, client, _) =
+        prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
+
+    match target {
+        ElementTarget::Text(text) => query_first_ios(&client, "text", text, false, false, None)
+            .await?
+            .ok_or_else(|| format!("Element with text '{}' not found", text).into()),
+        ElementTarget::Ref(ref_id) => {
+            let cached_snapshot = crate::snapshot::cache::load_snapshot_cache(&resolved_udid)?;
+            let Some(cached_snapshot) = cached_snapshot else {
+                return Err(format!(
+                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                    ref_id
+                )
+                .into());
+            };
+
+            let cached_element =
+                ref_resolver::find_by_ref(&cached_snapshot, ref_id).ok_or_else(|| {
+                    format!(
+                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                    ref_id
+                )
+                })?;
+
+            if let Some(element_id) = &cached_element.element_id {
+                if let Some(mut resolved) =
+                    query_first_ios(&client, "element_id", element_id, true, true, None).await?
+                {
+                    resolved.ref_id = ref_id.clone();
+                    return Ok(resolved);
+                }
+            } else {
+                return Err(format!(
+                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                    ref_id
+                )
+                .into());
+            }
+
+            Err(format!(
+                "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                ref_id
+            )
+            .into())
+        }
+        _ => Err("Unsupported iOS target resolution".into()),
+    }
+}
+
+pub(crate) async fn resolve_ios_element_with_client(
+    target: &ElementTarget,
+    resolved_udid: &str,
+    client: &XCUITestClient,
+) -> CommandResult<ResolvedElement> {
+    match target {
+        ElementTarget::Text(text) => query_first_ios(client, "text", text, false, false, None)
+            .await?
+            .ok_or_else(|| format!("Element with text '{}' not found", text).into()),
+        ElementTarget::Ref(ref_id) => {
+            let cached_snapshot = crate::snapshot::cache::load_snapshot_cache(resolved_udid)?;
+            let Some(cached_snapshot) = cached_snapshot else {
+                return Err(format!(
+                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                    ref_id
+                )
+                .into());
+            };
+
+            let cached_element =
+                ref_resolver::find_by_ref(&cached_snapshot, ref_id).ok_or_else(|| {
+                    format!(
+                        "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                        ref_id
+                    )
+                })?;
+
+            if let Some(element_id) = &cached_element.element_id {
+                if let Some(mut resolved) =
+                    query_first_ios(client, "element_id", element_id, true, true, None).await?
+                {
+                    resolved.ref_id = ref_id.clone();
+                    return Ok(resolved);
+                }
+            } else {
+                return Err(format!(
+                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                    ref_id
+                )
+                .into());
+            }
+
+            Err(format!(
+                "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                ref_id
+            )
+            .into())
+        }
+        _ => Err("Unsupported iOS target resolution".into()),
+    }
+}
+
+pub(crate) async fn query_first_ios(
+    client: &agent_mobile_platform_ios::xcuitest::XCUITestClient,
+    locator: &str,
+    value: &str,
+    exact: bool,
+    case_sensitive: bool,
+    max_depth: Option<u32>,
+) -> CommandResult<Option<ResolvedElement>> {
+    let response = client
+        .query_first(&agent_mobile_platform_ios::xcuitest::types::QueryRequest {
+            locator: locator.to_string(),
+            value: value.to_string(),
+            exact,
+            case_sensitive,
+            visible_only: true,
+            max_depth,
+        })
+        .await?;
+
+    Ok(response.element.map(|element| ResolvedElement {
+        ref_id: element.element_id.clone(),
+        element_type: element.element_type.clone(),
+        label: element.label,
+        frame: element.frame,
+        enabled: element.enabled,
+        value: element.value,
+        traits: extract_traits_for_type(&element.element_type),
+        placeholder: element.placeholder,
+        depth: element.depth.unwrap_or(0),
+        is_interactive: element.interactive || is_interactive_type(&element.element_type),
+    }))
+}
+
+pub(crate) async fn query_exists_ios(
+    udid: Option<&str>,
+    locator: &str,
+    value: &str,
+    exact: bool,
+    case_sensitive: bool,
+    max_depth: Option<u32>,
+) -> CommandResult<bool> {
+    let (_, client, _) =
+        prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
+    let response = client
+        .query_exists(&agent_mobile_platform_ios::xcuitest::types::QueryRequest {
+            locator: locator.to_string(),
+            value: value.to_string(),
+            exact,
+            case_sensitive,
+            visible_only: true,
+            max_depth,
+        })
+        .await?;
+    Ok(response.exists)
+}
+
+pub(crate) async fn current_ui_hash_ios(
+    udid: Option<&str>,
+    source: Option<&str>,
+    max_depth: Option<u32>,
+) -> CommandResult<String> {
+    let (_, client, _) =
+        prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
+    Ok(client.ui_hash(source, max_depth, true).await?.hash)
 }
 
 /// Execute tap gesture
@@ -232,10 +418,10 @@ pub(crate) async fn execute_ios_tap(client: &XCUITestClient, x: f64, y: f64) -> 
 async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            with_xcuitest(
-                udid,
-                |client| async move { execute_ios_key(&client, key).await },
-            )
+            let key = key.to_string();
+            with_xcuitest(udid, |client| async move {
+                execute_ios_key(&client, &key).await
+            })
             .await
         }
         Platform::Android => {
