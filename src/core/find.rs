@@ -35,6 +35,7 @@ use crate::snapshot::types::{Snapshot, SnapshotElement};
 use super::fill::execute_fill_ios_with_client;
 use super::long_press::{execute_ios_long_press, execute_long_press, DEFAULT_LONG_PRESS_DURATION};
 use super::tap::{execute_ios_tap, execute_tap, take_ios_snapshot_with_client, take_snapshot};
+use super::text_input::clear_text_input_ios;
 use agent_mobile_gateway::DeviceResolver;
 
 /// Estimated max text length for clearing text fields when value is None.
@@ -556,19 +557,7 @@ async fn execute_fill(
             let text = text.to_string();
 
             with_xcuitest(udid, |client| async move {
-                // 1. Tap to focus
-                client.tap(x, y).await?;
-
-                // Small delay to ensure focus
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-                // 2. Clear existing text (Select All + Delete)
-                client.clear_text().await?;
-
-                // 3. Type new text
-                client.type_text(&text).await?;
-
-                Ok(())
+                execute_fill_ios_with_client(&client, x, y, &text).await
             })
             .await
         }
@@ -596,10 +585,7 @@ async fn execute_fill(
 }
 
 async fn execute_clear_ios_with_client(client: &XCUITestClient, x: f64, y: f64) -> CommandResult {
-    client.tap(x, y).await?;
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    client.clear_text().await?;
-    Ok(())
+    clear_text_input_ios(client, x, y).await
 }
 
 /// Execute clear (tap + select all + delete)

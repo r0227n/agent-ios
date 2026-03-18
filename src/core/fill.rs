@@ -15,6 +15,7 @@ use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::{self, ElementTarget};
 use super::tap::{take_ios_snapshot_with_client, take_snapshot};
+use super::text_input::fill_text_input_ios;
 use agent_mobile_gateway::DeviceResolver;
 
 /// Arguments for the fill command
@@ -74,11 +75,7 @@ pub(crate) async fn execute_fill_ios_with_client(
     y: f64,
     text: &str,
 ) -> CommandResult {
-    client.tap(x, y).await?;
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    client.clear_text().await?;
-    client.type_text(text).await?;
-    Ok(())
+    fill_text_input_ios(client, x, y, text).await
 }
 
 /// Execute fill on Android
