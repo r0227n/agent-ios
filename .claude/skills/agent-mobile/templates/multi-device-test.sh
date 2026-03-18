@@ -265,9 +265,9 @@ read -p "Destroy test sessions? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
   for session in "${SESSIONS[@]}"; do
-    agent-mobile session destroy "$session" 2>/dev/null || true
+    agent-mobile session rm "$session" 2>/dev/null || true
   done
-  echo "  Sessions destroyed"
+  echo "  Sessions removed"
 else
   echo "  Sessions preserved for further investigation"
 fi

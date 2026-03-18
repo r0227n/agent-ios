@@ -7,6 +7,7 @@ use crate::common::{
     assert_failure, assert_success, assert_valid_json, ensure_companion_running,
     get_available_udid, run_cli_command,
 };
+use std::process::Command;
 
 // ============================================================================
 // Helper functions
@@ -31,7 +32,7 @@ fn create_test_session(udid: &str) -> String {
 }
 
 /// Remove a test session.
-fn destroy_test_session(name: &str) {
+fn remove_test_session(name: &str) {
     let _ = run_cli_command("session", &["rm", "--session", name]);
 }
 
@@ -81,7 +82,7 @@ fn test_session_create() {
     assert_success(&output, &format!("session create {}", name));
 
     // Cleanup
-    destroy_test_session(&name);
+    remove_test_session(&name);
 }
 
 /// Test session create with custom name.
@@ -96,7 +97,7 @@ fn test_session_create_custom_name() {
     assert_success(&output, &format!("session create {}", name));
 
     // Cleanup
-    destroy_test_session(&name);
+    remove_test_session(&name);
 }
 
 /// Test created session appears in list.
@@ -121,7 +122,7 @@ fn test_session_create_appears_in_list() {
     assert!(found, "Created session should appear in list");
 
     // Cleanup
-    destroy_test_session(&name);
+    remove_test_session(&name);
 }
 
 // ============================================================================
@@ -141,7 +142,7 @@ fn test_session_show() {
     assert_success(&output, &format!("session show {}", name));
 
     // Cleanup
-    destroy_test_session(&name);
+    remove_test_session(&name);
 }
 
 /// Test session show with JSON format.
@@ -159,7 +160,7 @@ fn test_session_show_json() {
     }
 
     // Cleanup
-    destroy_test_session(&name);
+    remove_test_session(&name);
 }
 
 // ============================================================================
@@ -177,6 +178,23 @@ fn test_session_rm() {
     let output = run_cli_command("session", &["rm", "--session", &name]);
 
     assert_success(&output, &format!("session rm {}", name));
+}
+
+/// Test session rm with AGENT_MOBILE_SESSION fallback.
+#[test]
+fn test_session_rm_with_env_fallback() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    let name = create_test_session(&udid);
+
+    let output = Command::new("./target/debug/agent-mobile")
+        .env("AGENT_MOBILE_SESSION", &name)
+        .args(["session", "rm"])
+        .output()
+        .expect("Failed to run agent-mobile with AGENT_MOBILE_SESSION");
+
+    assert_success(&output, "session rm with AGENT_MOBILE_SESSION");
 }
 
 /// Test removed session removed from list.
@@ -255,8 +273,8 @@ fn test_session_multiple() {
     assert!(found1 && found2, "Both sessions should exist");
 
     // Cleanup
-    destroy_test_session(&name1);
-    destroy_test_session(&name2);
+    remove_test_session(&name1);
+    remove_test_session(&name2);
 }
 
 // ============================================================================
@@ -329,8 +347,7 @@ fn test_session_rm_non_existent() {
         &["rm", "--session", "non-existent-session-12345"],
     );
 
-    // May succeed (idempotent) or fail depending on implementation
-    let _ = output;
+    assert_success(&output, "session rm non-existent");
 }
 
 /// Test session create with duplicate name.
@@ -348,5 +365,5 @@ fn test_session_create_duplicate_name() {
     let _ = output;
 
     // Cleanup
-    destroy_test_session(&name);
+    remove_test_session(&name);
 }

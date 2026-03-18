@@ -94,8 +94,8 @@ agent-mobile --session ios-dev session show
 セッションを削除します。
 
 ```bash
-agent-mobile session destroy ios-dev
-# 出力: Session 'ios-dev' destroyed
+agent-mobile session rm ios-dev
+# 出力: Session 'ios-dev' removed
 ```
 
 ## Session Data
@@ -225,7 +225,7 @@ agent-mobile snapshot
 # ... テスト処理 ...
 
 # クリーンアップ
-agent-mobile session destroy "$SESSION_NAME"
+agent-mobile session rm "$SESSION_NAME"
 ```
 
 ## Multi-Session Workflows
@@ -368,7 +368,7 @@ agent-mobile session create test --udid ... -p ios  # 汎用的すぎ
 agent-mobile session list
 
 # 不要なセッションを削除
-agent-mobile session destroy old-session
+agent-mobile session rm old-session
 ```
 
 ### 3. 環境変数の活用
@@ -403,7 +403,7 @@ CI/CD では一時的なセッションを使用し、完了後に削除:
 SESSION_NAME="ci-${BUILD_NUMBER}"
 agent-mobile session create "$SESSION_NAME" --udid "$UDID" -p ios
 # ... テスト実行 ...
-agent-mobile session destroy "$SESSION_NAME"
+agent-mobile session rm "$SESSION_NAME"
 ```
 
 ## Limitations
@@ -465,7 +465,7 @@ agent-mobile session create xxx --udid ... -p ios
 **解決:**
 ```bash
 # 既存セッションを削除
-agent-mobile session destroy xxx
+agent-mobile session rm xxx
 
 # または別の名前を使用
 agent-mobile session create xxx-new --udid ... -p ios
@@ -479,7 +479,7 @@ agent-mobile session create xxx-new --udid ... -p ios
 **解決:**
 ```bash
 # セッションを作り直す
-agent-mobile session destroy old-session
+agent-mobile session rm old-session
 agent-mobile session create old-session --udid ... -p ios
 ```
 

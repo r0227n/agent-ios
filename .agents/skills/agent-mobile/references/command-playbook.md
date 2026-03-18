@@ -24,7 +24,7 @@ agent-mobile session create ios-dev --udid <UDID>
 agent-mobile --session ios-dev snapshot -i
 agent-mobile session list -f json
 agent-mobile session show --session ios-dev -f json
-agent-mobile session destroy ios-dev
+agent-mobile session rm ios-dev
 ```
 
 ## App lifecycle

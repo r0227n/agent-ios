@@ -8,7 +8,7 @@
 //! - `session list` - List all active sessions
 //! - `session show` - Show current session information
 //! - `session create <name> --udid <udid>` - Create a new session
-//! - `session rm <name>` - Remove an existing session
+//! - `session rm [name]` - Remove an existing session (defaults to `--session` / `AGENT_MOBILE_SESSION`)
 
 pub mod app_context;
 pub mod resolver;
@@ -220,12 +220,13 @@ async fn create_session(name: String, udid: String) -> CommandResult {
 /// Remove an existing session
 async fn remove_session(name: Option<String>, current_session: Option<&str>) -> CommandResult {
     let state = SessionState::new();
-    let name = name.or_else(|| current_session.map(ToOwned::to_owned)).ok_or(
-        "No active session. Pass a session name or use --session / AGENT_MOBILE_SESSION.",
-    )?;
+    let name = name
+        .or_else(|| current_session.map(ToOwned::to_owned))
+        .ok_or("No active session. Pass a session name or use --session / AGENT_MOBILE_SESSION.")?;
 
-    if !state.session_exists(&name) {
-        return Err(format!("Session '{}' does not exist", name).into());
+    if state.get_session(&name)?.is_none() {
+        println!("Session '{}' already absent", name);
+        return Ok(());
     }
 
     state.destroy_session(&name)?;

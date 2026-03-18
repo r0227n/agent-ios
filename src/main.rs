@@ -38,8 +38,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         std::env::set_var("AGENT_MOBILE_SESSION", session_name);
     }
 
-    // Resolve UDID from session (if specified)
-    let resolved_udid = if let Some(session_name) = session {
+    // Session subcommands manage session existence themselves.
+    let resolved_udid = if matches!(&cli.command, Commands::Session(_)) {
+        None
+    } else if let Some(session_name) = session {
         let resolver = SessionResolver::new();
         resolver.resolve_udid(Some(session_name), None)?
     } else {

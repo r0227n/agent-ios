@@ -565,7 +565,7 @@ agent-mobile app install /path/to/app.apk
 
 ```bash
 # セッションを削除
-agent-mobile session destroy my-session
+agent-mobile session rm my-session
 
 # セッションを再作成
 agent-mobile session create my-session --udid <udid> -p <platform>
