@@ -96,6 +96,13 @@ pub async fn resolve_element(
     }
 }
 
+pub(crate) fn is_element_not_found_error(error: &(dyn std::error::Error + Send + Sync)) -> bool {
+    let message = error.to_string();
+    message.starts_with("Element not found:")
+        || message.starts_with("Element with text '")
+        || message.contains("not found in snapshot")
+}
+
 /// Resolve special position to coordinates
 pub async fn resolve_position(
     position: &str,

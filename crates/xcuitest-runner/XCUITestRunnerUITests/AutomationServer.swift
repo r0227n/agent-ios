@@ -71,7 +71,7 @@ final class AutomationServer: XCTestCase {
         var payload: [String: Any] = [
             "status": status,
             "runner": "xcuitest",
-            "snapshot_generation": Int(snapshotGeneration),
+            "snapshot_generation": NSNumber(value: snapshotGeneration),
         ]
         if let udid = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] {
             payload["udid"] = udid
@@ -113,13 +113,17 @@ final class AutomationServer: XCTestCase {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    private func switchContext(to bundleId: String) {
+    private func switchContext(to bundleId: String) -> Bool {
         let newApp = XCUIApplication(bundleIdentifier: bundleId)
         let shouldActivate = activeBundleId != bundleId || newApp.state != .runningForeground
 
         if shouldActivate {
             newApp.activate()
-            _ = newApp.wait(for: .runningForeground, timeout: 5)
+            let activated = newApp.wait(for: .runningForeground, timeout: 5)
+            guard activated else {
+                NSLog("[XCUITestRunner] Failed to activate bundle \(bundleId)")
+                return false
+            }
         }
 
         app = newApp
@@ -127,6 +131,7 @@ final class AutomationServer: XCTestCase {
         accessibilityHandler = AccessibilityHandler(app: newApp)
         touchHandler = TouchHandler(app: newApp)
         inputHandler = InputHandler(app: newApp)
+        return true
     }
 
     // MARK: - Route Registration
@@ -195,14 +200,17 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     let digest: String
+                    let effectiveSource: String
                     switch source {
                     case "accessibility":
+                        effectiveSource = "accessibility"
                         digest = self.sha256Hex(
                             Data(
                                 self.accessibilityHandler
                                     .snapshotDigestSource(maxDepth: maxDepth, visibleOnly: visibleOnly)
                                     .utf8))
                     default:
+                        effectiveSource = "screenshot"
                         guard let pngData = self.screenshotHandler.captureScreenshot() else {
                             return .error("Failed to capture screenshot for ui-hash", status: 500)
                         }
@@ -211,7 +219,7 @@ final class AutomationServer: XCTestCase {
 
                     var payload = self.runnerStatus("ok")
                     payload["hash"] = digest
-                    payload["source"] = source
+                    payload["source"] = effectiveSource
                     return .ok(payload)
                 }, completion: completion)
         }
@@ -421,7 +429,9 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.appHandler.launch(bundleIdentifier: bundleId)
-                    self.switchContext(to: bundleId)
+                    guard self.switchContext(to: bundleId) else {
+                        return .error("Failed to switch context to \(bundleId)", status: 500)
+                    }
                     self.advanceSnapshotGeneration()
 
                     return .ok(["success": true, "bundleId": bundleId])
@@ -439,7 +449,9 @@ final class AutomationServer: XCTestCase {
             self.onMain(
                 {
                     self.appHandler.terminate(bundleIdentifier: bundleId)
-                    self.switchContext(to: self.springboardBundleId)
+                    guard self.switchContext(to: self.springboardBundleId) else {
+                        return .error("Failed to restore SpringBoard context", status: 500)
+                    }
                     self.advanceSnapshotGeneration()
 
                     return .ok(["success": true])
@@ -456,7 +468,9 @@ final class AutomationServer: XCTestCase {
             }
             self.onMain(
                 {
-                    self.switchContext(to: bundleId)
+                    guard self.switchContext(to: bundleId) else {
+                        return .error("Failed to switch context to \(bundleId)", status: 500)
+                    }
                     self.advanceSnapshotGeneration()
                     return .ok(["success": true, "bundleId": bundleId])
                 }, completion: completion)

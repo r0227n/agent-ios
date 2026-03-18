@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use serde::de::DeserializeOwned;
+
 use super::types::*;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -68,7 +70,7 @@ impl XCUITestClient {
             .get(format!("{}/health", self.base_url))
             .send()
             .await?;
-        Ok(resp.json().await?)
+        Self::parse_json_response(resp, "Health check").await
     }
 
     /// Check if the runner is ready to execute XCUITest-backed commands.
@@ -87,7 +89,7 @@ impl XCUITestClient {
             .get(format!("{}/ready", self.base_url))
             .send()
             .await?;
-        Ok(resp.json().await?)
+        Self::parse_json_response(resp, "Runner readiness check").await
     }
 
     /// Wait for the runner to become available (with retries).
@@ -304,21 +306,21 @@ impl XCUITestClient {
         }
 
         let resp = self.http.get(&url).send().await?;
-        Ok(resp.json().await?)
+        Self::parse_json_response(resp, "Snapshot request").await
     }
 
     /// Query the first matching element via the fast runner-side matcher.
     pub async fn query_first(&self, request: &QueryRequest) -> Result<QueryFirstResponse> {
         let url = format!("{}/query/first", self.base_url);
         let resp = self.http.post(&url).json(request).send().await?;
-        Ok(resp.json().await?)
+        Self::parse_json_response(resp, "Element query").await
     }
 
     /// Check whether a matching element exists.
     pub async fn query_exists(&self, request: &QueryRequest) -> Result<QueryExistsResponse> {
         let url = format!("{}/query/exists", self.base_url);
         let resp = self.http.post(&url).json(request).send().await?;
-        Ok(resp.json().await?)
+        Self::parse_json_response(resp, "Element existence query").await
     }
 
     /// Compute a lightweight hash for the current UI state.
@@ -336,7 +338,7 @@ impl XCUITestClient {
             url.push_str(&format!("&depth={max_depth}"));
         }
         let resp = self.http.get(&url).send().await?;
-        Ok(resp.json().await?)
+        Self::parse_json_response(resp, "UI hash request").await
     }
 
     /// Set the active app context (for accessibility queries) without launching.
@@ -365,11 +367,8 @@ impl XCUITestClient {
     pub async fn clipboard_paste(&self) -> Result<String> {
         let url = format!("{}/clipboard/paste", self.base_url);
         let resp = self.http.get(&url).send().await?;
-        let status = resp.status();
-        let body: ClipboardPasteResponse = resp.json().await?;
-        if !status.is_success() {
-            return Err(format!("Clipboard paste failed: HTTP {}", status).into());
-        }
+        let body: ClipboardPasteResponse =
+            Self::parse_json_response(resp, "Clipboard paste").await?;
         Ok(body.text)
     }
 
@@ -407,6 +406,30 @@ impl XCUITestClient {
         }
 
         Ok(())
+    }
+
+    async fn parse_json_response<T: DeserializeOwned>(
+        resp: reqwest::Response,
+        context: &str,
+    ) -> Result<T> {
+        let status = resp.status();
+        let body = resp.text().await?;
+
+        if !status.is_success() {
+            let detail = body.trim();
+            if detail.is_empty() {
+                return Err(format!("{context} failed: HTTP {status}").into());
+            }
+            return Err(format!("{context} failed: HTTP {status}: {detail}").into());
+        }
+
+        serde_json::from_str(&body).map_err(|err| {
+            format!(
+                "{context} returned invalid JSON: {err}. Body: {}",
+                body.trim()
+            )
+            .into()
+        })
     }
 }
 

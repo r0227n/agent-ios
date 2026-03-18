@@ -17,6 +17,10 @@ struct DeviceAppContext {
 }
 
 fn app_context_dir() -> PathBuf {
+    if let Ok(path) = std::env::var("AGENT_MOBILE_APP_CONTEXT_DIR") {
+        return PathBuf::from(path);
+    }
+
     #[cfg(unix)]
     {
         PathBuf::from("/tmp/agent-mobile/app-context")
@@ -53,13 +57,14 @@ fn update_session_app(bundle_id: Option<&str>) -> CommandResult {
     };
 
     let state = super::state::SessionState::new();
-    let Some(mut session) = state.get_session(&session_name)? else {
+    if state.get_session(&session_name)?.is_none() {
         return Ok(());
-    };
+    }
 
-    session.app = bundle_id.map(|bundle_id| bundle_id.to_string());
-    session.last_activity = Utc::now();
-    state.update_session(&session)?;
+    state.update_session_mut(&session_name, |session| {
+        session.app = bundle_id.map(|bundle_id| bundle_id.to_string());
+        session.last_activity = Utc::now();
+    })?;
     Ok(())
 }
 

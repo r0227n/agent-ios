@@ -16,7 +16,7 @@ use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::ElementTarget;
-use super::tap::{query_exists_ios, resolve_element};
+use super::tap::{is_element_not_found_error, query_exists_ios, resolve_element};
 use agent_mobile_gateway::DeviceResolver;
 
 /// Arguments for the is command
@@ -45,44 +45,47 @@ pub async fn run(args: IsArgs) -> CommandResult {
     // Check the requested state
     let result = match args.state.to_lowercase().as_str() {
         "visible" | "exists" => match (&platform, &target) {
-            (agent_mobile_core::Platform::Ios, ElementTarget::Text(text)) => query_exists_ios(
-                args.device.udid.as_deref(),
-                "text",
-                text,
-                false,
-                false,
-                None,
-            )
-            .await
-            .unwrap_or(false),
-            _ => resolve_element(&target, platform, args.device.udid.as_deref())
-                .await
-                .is_ok(),
-        },
-        "enabled" => match resolve_element(&target, platform, args.device.udid.as_deref()).await {
-            Ok(element) => element.enabled,
-            Err(_) => false,
-        },
-        "disabled" => match resolve_element(&target, platform, args.device.udid.as_deref()).await {
-            Ok(element) => !element.enabled,
-            Err(_) => false,
-        },
-        "interactive" => {
-            match resolve_element(&target, platform, args.device.udid.as_deref()).await {
-                Ok(element) => {
-                    element.is_text_input() || is_interactive_type(&element.element_type)
-                }
-                Err(_) => false,
+            (agent_mobile_core::Platform::Ios, ElementTarget::Text(text)) => {
+                query_exists_ios(
+                    args.device.udid.as_deref(),
+                    "text",
+                    text,
+                    false,
+                    false,
+                    None,
+                )
+                .await?
             }
-        }
-        "checked" => match resolve_element(&target, platform, args.device.udid.as_deref()).await {
-            Ok(element) => element
-                .value
-                .as_ref()
-                .map(|v| v == "1" || v.to_lowercase() == "true")
-                .unwrap_or(false),
-            Err(_) => false,
+            _ => element_exists(&target, platform, args.device.udid.as_deref()).await?,
         },
+        "enabled" => {
+            element_state(&target, platform, args.device.udid.as_deref(), |element| {
+                element.enabled
+            })
+            .await?
+        }
+        "disabled" => {
+            element_state(&target, platform, args.device.udid.as_deref(), |element| {
+                !element.enabled
+            })
+            .await?
+        }
+        "interactive" => {
+            element_state(&target, platform, args.device.udid.as_deref(), |element| {
+                element.is_text_input() || is_interactive_type(&element.element_type)
+            })
+            .await?
+        }
+        "checked" => {
+            element_state(&target, platform, args.device.udid.as_deref(), |element| {
+                element
+                    .value
+                    .as_ref()
+                    .map(|v| v == "1" || v.to_lowercase() == "true")
+                    .unwrap_or(false)
+            })
+            .await?
+        }
         _ => {
             return Err(format!(
                 "Unknown state: {}. Valid states: visible, exists, enabled, disabled, interactive, checked",
@@ -126,4 +129,32 @@ fn is_interactive_type(element_type: &str) -> bool {
             | "CheckBox"
             | "ToggleButton"
     )
+}
+
+async fn element_exists(
+    target: &ElementTarget,
+    platform: agent_mobile_core::Platform,
+    udid: Option<&str>,
+) -> CommandResult<bool> {
+    match resolve_element(target, platform, udid).await {
+        Ok(_) => Ok(true),
+        Err(err) if is_element_not_found_error(err.as_ref()) => Ok(false),
+        Err(err) => Err(err),
+    }
+}
+
+async fn element_state<F>(
+    target: &ElementTarget,
+    platform: agent_mobile_core::Platform,
+    udid: Option<&str>,
+    state_fn: F,
+) -> CommandResult<bool>
+where
+    F: FnOnce(&super::ref_resolver::ResolvedElement) -> bool,
+{
+    match resolve_element(target, platform, udid).await {
+        Ok(element) => Ok(state_fn(&element)),
+        Err(err) if is_element_not_found_error(err.as_ref()) => Ok(false),
+        Err(err) => Err(err),
+    }
 }

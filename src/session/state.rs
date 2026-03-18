@@ -10,7 +10,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use agent_mobile_core::Platform;
 
@@ -87,6 +90,46 @@ pub struct SessionState {
     sessions_dir: PathBuf,
 }
 
+struct SessionFileLock {
+    path: PathBuf,
+}
+
+impl SessionFileLock {
+    fn acquire(path: &Path) -> CommandResult<Self> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let started_at = Instant::now();
+        loop {
+            match OpenOptions::new().write(true).create_new(true).open(path) {
+                Ok(_) => {
+                    return Ok(Self {
+                        path: path.to_path_buf(),
+                    });
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                    if started_at.elapsed() > Duration::from_secs(5) {
+                        return Err(format!(
+                            "Timed out acquiring session lock: {}",
+                            path.display()
+                        )
+                        .into());
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(err) => return Err(err.into()),
+            }
+        }
+    }
+}
+
+impl Drop for SessionFileLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
 impl Default for SessionState {
     fn default() -> Self {
         Self::new()
@@ -112,6 +155,10 @@ impl SessionState {
     /// Get the path to a session's JSON file
     fn session_path(&self, name: &str) -> PathBuf {
         self.sessions_dir.join(name).join("session.json")
+    }
+
+    fn session_lock_path(&self, name: &str) -> PathBuf {
+        self.sessions_dir.join(name).join("session.lock")
     }
 }
 
@@ -248,7 +295,28 @@ impl SessionState {
             return Err(format!("Session '{}' does not exist", data.name).into());
         }
 
+        let _lock = SessionFileLock::acquire(&self.session_lock_path(&data.name))?;
         self.write_session_file(&path, data)?;
+        Ok(())
+    }
+
+    /// Read, mutate, and persist a session while holding a session-scoped lock.
+    pub fn update_session_mut<F>(&self, name: &str, update: F) -> CommandResult<()>
+    where
+        F: FnOnce(&mut SessionData),
+    {
+        validate_session_name(name)?;
+
+        let path = self.session_path(name);
+
+        if !path.exists() {
+            return Err(format!("Session '{}' does not exist", name).into());
+        }
+
+        let _lock = SessionFileLock::acquire(&self.session_lock_path(name))?;
+        let mut data = self.read_session_file(&path)?;
+        update(&mut data);
+        self.write_session_file(&path, &data)?;
         Ok(())
     }
 
@@ -256,15 +324,9 @@ impl SessionState {
     #[allow(dead_code)]
     pub fn touch_session(&self, name: &str) -> CommandResult<()> {
         validate_session_name(name)?;
-
-        let mut data = self
-            .get_session(name)?
-            .ok_or_else(|| format!("Session '{}' does not exist", name))?;
-
-        data.last_activity = Utc::now();
-        self.update_session(&data)?;
-
-        Ok(())
+        self.update_session_mut(name, |data| {
+            data.last_activity = Utc::now();
+        })
     }
 
     /// Destroy (delete) a session
@@ -298,9 +360,32 @@ impl SessionState {
 
     fn write_session_file(&self, path: &Path, data: &SessionData) -> CommandResult<()> {
         let content = serde_json::to_string_pretty(data)?;
-        fs::write(path, content)?;
+        atomic_write_file(path, content.as_bytes())?;
         Ok(())
     }
+}
+
+fn atomic_write_file(path: &Path, content: &[u8]) -> CommandResult<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("Cannot determine parent directory for {}", path.display()))?;
+    fs::create_dir_all(parent)?;
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("Cannot determine file name for {}", path.display()))?;
+    let temp_path = parent.join(format!(".{}.{}.tmp", file_name, nanoid::nanoid!(8)));
+
+    fs::write(&temp_path, content)?;
+
+    #[cfg(windows)]
+    if path.exists() {
+        fs::remove_file(path)?;
+    }
+
+    fs::rename(&temp_path, path)?;
+    Ok(())
 }
 
 #[cfg(test)]

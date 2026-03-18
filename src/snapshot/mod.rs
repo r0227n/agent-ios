@@ -272,7 +272,7 @@ pub(crate) fn infer_hierarchy_from_frames(elements: &mut [types::SnapshotElement
             }
 
             let area = parent_frame.width.max(1.0) * parent_frame.height.max(1.0);
-            if area <= best_area {
+            if area < best_area {
                 best_area = area;
                 best_parent = candidate;
             }
@@ -357,6 +357,7 @@ fn output_snapshot(
 ) -> CommandResult {
     let output_str = match format {
         OutputFormat::Text => {
+            // finalize_snapshot already applied CLI filters to snapshot.elements.
             let options = tree_printer::PrintOptions {
                 interactive_only: false,
                 compact: false,
@@ -385,17 +386,28 @@ fn finalize_snapshot(
     depth: Option<u32>,
     scope: Option<&str>,
 ) -> CommandResult<Snapshot> {
+    let Snapshot {
+        snapshot_id,
+        timestamp,
+        active_bundle_id,
+        snapshot_generation,
+        elements: snapshot_elements,
+    } = snapshot;
+
     let elements = if let Some(scope_target) = scope {
-        extract_subtree(&snapshot.elements, scope_target)?
+        extract_subtree(&snapshot_elements, scope_target)?
     } else {
-        snapshot.elements.clone()
+        snapshot_elements
     };
 
     let elements = filter_snapshot_elements(&elements, interactive, compact, depth);
 
     Ok(Snapshot {
+        snapshot_id,
+        timestamp,
+        active_bundle_id,
+        snapshot_generation,
         elements,
-        ..snapshot
     })
 }
 

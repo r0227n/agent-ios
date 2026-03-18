@@ -146,7 +146,7 @@ final class AccessibilityHandler {
 
         var payload: [String: Any] = [
             "snapshot_id": snapshotId,
-            "snapshot_generation": Int(snapshotGeneration),
+            "snapshot_generation": NSNumber(value: snapshotGeneration),
             "elements": filtered.map(\.jsonObject),
         ]
         if let activeBundleId {

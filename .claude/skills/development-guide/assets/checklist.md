@@ -11,14 +11,14 @@
 - [ ] エラー/警告がないことを確認
 
 **iOS開発の場合:**
-- [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh` 実行成功
+- [ ] `./.claude/skills/development-guide/scripts/setup-ios.sh` 実行成功
 - [ ] Xcode Command Line Tools インストール確認
 - [ ] XCUITest Runner インストール確認
 - [ ] シミュレータ起動確認
 - [ ] `agent-mobile device list` でデバイス検出確認
 
 **Android開発の場合:**
-- [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-android.sh` 実行成功
+- [ ] `./.claude/skills/development-guide/scripts/setup-android.sh` 実行成功
 - [ ] Android SDK (adb, emulator) インストール確認
 - [ ] adb server 起動確認 (TCP :5037)
 - [ ] エミュレータ起動確認

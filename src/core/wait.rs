@@ -16,7 +16,10 @@ use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::ElementTarget;
-use super::tap::{current_ui_hash_ios, query_exists_ios, resolve_element, take_snapshot};
+use super::tap::{
+    current_ui_hash_ios, is_element_not_found_error, query_exists_ios, resolve_element,
+    take_snapshot,
+};
 use agent_mobile_gateway::DeviceResolver;
 
 /// Arguments for the wait command
@@ -118,7 +121,11 @@ async fn wait_visible(
             (Platform::Ios, ElementTarget::Text(text)) => {
                 query_exists_ios(udid, "text", text, false, false, None).await?
             }
-            _ => resolve_element(&target, platform, udid).await.is_ok(),
+            _ => match resolve_element(&target, platform, udid).await {
+                Ok(_) => true,
+                Err(err) if is_element_not_found_error(err.as_ref()) => false,
+                Err(err) => return Err(err),
+            },
         };
 
         if found {
@@ -154,7 +161,11 @@ async fn wait_gone(
             (Platform::Ios, ElementTarget::Text(text)) => {
                 !query_exists_ios(udid, "text", text, false, false, None).await?
             }
-            _ => resolve_element(&target, platform, udid).await.is_err(),
+            _ => match resolve_element(&target, platform, udid).await {
+                Ok(_) => false,
+                Err(err) if is_element_not_found_error(err.as_ref()) => true,
+                Err(err) => return Err(err),
+            },
         };
 
         if gone {
@@ -191,7 +202,7 @@ async fn wait_idle(
             Platform::Ios => current_ui_hash_ios(udid, Some("screenshot"), Some(1)).await?,
             Platform::Android => {
                 let snapshot = take_snapshot(platform, udid).await?;
-                snapshot.elements.len().to_string()
+                serde_json::to_string(&snapshot.elements)?
             }
         };
 

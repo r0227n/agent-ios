@@ -9,6 +9,10 @@ use crate::helpers::client::CommandResult;
 use super::types::Snapshot;
 
 fn cache_dir() -> PathBuf {
+    if let Ok(path) = std::env::var("AGENT_MOBILE_SNAPSHOT_CACHE_DIR") {
+        return PathBuf::from(path);
+    }
+
     #[cfg(unix)]
     {
         PathBuf::from("/tmp/agent-mobile/snapshot-cache")
@@ -60,9 +64,18 @@ pub fn load_snapshot_cache(udid: &str) -> CommandResult<Option<Snapshot>> {
 }
 
 pub fn save_snapshot_cache(udid: &str, snapshot: &Snapshot) -> CommandResult {
-    fs::create_dir_all(cache_dir())?;
+    let dir = cache_dir();
+    fs::create_dir_all(&dir)?;
     let path = cache_path(udid);
-    fs::write(path, serde_json::to_string_pretty(snapshot)?)?;
+    let temp_path = dir.join(format!(".{}.{}.tmp", cache_key(udid), nanoid::nanoid!(8)));
+    fs::write(&temp_path, serde_json::to_string_pretty(snapshot)?)?;
+
+    #[cfg(windows)]
+    if path.exists() {
+        fs::remove_file(&path)?;
+    }
+
+    fs::rename(&temp_path, &path)?;
     update_session_last_snapshot(snapshot)?;
     Ok(())
 }
@@ -73,17 +86,18 @@ fn update_session_last_snapshot(snapshot: &Snapshot) -> CommandResult {
     };
 
     let state = crate::session::state::SessionState::new();
-    let Some(mut session) = state.get_session(&session_name)? else {
+    if state.get_session(&session_name)?.is_none() {
         return Ok(());
-    };
+    }
 
-    session.last_snapshot = Some(crate::session::state::SnapshotInfo {
-        snapshot_id: snapshot.snapshot_id.clone(),
-        timestamp: snapshot.timestamp,
-        ref_count: snapshot.elements.len(),
-    });
-    session.last_activity = Utc::now();
-    state.update_session(&session)?;
+    state.update_session_mut(&session_name, |session| {
+        session.last_snapshot = Some(crate::session::state::SnapshotInfo {
+            snapshot_id: snapshot.snapshot_id.clone(),
+            timestamp: snapshot.timestamp,
+            ref_count: snapshot.elements.len(),
+        });
+        session.last_activity = Utc::now();
+    })?;
     Ok(())
 }
 

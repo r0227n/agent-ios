@@ -202,6 +202,16 @@ impl SnapshotCollector {
         }
 
         if !has_scrollable_snapshot_elements(&all_elements) {
+            if let Some(ref progress) = progress_fn {
+                progress(CollectionProgress {
+                    scrolling_to_top: false,
+                    scroll_number: 0,
+                    total_elements: seen_ids.len(),
+                    new_elements: 0,
+                    completed: true,
+                    completion_reason: Some(CompletionReason::NoNewElements),
+                });
+            }
             return Ok(rebuild_snapshot(initial_snapshot, all_elements));
         }
 
@@ -263,9 +273,12 @@ impl SnapshotCollector {
                 Ok(snapshot) => snapshot,
                 Err(_) => break,
             };
-            latest_snapshot = snapshot.clone();
-            let new_count =
-                merge_snapshot_elements(&mut all_elements, snapshot.elements, &mut seen_ids);
+            let new_count = merge_snapshot_elements(
+                &mut all_elements,
+                snapshot.elements.clone(),
+                &mut seen_ids,
+            );
+            latest_snapshot = snapshot;
             previous_hash = current_hash;
 
             let (completed, reason) = if scroll_num >= self.config.max_scrolls {
@@ -378,7 +391,7 @@ fn merge_snapshot_elements(
     for element in new_elements {
         let key = element.element_id.clone().unwrap_or_else(|| {
             format!(
-                "{}|{:0.0}|{:0.0}",
+                "{}|{:.0},{:.0}",
                 element.element_type, element.frame.x, element.frame.y
             )
         });

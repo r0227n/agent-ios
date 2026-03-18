@@ -8,6 +8,7 @@ use std::process::Output;
 mod common;
 
 /// Run {COMMAND_NAME} command
+#[allow(dead_code)]
 fn run_command(args: &[&str]) -> Output {
     common::run_cli_command("{COMMAND_NAME}", args)
 }
