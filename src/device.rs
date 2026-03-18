@@ -11,6 +11,9 @@ use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::CommandResult;
 use crate::helpers::format::OutputFormat;
+use crate::helpers::target::resolve_target;
+
+pub use crate::helpers::target::detect_platform_from_udid;
 
 /// Device command arguments.
 #[derive(Args, Debug)]
@@ -97,40 +100,6 @@ pub struct DeviceInfo {
     pub device_type: Option<String>,
 }
 
-/// Detect platform from UDID by searching device lists.
-pub async fn detect_platform_from_udid(
-    udid: &str,
-) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
-    // Check iOS devices first
-    let mut last_err: Option<String> = None;
-
-    match agent_mobile_platform_ios::simctl::list_simulators() {
-        Ok(targets) => {
-            if targets.iter().any(|t| t.udid == udid) {
-                return Ok(Platform::Ios);
-            }
-        }
-        Err(e) => last_err = Some(format!("Failed to list iOS devices: {e}")),
-    }
-
-    // Check Android devices
-    if agent_mobile_platform_android::adb::is_adb_available() {
-        match agent_mobile_platform_android::adb::list_devices() {
-            Ok(devices) => {
-                if devices.iter().any(|(serial, _)| serial == udid) {
-                    return Ok(Platform::Android);
-                }
-            }
-            Err(e) => last_err = Some(format!("Failed to list Android devices: {e}")),
-        }
-    }
-
-    if let Some(err) = last_err {
-        return Err(format!("Platform detection failed for '{}': {}", udid, err).into());
-    }
-    Err(format!("Device not found: {}", udid).into())
-}
-
 /// Execute the device command.
 pub async fn run(args: DeviceArgs) -> CommandResult {
     match args.command {
@@ -160,26 +129,12 @@ pub async fn run(args: DeviceArgs) -> CommandResult {
             execute_shutdown(platform, &udid).await
         }
         Some(DeviceCommands::Pbcopy { text, udid }) => {
-            let (platform, resolved_udid) = match &udid {
-                Some(u) => (detect_platform_from_udid(u).await?, u.clone()),
-                None => {
-                    let platform = DeviceResolver::detect_platform().await?;
-                    let udid = get_default_udid(platform).await?;
-                    (platform, udid)
-                }
-            };
-            execute_pbcopy(platform, &resolved_udid, &text).await
+            let target = resolve_target(udid.as_deref()).await?;
+            execute_pbcopy(target.platform, &target.udid, &text).await
         }
         Some(DeviceCommands::Pbpaste { udid }) => {
-            let (platform, resolved_udid) = match &udid {
-                Some(u) => (detect_platform_from_udid(u).await?, u.clone()),
-                None => {
-                    let platform = DeviceResolver::detect_platform().await?;
-                    let udid = get_default_udid(platform).await?;
-                    (platform, udid)
-                }
-            };
-            execute_pbpaste(platform, &resolved_udid).await
+            let target = resolve_target(udid.as_deref()).await?;
+            execute_pbpaste(target.platform, &target.udid).await
         }
         None => {
             // Default: list both platforms
@@ -365,23 +320,6 @@ async fn execute_shutdown(platform: Platform, udid: &str) -> CommandResult {
 
             println!("Shutdown emulator: {}", udid);
             Ok(())
-        }
-    }
-}
-
-/// Get default UDID for the platform.
-async fn get_default_udid(
-    platform: Platform,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    match platform {
-        Platform::Ios => Ok(agent_mobile_platform_ios::simctl::get_booted_simulator()?.udid),
-        Platform::Android => {
-            let devices = agent_mobile_platform_android::adb::list_devices()?;
-            if let Some((serial, _)) = devices.first() {
-                Ok(serial.clone())
-            } else {
-                Err("No Android device connected".into())
-            }
         }
     }
 }

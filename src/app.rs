@@ -11,11 +11,11 @@ use serde::Serialize;
 use tempfile::TempDir;
 
 use agent_mobile_core::Platform;
-use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::{DeviceArgs, DeviceFormatArgs};
 use crate::helpers::format::OutputFormat;
+use crate::helpers::target::{resolve_target, ResolvedTarget};
 
 /// App command arguments.
 #[derive(Args, Debug)]
@@ -179,17 +179,11 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             bundle_id,
             mut device_output,
         } => {
-            // Apply session UDID if not explicitly set
-            if device_output.udid.is_none() {
-                device_output.udid = resolved_udid;
-            }
-            let platform = match device_output.udid.as_deref() {
-                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-                None => DeviceResolver::detect_platform().await?,
-            };
+            let target =
+                resolve_app_target(&mut device_output.udid, resolved_udid.as_deref()).await?;
             execute_launch(
-                platform,
-                device_output.udid.as_deref(),
+                target.platform,
+                Some(target.udid.as_str()),
                 &bundle_id,
                 &device_output.format,
             )
@@ -199,29 +193,18 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             bundle_id,
             mut device,
         } => {
-            if device.udid.is_none() {
-                device.udid = resolved_udid;
-            }
-            let platform = match device.udid.as_deref() {
-                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-                None => DeviceResolver::detect_platform().await?,
-            };
-            execute_terminate(platform, device.udid.as_deref(), &bundle_id).await
+            let target = resolve_app_target(&mut device.udid, resolved_udid.as_deref()).await?;
+            execute_terminate(target.platform, Some(target.udid.as_str()), &bundle_id).await
         }
         AppCommands::Install {
             path,
             mut device_output,
         } => {
-            if device_output.udid.is_none() {
-                device_output.udid = resolved_udid;
-            }
-            let platform = match device_output.udid.as_deref() {
-                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-                None => DeviceResolver::detect_platform().await?,
-            };
+            let target =
+                resolve_app_target(&mut device_output.udid, resolved_udid.as_deref()).await?;
             execute_install(
-                platform,
-                device_output.udid.as_deref(),
+                target.platform,
+                Some(target.udid.as_str()),
                 &path,
                 &device_output.format,
             )
@@ -231,26 +214,15 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             bundle_id,
             mut device,
         } => {
-            if device.udid.is_none() {
-                device.udid = resolved_udid;
-            }
-            let platform = match device.udid.as_deref() {
-                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-                None => DeviceResolver::detect_platform().await?,
-            };
-            execute_uninstall(platform, device.udid.as_deref(), &bundle_id).await
+            let target = resolve_app_target(&mut device.udid, resolved_udid.as_deref()).await?;
+            execute_uninstall(target.platform, Some(target.udid.as_str()), &bundle_id).await
         }
         AppCommands::List { mut device_output } => {
-            if device_output.udid.is_none() {
-                device_output.udid = resolved_udid;
-            }
-            let platform = match device_output.udid.as_deref() {
-                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-                None => DeviceResolver::detect_platform().await?,
-            };
+            let target =
+                resolve_app_target(&mut device_output.udid, resolved_udid.as_deref()).await?;
             execute_list(
-                platform,
-                device_output.udid.as_deref(),
+                target.platform,
+                Some(target.udid.as_str()),
                 &device_output.format,
             )
             .await
@@ -260,56 +232,37 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
             bundle,
             mut device,
         } => {
-            if device.udid.is_none() {
-                device.udid = resolved_udid;
-            }
-            let platform = match device.udid.as_deref() {
-                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-                None => DeviceResolver::detect_platform().await?,
-            };
-            let udid = match &device.udid {
-                Some(u) => u.clone(),
-                None => get_default_udid(platform).await?,
-            };
-            execute_grant(platform, &udid, &bundle, &permission).await
+            let target = resolve_app_target(&mut device.udid, resolved_udid.as_deref()).await?;
+            execute_grant(target.platform, &target.udid, &bundle, &permission).await
         }
         AppCommands::Revoke {
             permission,
             bundle,
             mut device,
         } => {
-            if device.udid.is_none() {
-                device.udid = resolved_udid;
-            }
-            let platform = match device.udid.as_deref() {
-                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-                None => DeviceResolver::detect_platform().await?,
-            };
-            let udid = match &device.udid {
-                Some(u) => u.clone(),
-                None => get_default_udid(platform).await?,
-            };
-            execute_revoke(platform, &udid, &bundle, &permission).await
+            let target = resolve_app_target(&mut device.udid, resolved_udid.as_deref()).await?;
+            execute_revoke(target.platform, &target.udid, &bundle, &permission).await
         }
         AppCommands::Reset {
             permission,
             bundle,
             mut device,
         } => {
-            if device.udid.is_none() {
-                device.udid = resolved_udid;
-            }
-            let platform = match device.udid.as_deref() {
-                Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-                None => DeviceResolver::detect_platform().await?,
-            };
-            let udid = match &device.udid {
-                Some(u) => u.clone(),
-                None => get_default_udid(platform).await?,
-            };
-            execute_reset(platform, &udid, &bundle, &permission).await
+            let target = resolve_app_target(&mut device.udid, resolved_udid.as_deref()).await?;
+            execute_reset(target.platform, &target.udid, &bundle, &permission).await
         }
     }
+}
+
+async fn resolve_app_target(
+    udid: &mut Option<String>,
+    resolved_udid: Option<&str>,
+) -> CommandResult<ResolvedTarget> {
+    if udid.is_none() {
+        *udid = resolved_udid.map(ToOwned::to_owned);
+    }
+
+    resolve_target(udid.as_deref()).await
 }
 
 /// Execute app launch.
@@ -483,26 +436,6 @@ async fn execute_list(
                 }
             }
             Ok(())
-        }
-    }
-}
-
-/// Get default UDID for the platform.
-async fn get_default_udid(
-    platform: Platform,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    match platform {
-        Platform::Ios => {
-            let booted = agent_mobile_platform_ios::simctl::get_booted_simulator()?;
-            Ok(booted.udid)
-        }
-        Platform::Android => {
-            let devices = agent_mobile_platform_android::adb::list_devices()?;
-            if let Some((serial, _)) = devices.first() {
-                Ok(serial.clone())
-            } else {
-                Err("No Android device connected".into())
-            }
         }
     }
 }

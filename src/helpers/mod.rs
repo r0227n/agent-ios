@@ -8,9 +8,11 @@
 //! - [`ios`]: Shared iOS helpers for screen metrics and device-specific logic
 //! - [`signal`]: Ctrl+C signal handling
 //! - [`output`]: Output destination (stdout/file) abstraction
+//! - [`target`]: Shared platform/UDID resolution helpers
 
 pub mod client;
 pub mod common_args;
 pub mod format;
 pub mod ios;
 pub mod signal;
+pub mod target;

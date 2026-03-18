@@ -1,12 +1,13 @@
 //! Console command for streaming device logs
 
 use agent_mobile_core::OutputWriter;
-use agent_mobile_gateway::{stream_console_logs, DeviceResolver};
+use agent_mobile_gateway::stream_console_logs;
 use clap::Args;
 
 use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::signal::setup_ctrl_c_handler;
+use crate::helpers::target::resolve_target;
 
 /// Console output streaming arguments
 #[derive(Args)]
@@ -22,11 +23,7 @@ pub struct ConsoleArgs {
 
 /// Run the console command
 pub async fn run(args: ConsoleArgs) -> CommandResult {
-    // Use gateway for platform detection, respecting explicit UDID
-    let platform = match args.device.udid.as_deref() {
-        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-        None => DeviceResolver::detect_platform().await?,
-    };
+    let target = resolve_target(args.device.udid.as_deref()).await?;
 
     // Create output writer
     let writer = match args.output.as_deref() {
@@ -41,7 +38,7 @@ pub async fn run(args: ConsoleArgs) -> CommandResult {
     let stop_rx = setup_ctrl_c_handler();
 
     // Stream logs via gateway
-    stream_console_logs(platform, args.device.udid.as_deref(), writer, stop_rx).await?;
+    stream_console_logs(target.platform, Some(target.udid.as_str()), writer, stop_rx).await?;
 
     Ok(())
 }

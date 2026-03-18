@@ -160,29 +160,6 @@ async fn show_session(current_session: Option<&str>, format: OutputFormat) -> Co
     Ok(())
 }
 
-/// Detect platform from UDID by searching device lists.
-async fn detect_platform_from_udid(
-    udid: &str,
-) -> Result<Platform, Box<dyn std::error::Error + Send + Sync>> {
-    // Check iOS devices first
-    if let Ok(targets) = agent_mobile_platform_ios::simctl::list_simulators() {
-        if targets.iter().any(|t| t.udid == udid) {
-            return Ok(Platform::Ios);
-        }
-    }
-
-    // Check Android devices
-    if agent_mobile_platform_android::adb::is_adb_available() {
-        if let Ok(devices) = agent_mobile_platform_android::adb::list_devices() {
-            if devices.iter().any(|(serial, _)| serial == udid) {
-                return Ok(Platform::Android);
-            }
-        }
-    }
-
-    Err(format!("Device not found: {}", udid).into())
-}
-
 /// Create a new session
 async fn create_session(name: String, udid: String) -> CommandResult {
     let state = SessionState::new();
@@ -193,7 +170,7 @@ async fn create_session(name: String, udid: String) -> CommandResult {
     }
 
     // Auto-detect platform from UDID
-    let platform = detect_platform_from_udid(&udid).await?;
+    let platform: Platform = crate::helpers::target::detect_platform_from_udid(&udid).await?;
 
     let now = Utc::now();
     let data = SessionData {
