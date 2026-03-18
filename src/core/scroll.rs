@@ -12,8 +12,8 @@ use agent_mobile_core::{Platform, ScrollDirection};
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, ElementTarget};
-use super::tap::take_snapshot;
+use super::ref_resolver::ElementTarget;
+use super::tap::resolve_element;
 use agent_mobile_gateway::DeviceResolver;
 
 /// Default scroll distance (shorter than swipe)
@@ -95,8 +95,7 @@ async fn parse_scroll_args(
     let (cx, cy) = if let Some(within_target) = within_ref {
         // Scroll within a specific element
         let target = ElementTarget::parse(within_target);
-        let snapshot = take_snapshot(platform, udid).await?;
-        let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+        let element = resolve_element(&target, platform, udid).await?;
         element.center()
     } else {
         // Scroll at screen center

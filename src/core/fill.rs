@@ -12,8 +12,8 @@ use agent_mobile_core::Platform;
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
-use super::ref_resolver::{self, ElementTarget};
-use super::tap::take_snapshot;
+use super::ref_resolver::ElementTarget;
+use super::tap::resolve_element;
 use agent_mobile_gateway::DeviceResolver;
 
 /// Arguments for the fill command
@@ -38,10 +38,7 @@ pub async fn run(args: FillArgs) -> CommandResult {
     };
     let target = ElementTarget::parse(&args.target);
 
-    // Get snapshot and resolve element
-    let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
-
-    let element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+    let element = resolve_element(&target, platform, args.device.udid.as_deref()).await?;
     let (x, y) = element.center();
 
     // Execute fill: tap -> clear -> type

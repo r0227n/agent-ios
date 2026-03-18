@@ -13,7 +13,7 @@ use tempfile::TempDir;
 use agent_mobile_core::Platform;
 use agent_mobile_gateway::DeviceResolver;
 
-use crate::helpers::client::CommandResult;
+use crate::helpers::client::{prepare_xcuitest_with_policy, AppContextPolicy, CommandResult};
 use crate::helpers::common_args::{DeviceArgs, DeviceFormatArgs};
 use crate::helpers::format::OutputFormat;
 
@@ -323,6 +323,10 @@ async fn execute_launch(
         Platform::Ios => {
             let udid = resolve_ios_udid(udid)?;
             let pid = agent_mobile_platform_ios::coresim::launch_app(&udid, bundle_id)?;
+            crate::session::app_context::set_active_app(&udid, bundle_id)?;
+            let (_, client, _) =
+                prepare_xcuitest_with_policy(Some(&udid), AppContextPolicy::RestoreIfUnset).await?;
+            client.set_app(bundle_id).await?;
             println!("Launched {} (pid: {})", bundle_id, pid);
             Ok(())
         }
@@ -345,6 +349,7 @@ async fn execute_terminate(
         Platform::Ios => {
             let udid = resolve_ios_udid(udid)?;
             agent_mobile_platform_ios::coresim::terminate_app(&udid, bundle_id)?;
+            crate::session::app_context::clear_active_app(&udid)?;
             println!("Terminated {}", bundle_id);
             Ok(())
         }

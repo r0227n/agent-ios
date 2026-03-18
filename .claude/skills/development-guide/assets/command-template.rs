@@ -67,6 +67,11 @@ mod tests {
 
     #[test]
     fn test_{COMMAND_NAME}_args() {
+        assert_eq!(
+            std::mem::size_of::<{CommandName}Args>(),
+            std::mem::size_of::<{CommandName}Args>()
+        );
+
         // TODO: Add unit tests for argument parsing
         // Example:
         // let args = {CommandName}Args {

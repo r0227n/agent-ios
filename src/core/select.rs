@@ -18,9 +18,9 @@ use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
 
-use super::ref_resolver::{self, ElementTarget};
+use super::ref_resolver::ElementTarget;
 use super::swipe::execute_swipe_ios;
-use super::tap::{execute_tap, take_snapshot};
+use super::tap::{execute_tap, resolve_element, take_snapshot};
 
 /// Arguments for the select command
 #[derive(Args, Debug)]
@@ -73,8 +73,7 @@ async fn run_ios(args: SelectArgs) -> CommandResult {
     let format = args.format;
 
     // 1. Find and tap the picker to activate it
-    let snapshot = take_snapshot(Platform::Ios, udid).await?;
-    let picker_element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+    let picker_element = resolve_element(&target, Platform::Ios, udid).await?;
     let (picker_x, picker_y) = picker_element.center();
 
     execute_tap(Platform::Ios, udid, picker_x, picker_y).await?;
@@ -161,8 +160,7 @@ async fn run_android(args: SelectArgs) -> CommandResult {
     let format = args.format;
 
     // 1. Find and tap the spinner to open dropdown
-    let snapshot = take_snapshot(Platform::Android, udid).await?;
-    let spinner_element = ref_resolver::resolve_from_snapshot(&snapshot, &target)?;
+    let spinner_element = resolve_element(&target, Platform::Android, udid).await?;
     let (spinner_x, spinner_y) = spinner_element.center();
 
     execute_tap(Platform::Android, udid, spinner_x, spinner_y).await?;

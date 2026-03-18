@@ -575,9 +575,12 @@ mod tests {
         Snapshot {
             snapshot_id: "test_snap".to_string(),
             timestamp: Utc::now(),
+            active_bundle_id: None,
+            snapshot_generation: None,
             elements: vec![
                 SnapshotElement {
                     ref_id: "@e1".to_string(),
+                    element_id: None,
                     element_type: "Button".to_string(),
                     label: Some("Login".to_string()),
                     frame: Frame {
@@ -597,6 +600,7 @@ mod tests {
                 },
                 SnapshotElement {
                     ref_id: "@e2".to_string(),
+                    element_id: None,
                     element_type: "TextField".to_string(),
                     label: Some("Email".to_string()),
                     frame: Frame {
@@ -616,6 +620,7 @@ mod tests {
                 },
                 SnapshotElement {
                     ref_id: "@e3".to_string(),
+                    element_id: None,
                     element_type: "Button".to_string(),
                     label: Some("Submit".to_string()),
                     frame: Frame {
@@ -635,6 +640,7 @@ mod tests {
                 },
                 SnapshotElement {
                     ref_id: "@e4".to_string(),
+                    element_id: None,
                     element_type: "Button".to_string(),
                     label: Some("Cancel".to_string()),
                     frame: Frame {

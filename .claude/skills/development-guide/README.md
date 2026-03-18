@@ -224,7 +224,7 @@ git commit -m "feat: add <command> command"
 
 **解決**:
 ```bash
-chmod +x .claude/skills/agent-mobile-dev/scripts/*.sh
+chmod +x .claude/skills/development-guide/scripts/*.sh
 ```
 
 ### 実機確認でコマンドが見つからない

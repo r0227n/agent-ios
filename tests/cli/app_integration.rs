@@ -4,8 +4,10 @@
 
 use crate::common::{
     assert_failure, assert_stdout_contains, assert_success, assert_valid_json,
-    ensure_companion_running, get_available_udid, get_test_bundle_id, run_cli_command_with_udid,
+    ensure_companion_running, get_available_udid, get_stdout, get_test_bundle_id,
+    run_cli_command_with_timeout, run_cli_command_with_udid,
 };
+use std::time::Duration;
 
 /// Test app list command.
 #[test]
@@ -137,6 +139,33 @@ fn test_app_launch_multiple() {
 
     let output2 = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
     assert_success(&output2, "app launch second");
+}
+
+/// Test app launch keeps the launched app in the runner context for the next command.
+#[test]
+fn test_app_launch_keeps_foreground_context_for_snapshot() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    let bundle_id = get_test_bundle_id();
+    let launch_output = run_cli_command_with_udid("app", &["launch", &bundle_id], &udid);
+    assert_success(&launch_output, "app launch");
+
+    let snapshot_output = run_cli_command_with_timeout(
+        "snapshot",
+        &["--no-scroll", "-f", "json", "--udid", &udid],
+        Duration::from_secs(60),
+    );
+    assert_success(&snapshot_output, "snapshot after app launch");
+
+    let stdout = get_stdout(&snapshot_output);
+    assert!(
+        !stdout.contains("XCUITestRunnerUITests-Runner")
+            && !stdout.contains("\"label\": \"XCUITestRunner\""),
+        "snapshot unexpectedly fell back to SpringBoard after launching {}:\n{}",
+        bundle_id,
+        stdout
+    );
 }
 
 // ============================================================================

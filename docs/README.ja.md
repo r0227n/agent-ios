@@ -4,6 +4,10 @@
 
 [English](../README.md)
 
+## 追加ドキュメント
+
+- [iOS Runner ドキュメント](ios-runner.ja.md)
+
 `agent-mobile` は、AI エージェントによるモバイルアプリのテストと自動化を想定した Rust 製 CLI です。現在の UI を取得し、`@e1` のような短い要素参照を生成し、`tap`、`fill`、`find`、`wait`、`screenshot` といった簡潔なコマンドでアプリを操作できます。
 
 > [!NOTE]

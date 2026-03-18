@@ -72,7 +72,7 @@ if [ -n "$booted_sim" ]; then
   log_info "$booted_sim"
 
   # Extract UDID
-  udid=$(echo "$booted_sim" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' || true)
+  udid=$(echo "$booted_sim" | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}' || true)
 else
   log_info "No booted simulator found"
 
@@ -84,7 +84,7 @@ else
   while IFS= read -r line; do
     if [[ "$line" =~ iPhone\ 1[5-9] ]] || [[ "$line" =~ iPhone\ [2-9][0-9] ]]; then
       sim_name=$(echo "$line" | sed 's/^[[:space:]]*//' | cut -d'(' -f1 | sed 's/[[:space:]]*$//')
-      sim_udid=$(echo "$line" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' || true)
+      sim_udid=$(echo "$line" | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}' || true)
       if [ -n "$sim_udid" ]; then
         target_sim="$sim_name"
         target_udid="$sim_udid"
@@ -98,7 +98,7 @@ else
     while IFS= read -r line; do
       if [[ "$line" =~ iPhone ]]; then
         sim_name=$(echo "$line" | sed 's/^[[:space:]]*//' | cut -d'(' -f1 | sed 's/[[:space:]]*$//')
-        sim_udid=$(echo "$line" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' || true)
+        sim_udid=$(echo "$line" | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}' || true)
         if [ -n "$sim_udid" ]; then
           target_sim="$sim_name"
           target_udid="$sim_udid"

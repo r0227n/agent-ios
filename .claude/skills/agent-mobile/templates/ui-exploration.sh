@@ -72,27 +72,45 @@ categorize_elements "$OUTPUT_DIR/full_snapshot.txt"
 echo "[4/8] Taking interactive-only snapshot..."
 agent-mobile snapshot -i > "$OUTPUT_DIR/interactive_snapshot.txt"
 INTERACTIVE_COUNT=$(count_elements "$OUTPUT_DIR/interactive_snapshot.txt")
-REDUCTION=$((100 - (INTERACTIVE_COUNT * 100 / FULL_COUNT)))
-echo "  Elements: $INTERACTIVE_COUNT ($REDUCTION% reduction)"
-echo "Interactive Snapshot (-i): $INTERACTIVE_COUNT elements ($REDUCTION% reduction)" >> "$REPORT_FILE"
+if [ "$FULL_COUNT" -eq 0 ]; then
+  REDUCTION="n/a"
+  echo "  Elements: $INTERACTIVE_COUNT (reduction unavailable; full snapshot had 0 elements)"
+  echo "Interactive Snapshot (-i): $INTERACTIVE_COUNT elements (reduction unavailable; full snapshot had 0 elements)" >> "$REPORT_FILE"
+else
+  REDUCTION=$((100 - (INTERACTIVE_COUNT * 100 / FULL_COUNT)))
+  echo "  Elements: $INTERACTIVE_COUNT ($REDUCTION% reduction)"
+  echo "Interactive Snapshot (-i): $INTERACTIVE_COUNT elements ($REDUCTION% reduction)" >> "$REPORT_FILE"
+fi
 categorize_elements "$OUTPUT_DIR/interactive_snapshot.txt"
 
 # Step 5: Compact snapshot
 echo "[5/8] Taking compact snapshot..."
 agent-mobile snapshot -i -c > "$OUTPUT_DIR/compact_snapshot.txt"
 COMPACT_COUNT=$(count_elements "$OUTPUT_DIR/compact_snapshot.txt")
-COMPACT_REDUCTION=$((100 - (COMPACT_COUNT * 100 / FULL_COUNT)))
-echo "  Elements: $COMPACT_COUNT ($COMPACT_REDUCTION% reduction)"
-echo "Compact Snapshot (-i -c): $COMPACT_COUNT elements ($COMPACT_REDUCTION% reduction)" >> "$REPORT_FILE"
+if [ "$FULL_COUNT" -eq 0 ]; then
+  COMPACT_REDUCTION="n/a"
+  echo "  Elements: $COMPACT_COUNT (reduction unavailable; full snapshot had 0 elements)"
+  echo "Compact Snapshot (-i -c): $COMPACT_COUNT elements (reduction unavailable; full snapshot had 0 elements)" >> "$REPORT_FILE"
+else
+  COMPACT_REDUCTION=$((100 - (COMPACT_COUNT * 100 / FULL_COUNT)))
+  echo "  Elements: $COMPACT_COUNT ($COMPACT_REDUCTION% reduction)"
+  echo "Compact Snapshot (-i -c): $COMPACT_COUNT elements ($COMPACT_REDUCTION% reduction)" >> "$REPORT_FILE"
+fi
 categorize_elements "$OUTPUT_DIR/compact_snapshot.txt"
 
 # Step 6: Depth-limited snapshot
 echo "[6/8] Taking depth-limited snapshot (depth=3)..."
 agent-mobile snapshot -i -c -d 3 > "$OUTPUT_DIR/depth_limited_snapshot.txt"
 DEPTH_COUNT=$(count_elements "$OUTPUT_DIR/depth_limited_snapshot.txt")
-DEPTH_REDUCTION=$((100 - (DEPTH_COUNT * 100 / FULL_COUNT)))
-echo "  Elements: $DEPTH_COUNT ($DEPTH_REDUCTION% reduction)"
-echo "Depth-Limited Snapshot (-i -c -d 3): $DEPTH_COUNT elements ($DEPTH_REDUCTION% reduction)" >> "$REPORT_FILE"
+if [ "$FULL_COUNT" -eq 0 ]; then
+  DEPTH_REDUCTION="n/a"
+  echo "  Elements: $DEPTH_COUNT (reduction unavailable; full snapshot had 0 elements)"
+  echo "Depth-Limited Snapshot (-i -c -d 3): $DEPTH_COUNT elements (reduction unavailable; full snapshot had 0 elements)" >> "$REPORT_FILE"
+else
+  DEPTH_REDUCTION=$((100 - (DEPTH_COUNT * 100 / FULL_COUNT)))
+  echo "  Elements: $DEPTH_COUNT ($DEPTH_REDUCTION% reduction)"
+  echo "Depth-Limited Snapshot (-i -c -d 3): $DEPTH_COUNT elements ($DEPTH_REDUCTION% reduction)" >> "$REPORT_FILE"
+fi
 categorize_elements "$OUTPUT_DIR/depth_limited_snapshot.txt"
 
 # Step 7: JSON snapshot for analysis
