@@ -135,7 +135,7 @@ Global Options:
 4. テスト戦略
    ├─ ユニットテスト: src/ 内の #[cfg(test)] mod tests
    ├─ 統合テスト: tests/cli/<name>_integration.rs
-   └─ 実機確認: /mobile-e2e ios or /mobile-e2e android (必須!)
+   └─ 実機確認: シミュレータ・エミュレータ・実機で agent-mobile を直接実行（必須!)
 ```
 
 ### 判断支援ツール
@@ -358,8 +358,9 @@ fn test_my_feature_no_device() {
 
 **iOS確認手順:**
 ```bash
-# 1. テスト環境起動
-/mobile-e2e ios
+# 1. テスト環境準備
+xcrun simctl list devices | grep Booted
+agent-mobile device list
 
 # 2. コマンド実行
 agent-mobile my-feature --udid <udid>
@@ -376,8 +377,9 @@ agent-mobile my-feature --udid invalid-udid
 
 **Android確認手順:**
 ```bash
-# 1. テスト環境起動
-/mobile-e2e android
+# 1. テスト環境準備
+adb devices
+agent-mobile device list
 
 # 2. コマンド実行
 agent-mobile my-feature --udid <udid>
@@ -732,7 +734,7 @@ iOS実装判断を支援します（XCUITest Runner or simctl の推奨判定）
   - 統合テスト戦略
   - 実機確認詳細手順
 - `tests/cli/common/mod.rs` ヘルパー関数リスト
-- **実機確認詳細手順（/mobile-e2eスキル使用）**
+- **実機確認詳細手順（直接検証フロー）**
 - TDDサイクル実践例
 
 ### references/architecture.md
@@ -757,7 +759,7 @@ iOS実装判断を支援します（XCUITest Runner or simctl の推奨判定）
 2. **生成**: `./scripts/new-command.sh <command>` でテンプレート生成
 3. **実装**: TODOコメントを埋める
 4. **テスト**: `cargo build && cargo test --verbose --bins`
-5. **実機確認**: `/mobile-e2e ios` or `/mobile-e2e android` で動作確認（必須!）
+5. **実機確認**: シミュレータ・エミュレータ・実機で `agent-mobile` を直接実行して動作確認（必須!）
 6. **統合テスト**: `cargo test --test cli -- --test-threads=1`
 7. **コミット**: `git commit -m "feat: add <command>"`
 

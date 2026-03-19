@@ -11,14 +11,14 @@
 - [ ] エラー/警告がないことを確認
 
 **iOS開発の場合:**
-- [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh` 実行成功
+- [ ] `./.agents/skills/development-guide/scripts/setup-ios.sh` 実行成功
 - [ ] Xcode Command Line Tools インストール確認
 - [ ] XCUITest Runner インストール確認
 - [ ] シミュレータ起動確認
 - [ ] `agent-mobile device list` でデバイス検出確認
 
 **Android開発の場合:**
-- [ ] `./.claude/skills/agent-mobile-dev/scripts/setup-android.sh` 実行成功
+- [ ] `./.agents/skills/development-guide/scripts/setup-android.sh` 実行成功
 - [ ] Android SDK (adb, emulator) インストール確認
 - [ ] adb server 起動確認 (TCP :5037)
 - [ ] エミュレータ起動確認
@@ -139,7 +139,8 @@
 
 ### iOS確認
 
-- [ ] `/mobile-e2e ios` でテスト環境起動
+- [ ] iOS シミュレータまたは実機を準備
+- [ ] `agent-mobile device list` で対象デバイス検出確認
 - [ ] コマンド実行: `agent-mobile <command> [args]`
 - [ ] シミュレータで結果を視覚確認:
   - [ ] UI操作が期待通りに動作
@@ -153,7 +154,8 @@
 
 ### Android確認
 
-- [ ] `/mobile-e2e android` でテスト環境起動
+- [ ] Android エミュレータまたは実機を準備
+- [ ] `agent-mobile device list` で対象デバイス検出確認
 - [ ] コマンド実行: `agent-mobile <command> [args]`
 - [ ] エミュレータで結果を視覚確認
 - [ ] 証跡保存: `agent-mobile screenshot /tmp/<command>_evidence.png`
