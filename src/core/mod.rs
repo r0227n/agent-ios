@@ -30,5 +30,6 @@ pub mod scroll;
 pub mod select;
 pub mod swipe;
 pub mod tap;
+pub mod text_input;
 pub mod type_cmd;
 pub mod wait;

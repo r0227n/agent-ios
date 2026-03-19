@@ -41,6 +41,9 @@ jobs:
     - name: Run tests
       run: cargo test --workspace --lib --bins --verbose
 
+    - name: Check CLI integration tests compile
+      run: cargo test --test cli --no-run --verbose
+
   lint:
     runs-on: macos-15-intel
     permissions:

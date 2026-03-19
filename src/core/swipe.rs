@@ -9,9 +9,11 @@
 use clap::Args;
 
 use agent_mobile_core::{Platform, ScrollDirection};
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::ios::get_ios_screen_size;
 
 use super::ref_resolver::ElementTarget;
 use super::tap::resolve_element;
@@ -133,7 +135,12 @@ async fn get_screen_center(platform: Platform, udid: Option<&str>) -> CommandRes
                 Err(_) => Ok((DEFAULT_SCREEN_WIDTH / 2.0, DEFAULT_SCREEN_HEIGHT / 2.0)),
             }
         }
-        Platform::Ios => Ok((DEFAULT_SCREEN_WIDTH / 2.0, DEFAULT_SCREEN_HEIGHT / 2.0)),
+        Platform::Ios => {
+            let (w, h) = get_ios_screen_size(udid)
+                .await
+                .unwrap_or((DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT));
+            Ok((w / 2.0, h / 2.0))
+        }
     }
 }
 
@@ -148,10 +155,21 @@ pub(crate) async fn execute_swipe_ios(
 ) -> CommandResult {
     let duration = duration.unwrap_or(0.3);
     with_xcuitest(udid, |client| async move {
-        client.swipe((x1, y1), (x2, y2), duration).await?;
-        Ok(())
+        execute_ios_swipe(&client, x1, y1, x2, y2, duration).await
     })
     .await
+}
+
+pub(crate) async fn execute_ios_swipe(
+    client: &XCUITestClient,
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+    duration: f64,
+) -> CommandResult {
+    client.swipe((x1, y1), (x2, y2), duration).await?;
+    Ok(())
 }
 
 /// Execute swipe on Android

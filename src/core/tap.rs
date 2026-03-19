@@ -14,11 +14,13 @@ use clap::Args;
 
 use agent_mobile_core::{extract_traits_for_type, is_interactive_type, Platform};
 use agent_mobile_gateway::DeviceResolver;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 use crate::helpers::client::{
-    prepare_xcuitest, prepare_xcuitest_with_policy, with_xcuitest, AppContextPolicy, CommandResult,
+    prepare_xcuitest_with_policy, with_xcuitest, AppContextPolicy, CommandResult,
 };
 use crate::helpers::common_args::DeviceArgs;
+use crate::helpers::ios::{get_ios_screen_size, get_ios_screen_size_from_client};
 
 use super::ref_resolver::{self, ElementTarget, ResolvedElement};
 
@@ -39,18 +41,37 @@ pub async fn run(args: TapArgs) -> CommandResult {
         Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
         None => DeviceResolver::detect_platform().await?,
     };
-    let target = ElementTarget::parse(&args.target);
+    match platform {
+        Platform::Ios => run_ios(args).await,
+        Platform::Android => run_android(args).await,
+    }
+}
 
-    // Handle special keys
+async fn run_ios(args: TapArgs) -> CommandResult {
+    let target = ElementTarget::parse(&args.target);
+    let (resolved_udid, client, _) = prepare_xcuitest_with_policy(
+        args.device.udid.as_deref(),
+        AppContextPolicy::RestoreIfUnset,
+    )
+    .await?;
+
     if let ElementTarget::Key(key) = &target {
-        return execute_key(platform, args.device.udid.as_deref(), key).await;
+        return execute_ios_key(&client, key).await;
     }
 
-    // Get coordinates from target
-    let (x, y) = resolve_coords(&target, platform, args.device.udid.as_deref()).await?;
+    let (x, y) = resolve_ios_coords(&target, &resolved_udid, &client).await?;
+    execute_ios_tap(&client, x, y).await
+}
 
-    // Execute tap
-    execute_tap(platform, args.device.udid.as_deref(), x, y).await
+async fn run_android(args: TapArgs) -> CommandResult {
+    let target = ElementTarget::parse(&args.target);
+
+    if let ElementTarget::Key(key) = &target {
+        return execute_key(Platform::Android, args.device.udid.as_deref(), key).await;
+    }
+
+    let (x, y) = resolve_coords(&target, Platform::Android, args.device.udid.as_deref()).await?;
+    execute_tap(Platform::Android, args.device.udid.as_deref(), x, y).await
 }
 
 /// Resolve target to coordinates
@@ -67,6 +88,22 @@ pub async fn resolve_coords(
         }
         ElementTarget::Ref(_) | ElementTarget::Text(_) => {
             let element = resolve_element(target, platform, udid).await?;
+            Ok(element.center())
+        }
+        ElementTarget::Key(_) => Err("Cannot resolve key to coordinates".into()),
+    }
+}
+
+async fn resolve_ios_coords(
+    target: &ElementTarget,
+    resolved_udid: &str,
+    client: &XCUITestClient,
+) -> CommandResult<(f64, f64)> {
+    match target {
+        ElementTarget::Coords(x, y) => Ok((*x, *y)),
+        ElementTarget::Position(position) => resolve_ios_position(position, client).await,
+        ElementTarget::Ref(_) | ElementTarget::Text(_) => {
+            let element = resolve_ios_element_with_client(target, resolved_udid, client).await?;
             Ok(element.center())
         }
         ElementTarget::Key(_) => Err("Cannot resolve key to coordinates".into()),
@@ -118,33 +155,28 @@ pub async fn resolve_position(
     }
 }
 
+async fn resolve_ios_position(
+    position: &str,
+    client: &XCUITestClient,
+) -> CommandResult<(f64, f64)> {
+    let (width, height) = get_ios_screen_size_from_client(client).await?;
+
+    match position {
+        "center" => Ok((width / 2.0, height / 2.0)),
+        _ => Err(format!("Unknown position: {}", position).into()),
+    }
+}
+
 /// Get screen dimensions
 pub async fn get_screen_size(platform: Platform, udid: Option<&str>) -> CommandResult<(f64, f64)> {
     match platform {
-        Platform::Ios => {
-            // Get screen size from snapshot's root element
-            get_ios_screen_size_from_snapshot(udid).await
-        }
+        Platform::Ios => get_ios_screen_size(udid).await,
         Platform::Android => {
             // Use adb to get actual screen size
             let (w, h) = agent_mobile_platform_android::adb::input::get_screen_size(udid).await?;
             Ok((w as f64, h as f64))
         }
     }
-}
-
-/// Get iOS screen size from snapshot's root element
-async fn get_ios_screen_size_from_snapshot(udid: Option<&str>) -> CommandResult<(f64, f64)> {
-    let (_, client, _) = prepare_xcuitest(udid).await?;
-    let snapshot = client
-        .snapshot(Some(0), false, false, true, Some(1))
-        .await?;
-    let frame = snapshot
-        .elements
-        .first()
-        .map(|element| &element.frame)
-        .ok_or("Could not determine screen size from snapshot")?;
-    Ok((frame.width, frame.height))
 }
 
 /// Take a fresh snapshot
@@ -181,19 +213,32 @@ pub async fn take_snapshot(
     }
 }
 
+pub(crate) async fn take_ios_snapshot_with_client(
+    client: &XCUITestClient,
+) -> CommandResult<crate::snapshot::types::Snapshot> {
+    crate::snapshot::capture_ios_snapshot(client, None).await
+}
+
 async fn resolve_ios_element(
     target: &ElementTarget,
     udid: Option<&str>,
 ) -> CommandResult<ResolvedElement> {
     let (resolved_udid, client, _) =
         prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
+    resolve_ios_element_with_client(target, &resolved_udid, &client).await
+}
 
+pub(crate) async fn resolve_ios_element_with_client(
+    target: &ElementTarget,
+    resolved_udid: &str,
+    client: &XCUITestClient,
+) -> CommandResult<ResolvedElement> {
     match target {
-        ElementTarget::Text(text) => query_first_ios(&client, "text", text, false, false, None)
+        ElementTarget::Text(text) => query_first_ios(client, "text", text, false, false, None)
             .await?
             .ok_or_else(|| format!("Element with text '{}' not found", text).into()),
         ElementTarget::Ref(ref_id) => {
-            let cached_snapshot = crate::snapshot::cache::load_snapshot_cache(&resolved_udid)?;
+            let cached_snapshot = crate::snapshot::cache::load_snapshot_cache(resolved_udid)?;
             let Some(cached_snapshot) = cached_snapshot else {
                 return Err(format!(
                     "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
@@ -205,14 +250,14 @@ async fn resolve_ios_element(
             let cached_element =
                 ref_resolver::find_by_ref(&cached_snapshot, ref_id).ok_or_else(|| {
                     format!(
-                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
-                    ref_id
-                )
+                        "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
+                        ref_id
+                    )
                 })?;
 
             if let Some(element_id) = &cached_element.element_id {
                 if let Some(mut resolved) =
-                    query_first_ios(&client, "element_id", element_id, true, true, None).await?
+                    query_first_ios(client, "element_id", element_id, true, true, None).await?
                 {
                     resolved.ref_id = ref_id.clone();
                     return Ok(resolved);
@@ -319,46 +364,18 @@ pub async fn execute_tap(platform: Platform, udid: Option<&str>, x: f64, y: f64)
     }
 }
 
+pub(crate) async fn execute_ios_tap(client: &XCUITestClient, x: f64, y: f64) -> CommandResult {
+    client.tap(x, y).await?;
+    Ok(())
+}
+
 /// Execute key press
 async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> CommandResult {
     match platform {
         Platform::Ios => {
-            let key_lower = key.to_lowercase();
-
-            // Hardware buttons
-            if matches!(key_lower.as_str(), "home" | "lock" | "power" | "siri") {
-                let button = key_lower.clone();
-                return with_xcuitest(udid, |client| async move {
-                    client.button_press(&button).await?;
-                    Ok(())
-                })
-                .await;
-            }
-
-            // Keyboard keys
-            let key_name = match key_lower.as_str() {
-                "enter" | "return" => "return",
-                "escape" | "esc" => "escape",
-                "delete" | "backspace" => "delete",
-                "tab" => "tab",
-                "space" => "space",
-                "up" => "up",
-                "down" => "down",
-                "left" => "left",
-                "right" => "right",
-                _ => {
-                    return Err(format!(
-                        "Unknown key: {}. Valid keys: home, lock, siri, enter, tab, space, escape, delete, up, down, left, right",
-                        key
-                    )
-                    .into())
-                }
-            };
-
-            let key_name = key_name.to_string();
+            let key = key.to_string();
             with_xcuitest(udid, |client| async move {
-                client.key_press(&key_name).await?;
-                Ok(())
+                execute_ios_key(&client, &key).await
             })
             .await
         }
@@ -395,4 +412,35 @@ async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> Comma
             Ok(())
         }
     }
+}
+
+pub(crate) async fn execute_ios_key(client: &XCUITestClient, key: &str) -> CommandResult {
+    let key_lower = key.to_lowercase();
+
+    if matches!(key_lower.as_str(), "home" | "lock" | "power" | "siri") {
+        client.button_press(&key_lower).await?;
+        return Ok(());
+    }
+
+    let key_name = match key_lower.as_str() {
+        "enter" | "return" => "return",
+        "escape" | "esc" => "escape",
+        "delete" | "backspace" => "delete",
+        "tab" => "tab",
+        "space" => "space",
+        "up" => "up",
+        "down" => "down",
+        "left" => "left",
+        "right" => "right",
+        _ => {
+            return Err(format!(
+                "Unknown key: {}. Valid keys: home, lock, siri, enter, tab, space, escape, delete, up, down, left, right",
+                key
+            )
+            .into())
+        }
+    };
+
+    client.key_press(key_name).await?;
+    Ok(())
 }

@@ -20,6 +20,7 @@ use clap::Args;
 use crate::helpers::client::{prepare_xcuitest_with_policy, AppContextPolicy, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::format::OutputFormat;
+use crate::helpers::ios::get_ios_screen_size_from_client;
 use types::Snapshot;
 
 const IOS_SNAPSHOT_MAX_NODES: u32 = 512;
@@ -153,10 +154,14 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
         capture_ios_snapshot(&client, depth).await?
     } else {
         // Default: Use collector with scrolling to capture visible elements from multiple positions.
+        let (screen_width, screen_height) = get_ios_screen_size_from_client(&client)
+            .await
+            .unwrap_or((390.0, 844.0));
         let config = collector::SnapshotCollectorConfig {
             max_scrolls,
             delay_ms: scroll_delay,
-            ..Default::default()
+            screen_width,
+            screen_height,
         };
         let snapshot_collector = collector::SnapshotCollector::new(config);
         snapshot_collector.collect_snapshot(&client, None).await?

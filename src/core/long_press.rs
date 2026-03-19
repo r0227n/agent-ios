@@ -11,6 +11,7 @@
 use clap::Args;
 
 use agent_mobile_core::Platform;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 use crate::helpers::client::{with_xcuitest, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
@@ -67,8 +68,7 @@ pub(crate) async fn execute_long_press(
     match platform {
         Platform::Ios => {
             with_xcuitest(udid, |client| async move {
-                client.long_press(x, y, duration).await?;
-                Ok(())
+                execute_ios_long_press(&client, x, y, duration).await
             })
             .await
         }
@@ -81,4 +81,14 @@ pub(crate) async fn execute_long_press(
             Ok(())
         }
     }
+}
+
+pub(crate) async fn execute_ios_long_press(
+    client: &XCUITestClient,
+    x: f64,
+    y: f64,
+    duration: f64,
+) -> CommandResult {
+    client.long_press(x, y, duration).await?;
+    Ok(())
 }

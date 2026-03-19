@@ -35,8 +35,7 @@ async fn stream_ios_console(
     let device_udid = if let Some(id) = udid {
         id.to_string()
     } else {
-        // Auto-select booted device
-        "booted".to_string()
+        agent_mobile_platform_ios::get_booted_simulator()?.udid
     };
 
     // Start log stream using simctl

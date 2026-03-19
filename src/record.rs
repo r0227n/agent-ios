@@ -14,11 +14,11 @@
 use clap::Args;
 
 use agent_mobile_core::Platform;
-use agent_mobile_gateway::DeviceResolver;
 
 use crate::helpers::client::CommandResult;
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::signal::setup_ctrl_c_handler;
+use crate::helpers::target::resolve_target;
 
 /// Arguments for the `record` command.
 #[derive(Args, Debug)]
@@ -82,18 +82,15 @@ fn resolve_output_path(output: Option<&str>) -> Result<String, std::io::Error> {
 
 /// Execute the record command
 pub async fn run(args: RecordArgs) -> CommandResult {
-    let platform = match args.device.udid.as_deref() {
-        Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
-        None => DeviceResolver::detect_platform().await?,
-    };
+    let target = resolve_target(args.device.udid.as_deref()).await?;
     let resolved_path = resolve_output_path(args.output.as_deref())?;
 
-    match platform {
+    match target.platform {
         Platform::Ios => {
-            execute_record_ios(args.device.udid.as_deref(), &resolved_path, args.time_limit).await
+            execute_record_ios(Some(target.udid.as_str()), &resolved_path, args.time_limit).await
         }
         Platform::Android => {
-            execute_record_android(args.device.udid.as_deref(), &resolved_path, args.time_limit)
+            execute_record_android(Some(target.udid.as_str()), &resolved_path, args.time_limit)
                 .await
         }
     }
@@ -107,11 +104,7 @@ async fn execute_record_ios(
 ) -> CommandResult {
     use tokio::process::Command;
 
-    // Determine UDID
-    let udid = match udid {
-        Some(u) => u.to_string(),
-        None => get_booted_simulator_udid().await?,
-    };
+    let udid = udid.ok_or("Missing target UDID")?.to_string();
 
     if let Some(secs) = time_limit {
         eprintln!(
@@ -228,18 +221,6 @@ fn send_sigint_to_child(child: &tokio::process::Child) {
             child.id()
         );
     }
-}
-
-/// Get the UDID of a booted simulator
-async fn get_booted_simulator_udid() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let booted =
-        tokio::task::spawn_blocking(agent_mobile_platform_ios::simctl::get_booted_simulator)
-            .await
-            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-                format!("spawn_blocking failed: {}", e).into()
-            })?
-            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { format!("{}", e).into() })?;
-    Ok(booted.udid)
 }
 
 /// Execute recording on Android using native ADB protocol.

@@ -8,12 +8,14 @@
 use clap::Args;
 
 use agent_mobile_core::Platform;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
-use crate::helpers::client::{with_xcuitest, CommandResult};
+use crate::helpers::client::{prepare_xcuitest_with_policy, AppContextPolicy, CommandResult};
 use crate::helpers::common_args::DeviceArgs;
 
 use super::ref_resolver::ElementTarget;
-use super::tap::resolve_element;
+use super::tap::{resolve_element, resolve_ios_element_with_client};
+use super::text_input::fill_text_input_ios;
 use agent_mobile_gateway::DeviceResolver;
 
 /// Arguments for the fill command
@@ -36,15 +38,13 @@ pub async fn run(args: FillArgs) -> CommandResult {
         Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
         None => DeviceResolver::detect_platform().await?,
     };
-    let target = ElementTarget::parse(&args.target);
-
-    let element = resolve_element(&target, platform, args.device.udid.as_deref()).await?;
-    let (x, y) = element.center();
-
-    // Execute fill: tap -> clear -> type
     match platform {
-        Platform::Ios => execute_fill_ios(args.device.udid.as_deref(), x, y, &args.text).await,
+        Platform::Ios => run_ios(args).await,
         Platform::Android => {
+            let target = ElementTarget::parse(&args.target);
+            let element = resolve_element(&target, platform, args.device.udid.as_deref()).await?;
+            let (x, y) = element.center();
+
             // Calculate clear length from existing value (Android still uses delete loop)
             let clear_len = element
                 .value
@@ -56,26 +56,26 @@ pub async fn run(args: FillArgs) -> CommandResult {
     }
 }
 
-/// Execute fill on iOS
-async fn execute_fill_ios(udid: Option<&str>, x: f64, y: f64, text: &str) -> CommandResult {
-    let text = text.to_string();
+async fn run_ios(args: FillArgs) -> CommandResult {
+    let target = ElementTarget::parse(&args.target);
+    let (resolved_udid, client, _) = prepare_xcuitest_with_policy(
+        args.device.udid.as_deref(),
+        AppContextPolicy::RestoreIfUnset,
+    )
+    .await?;
 
-    with_xcuitest(udid, |client| async move {
-        // 1. Tap to focus
-        client.tap(x, y).await?;
+    let element = resolve_ios_element_with_client(&target, &resolved_udid, &client).await?;
+    let (x, y) = element.center();
+    execute_fill_ios_with_client(&client, x, y, &args.text).await
+}
 
-        // Small delay to ensure focus
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-        // 2. Clear existing text (Select All + Delete)
-        client.clear_text().await?;
-
-        // 3. Type new text
-        client.type_text(&text).await?;
-
-        Ok(())
-    })
-    .await
+pub(crate) async fn execute_fill_ios_with_client(
+    client: &XCUITestClient,
+    x: f64,
+    y: f64,
+    text: &str,
+) -> CommandResult {
+    fill_text_input_ios(client, x, y, text).await
 }
 
 /// Execute fill on Android
