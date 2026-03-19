@@ -235,24 +235,20 @@ pub async fn run(args: FindArgs) -> CommandResult {
         None => DeviceResolver::detect_platform().await?,
     };
 
-    match platform {
-        Platform::Ios => run_ios(args).await,
-        Platform::Android => run_android(args).await,
-    }
-}
-
-async fn run_ios(args: FindArgs) -> CommandResult {
-    let (action_str, action_value) = extract_action(&args.locator);
-    let action = if let Some(action_str) = action_str {
-        Some(FindAction::parse(action_str, action_value.as_deref())?)
-    } else {
-        None
-    };
-    let udid = args.device.udid.clone();
+    let action = parse_action(&args.locator)?;
 
     if args.all && action.is_some() {
         return Err("--all cannot be used with an action (tap, fill, etc.)".into());
     }
+
+    match platform {
+        Platform::Ios => run_ios(args, action).await,
+        Platform::Android => run_android(args, action).await,
+    }
+}
+
+async fn run_ios(args: FindArgs, action: Option<FindAction>) -> CommandResult {
+    let udid = args.device.udid.clone();
 
     with_xcuitest(udid.as_deref(), |client| async move {
         let snapshot = take_ios_snapshot_with_client(&client).await?;
@@ -268,26 +264,20 @@ async fn run_ios(args: FindArgs) -> CommandResult {
     .await
 }
 
-async fn run_android(args: FindArgs) -> CommandResult {
+async fn run_android(args: FindArgs, action: Option<FindAction>) -> CommandResult {
     let platform = Platform::Android;
-
-    // Extract action from locator
-    let (action_str, action_value) = extract_action(&args.locator);
-    let action = if let Some(action_str) = action_str {
-        Some(FindAction::parse(action_str, action_value.as_deref())?)
-    } else {
-        None
-    };
-
-    // Validate: --all cannot be used with an action
-    if args.all && action.is_some() {
-        return Err("--all cannot be used with an action (tap, fill, etc.)".into());
-    }
 
     // Get snapshot
     let snapshot = take_snapshot(platform, args.device.udid.as_deref()).await?;
 
     finish_run(&args, &snapshot, platform, None, action.as_ref()).await
+}
+
+fn parse_action(locator: &FindLocator) -> Result<Option<FindAction>, String> {
+    let (action_str, action_value) = extract_action(locator);
+    action_str
+        .map(|action_str| FindAction::parse(action_str, action_value.as_deref()))
+        .transpose()
 }
 
 async fn finish_run(

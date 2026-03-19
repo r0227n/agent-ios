@@ -360,7 +360,7 @@ fn build_products_need_refresh(project_path: &Path) -> bool {
     let built_at = earliest_product_mtime(&products).unwrap_or(SystemTime::UNIX_EPOCH);
     latest_source_mtime(project_root)
         .map(|source_mtime| source_mtime > built_at)
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 fn earliest_product_mtime(products: &RunnerBuildProducts) -> Option<SystemTime> {
@@ -398,6 +398,35 @@ fn latest_source_mtime_recursive(
         }
 
         if !file_type.is_file() {
+            continue;
+        }
+
+        let file_name = file_name.to_string_lossy();
+        if file_name.starts_with('.') || file_name.ends_with(".log") {
+            continue;
+        }
+
+        let is_source_file = entry_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| {
+                matches!(
+                    ext,
+                    "swift"
+                        | "m"
+                        | "mm"
+                        | "h"
+                        | "hpp"
+                        | "c"
+                        | "cc"
+                        | "cpp"
+                        | "plist"
+                        | "xib"
+                        | "storyboard"
+                        | "pbxproj"
+                )
+            });
+        if !is_source_file {
             continue;
         }
 

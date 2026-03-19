@@ -225,52 +225,7 @@ async fn resolve_ios_element(
 ) -> CommandResult<ResolvedElement> {
     let (resolved_udid, client, _) =
         prepare_xcuitest_with_policy(udid, AppContextPolicy::RestoreIfUnset).await?;
-
-    match target {
-        ElementTarget::Text(text) => query_first_ios(&client, "text", text, false, false, None)
-            .await?
-            .ok_or_else(|| format!("Element with text '{}' not found", text).into()),
-        ElementTarget::Ref(ref_id) => {
-            let cached_snapshot = crate::snapshot::cache::load_snapshot_cache(&resolved_udid)?;
-            let Some(cached_snapshot) = cached_snapshot else {
-                return Err(format!(
-                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
-                    ref_id
-                )
-                .into());
-            };
-
-            let cached_element =
-                ref_resolver::find_by_ref(&cached_snapshot, ref_id).ok_or_else(|| {
-                    format!(
-                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
-                    ref_id
-                )
-                })?;
-
-            if let Some(element_id) = &cached_element.element_id {
-                if let Some(mut resolved) =
-                    query_first_ios(&client, "element_id", element_id, true, true, None).await?
-                {
-                    resolved.ref_id = ref_id.clone();
-                    return Ok(resolved);
-                }
-            } else {
-                return Err(format!(
-                    "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
-                    ref_id
-                )
-                .into());
-            }
-
-            Err(format!(
-                "Element not found: {}\n\nHint: Run 'agent-mobile snapshot' to refresh refs.",
-                ref_id
-            )
-            .into())
-        }
-        _ => Err("Unsupported iOS target resolution".into()),
-    }
+    resolve_ios_element_with_client(target, &resolved_udid, &client).await
 }
 
 pub(crate) async fn resolve_ios_element_with_client(

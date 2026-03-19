@@ -66,4 +66,25 @@ mod tests {
 
         assert_eq!(screen_size_from_accessibility_json(&json), None);
     }
+
+    #[test]
+    fn test_screen_size_from_accessibility_json_missing_frame() {
+        let json = serde_json::json!({
+            "type": "Application"
+        });
+
+        assert_eq!(screen_size_from_accessibility_json(&json), None);
+    }
+
+    #[test]
+    fn test_screen_size_from_accessibility_json_missing_dimensions() {
+        let json = serde_json::json!({
+            "frame": {
+                "x": 0.0,
+                "y": 0.0
+            }
+        });
+
+        assert_eq!(screen_size_from_accessibility_json(&json), None);
+    }
 }

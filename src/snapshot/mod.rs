@@ -162,7 +162,6 @@ async fn run_ios(args: SnapshotArgs) -> CommandResult {
             delay_ms: scroll_delay,
             screen_width,
             screen_height,
-            ..Default::default()
         };
         let snapshot_collector = collector::SnapshotCollector::new(config);
         snapshot_collector.collect_snapshot(&client, None).await?
