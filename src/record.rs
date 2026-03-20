@@ -4,11 +4,11 @@
 //! device-backed capture flows where available.
 //!
 //! ```bash
-//! agent-mobile record                        # Ctrl+Cまで録画、カレントディレクトリに保存
-//! agent-mobile record --time-limit 30        # 30秒間録画
-//! agent-mobile record --output /tmp/         # 出力ディレクトリ指定
-//! agent-mobile record --output /tmp/demo.mp4 # 出力ファイル指定
-//! agent-mobile record -p android -t 60       # Android 60秒録画
+//! agent-mobile record                        # Record until Ctrl+C and save in the current directory
+//! agent-mobile record --time-limit 30        # Record for 30 seconds
+//! agent-mobile record --output /tmp/         # Specify an output directory
+//! agent-mobile record --output /tmp/demo.mp4 # Specify an output file
+//! agent-mobile record -p android -t 60       # Record Android for 60 seconds
 //! ```
 
 use clap::Args;
