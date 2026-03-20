@@ -24,7 +24,7 @@ pub struct Cli {
 /// Top-level commands supported by the CLI.
 #[derive(Subcommand)]
 pub enum Commands {
-    // ==================== Core Commands (AI Agent 向け) ====================
+    // ==================== Core Commands (for AI agents) ====================
     /// Tap an element by ref, text, coordinates, or key
     Tap(crate::core::tap::TapArgs),
 

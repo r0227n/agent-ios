@@ -6,6 +6,7 @@
 
 ## Additional docs
 
+- Web documentation: https://r0227n.github.io/agent-mobile/
 - [iOS Runner documentation (Japanese)](docs/ios-runner.ja.md)
 
 `agent-mobile` is a Rust CLI for agentic mobile testing and automation. It captures the current UI, assigns short element references such as `@e1`, and lets you drive apps with concise commands like `tap`, `fill`, `find`, `wait`, and `screenshot`.
