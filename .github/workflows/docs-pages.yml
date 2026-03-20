@@ -36,6 +36,10 @@ jobs:
       - name: Build workspace documentation
         run: cargo doc --workspace --no-deps
 
+      - name: Promote crate docs to Pages root
+        run: |
+          cp -R target/doc/agent_mobile/. target/doc/
+
       - name: Ensure Pages root exists
         run: test -f target/doc/index.html
 
