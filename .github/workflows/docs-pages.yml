@@ -36,9 +36,10 @@ jobs:
       - name: Build workspace documentation
         run: cargo doc --workspace --no-deps
 
-      - name: Promote crate docs to Pages root
+      - name: Expose rustdoc index at Pages root
         run: |
-          cp -R target/doc/agent_mobile/. target/doc/
+          cp target/doc/agent_mobile/index.html target/doc/index.html
+          perl -0pi -e 's#\.\./static\.files/#./static.files/#g; s#\.\./crates\.js#./crates.js#g; s#\.\./src/#./src/#g; s#\.\./agent_mobile/index\.html#./agent_mobile/index.html#g; s#data-root-path="\.\./"#data-root-path="./"#g; s#data-static-root-path="\.\./static\.files/"#data-static-root-path="./static.files/"#g' target/doc/index.html
 
       - name: Ensure Pages root exists
         run: test -f target/doc/index.html
