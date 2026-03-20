@@ -11,6 +11,7 @@ use serde::Serialize;
 use tempfile::TempDir;
 
 use agent_mobile_core::Platform;
+use agent_mobile_platform_ios::xcuitest::XCUITestClient;
 
 use crate::helpers::client::{prepare_xcuitest_with_policy, AppContextPolicy, CommandResult};
 use crate::helpers::common_args::{DeviceArgs, DeviceFormatArgs};
@@ -32,6 +33,10 @@ pub enum AppCommands {
     Launch {
         /// Bundle ID (iOS) or package name (Android).
         bundle_id: String,
+
+        /// Best-effort fresh launch by terminating the app first.
+        #[arg(long)]
+        fresh: bool,
 
         /// Device selection and output formatting options.
         #[command(flatten)]
@@ -177,6 +182,7 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
     match args.command {
         AppCommands::Launch {
             bundle_id,
+            fresh,
             mut device_output,
         } => {
             let target =
@@ -185,6 +191,7 @@ pub async fn run(args: AppArgs, resolved_udid: Option<String>) -> CommandResult 
                 target.platform,
                 Some(target.udid.as_str()),
                 &bundle_id,
+                fresh,
                 &device_output.format,
             )
             .await
@@ -270,11 +277,29 @@ async fn execute_launch(
     platform: Platform,
     udid: Option<&str>,
     bundle_id: &str,
+    fresh: bool,
     _output: &OutputFormat,
 ) -> CommandResult {
     match platform {
         Platform::Ios => {
             let udid = resolve_ios_udid(udid)?;
+            if fresh {
+                let _ = agent_mobile_platform_ios::coresim::terminate_app(&udid, bundle_id);
+                let pid = agent_mobile_platform_ios::coresim::launch_app(&udid, bundle_id)?;
+                crate::session::app_context::set_active_app(&udid, bundle_id)?;
+
+                // If a runner is already active for this simulator, keep its app context aligned.
+                let client = XCUITestClient::default();
+                if let Ok(ready) = client.ready_status().await {
+                    if ready.udid.as_deref() == Some(udid.as_str()) {
+                        let _ = client.set_app(bundle_id).await;
+                    }
+                }
+
+                println!("Launched {} (fresh) (pid: {})", bundle_id, pid);
+                return Ok(());
+            }
+
             let pid = agent_mobile_platform_ios::coresim::launch_app(&udid, bundle_id)?;
             crate::session::app_context::set_active_app(&udid, bundle_id)?;
             let (_, client, _) =
@@ -285,8 +310,15 @@ async fn execute_launch(
         }
         Platform::Android => {
             use agent_mobile_platform_android::adb::app;
+            if fresh {
+                let _ = app::terminate(udid, bundle_id).await;
+            }
             app::launch(udid, bundle_id).await?;
-            println!("Launched {}", bundle_id);
+            if fresh {
+                println!("Launched {} (fresh)", bundle_id);
+            } else {
+                println!("Launched {}", bundle_id);
+            }
             Ok(())
         }
     }

@@ -47,6 +47,19 @@ fn test_app_launch() {
     assert_stdout_contains(&output, "Launched");
 }
 
+/// Test app launch with a best-effort fresh start.
+#[test]
+fn test_app_launch_fresh() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    let bundle_id = get_test_bundle_id();
+    let output = run_cli_command_with_udid("app", &["launch", &bundle_id, "--fresh"], &udid);
+
+    assert_success(&output, "app launch --fresh");
+    assert_stdout_contains(&output, "(fresh)");
+}
+
 /// Test app terminate command.
 #[test]
 fn test_app_terminate() {
@@ -163,6 +176,33 @@ fn test_app_launch_keeps_foreground_context_for_snapshot() {
         !stdout.contains("XCUITestRunnerUITests-Runner")
             && !stdout.contains("\"label\": \"XCUITestRunner\""),
         "snapshot unexpectedly fell back to SpringBoard after launching {}:\n{}",
+        bundle_id,
+        stdout
+    );
+}
+
+/// Test app launch --fresh keeps the launched app in the runner context for the next command.
+#[test]
+fn test_app_launch_fresh_keeps_foreground_context_for_snapshot() {
+    let udid = get_available_udid();
+    ensure_companion_running(&udid);
+
+    let bundle_id = get_test_bundle_id();
+    let launch_output = run_cli_command_with_udid("app", &["launch", &bundle_id, "--fresh"], &udid);
+    assert_success(&launch_output, "app launch --fresh");
+
+    let snapshot_output = run_cli_command_with_timeout(
+        "snapshot",
+        &["--no-scroll", "-f", "json", "--udid", &udid],
+        Duration::from_secs(60),
+    );
+    assert_success(&snapshot_output, "snapshot after app launch --fresh");
+
+    let stdout = get_stdout(&snapshot_output);
+    assert!(
+        !stdout.contains("XCUITestRunnerUITests-Runner")
+            && !stdout.contains("\"label\": \"XCUITestRunner\""),
+        "snapshot unexpectedly fell back to SpringBoard after fresh launching {}:\n{}",
         bundle_id,
         stdout
     );

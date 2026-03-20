@@ -47,10 +47,8 @@ final class TouchHandler {
             XCUIDevice.shared.press(.home)
             return true
         case "volume_up", "volumeup", "volume-up":
-            // volumeUp is unavailable on iOS Simulator
             return false
         case "volume_down", "volumedown", "volume-down":
-            // volumeDown is unavailable on iOS Simulator
             return false
         default:
             return false

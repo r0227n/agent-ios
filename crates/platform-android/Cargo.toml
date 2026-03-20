@@ -3,9 +3,13 @@ name = "agent-mobile-platform-android"
 version = "0.1.0"
 edition = "2021"
 description = "Android platform implementation for agent-mobile"
+license = "MIT"
+repository = "https://github.com/r0227n/agent-mobile"
+homepage = "https://github.com/r0227n/agent-mobile"
+documentation = "https://r0227n.github.io/agent-mobile/"
 
 [dependencies]
-agent-mobile-core = { path = "../core" }
+agent-mobile-core = { version = "0.1.0", path = "../core" }
 
 # ADB protocol client (TCP :5037 direct communication)
 adb_client = "2.0"

@@ -3,11 +3,15 @@ name = "agent-mobile-gateway"
 version = "0.1.0"
 edition = "2021"
 description = "High-level API gateway for agent-mobile"
+license = "MIT"
+repository = "https://github.com/r0227n/agent-mobile"
+homepage = "https://github.com/r0227n/agent-mobile"
+documentation = "https://r0227n.github.io/agent-mobile/"
 
 [dependencies]
-agent-mobile-core = { path = "../core" }
-agent-mobile-platform-ios = { path = "../platform-ios" }
-agent-mobile-platform-android = { path = "../platform-android" }
+agent-mobile-core = { version = "0.1.0", path = "../core" }
+agent-mobile-platform-ios = { version = "0.1.0", path = "../platform-ios" }
+agent-mobile-platform-android = { version = "0.1.0", path = "../platform-android" }
 
 # Async runtime
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "sync", "process", "io-util", "fs"] }

@@ -3,9 +3,13 @@ name = "agent-mobile-platform-ios"
 version = "0.1.0"
 edition = "2021"
 description = "iOS platform implementation for agent-mobile"
+license = "MIT"
+repository = "https://github.com/r0227n/agent-mobile"
+homepage = "https://github.com/r0227n/agent-mobile"
+documentation = "https://r0227n.github.io/agent-mobile/"
 
 [dependencies]
-agent-mobile-core = { path = "../core" }
+agent-mobile-core = { version = "0.1.0", path = "../core" }
 
 # Async runtime
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "sync", "process"] }

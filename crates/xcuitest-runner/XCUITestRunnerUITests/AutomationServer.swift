@@ -401,7 +401,7 @@ final class AutomationServer: XCTestCase {
                         self.advanceSnapshotGeneration()
                         return .ok(["success": true])
                     } else {
-                        return .error("Unknown button: \(button). Valid: home, volume_up, volume_down")
+                        return .error("Unknown button: \(button). Valid: home")
                     }
                 }, completion: completion)
         }
