@@ -36,8 +36,49 @@ jobs:
       - name: Build workspace documentation
         run: cargo doc --workspace --no-deps
 
-      - name: Ensure rustdoc artifact exists
-        run: test -f target/doc/agent_mobile/index.html
+      - name: Prepare docs for Pages root
+        run: |
+          doc_root="target/doc"
+          crate_name="agent_mobile"
+          crate_root="$doc_root/$crate_name"
+
+          test -f "$crate_root/index.html"
+
+          tmp_list="$(mktemp)"
+          (
+            cd "$crate_root"
+            find . -type f -name '*.html' | sed 's#^\./##'
+          ) > "$tmp_list"
+
+          cp -R "$crate_root/." "$doc_root/"
+
+          while IFS= read -r rel_path; do
+            target_file="$doc_root/$rel_path"
+            perl -0pi -e '
+              sub reduce_prefix {
+                my ($prefix) = @_;
+                $prefix =~ s{^\.\./}{};
+                return $prefix eq q{} ? q{./} : $prefix;
+              }
+
+              s{((?:href|src)=["'"'"'])((?:\.\./)+)(static\.files/|src/|crates\.js)}
+               {$1 . reduce_prefix($2) . $3}gex;
+
+              s{((?:href|src)=["'"'"'])((?:\.\./)+)agent_mobile/index\.html}
+               {$1 . reduce_prefix($2) . q{index.html}}gex;
+
+              s{data-root-path="((?:\.\./)+)"}
+               {q{data-root-path="} . reduce_prefix($1) . q{"}}gex;
+
+              s{data-static-root-path="((?:\.\./)+)static\.files/"}
+               {q{data-static-root-path="} . reduce_prefix($1) . q{static.files/"}}gex;
+            ' "$target_file"
+          done < "$tmp_list"
+
+          rm -f "$tmp_list"
+
+      - name: Ensure rustdoc root exists
+        run: test -f target/doc/index.html
 
       - name: Disable Jekyll processing
         run: touch target/doc/.nojekyll
@@ -52,9 +93,9 @@ jobs:
     needs: build
     environment:
       name: github-pages
-      url: ${{ format('{0}/agent_mobile/', steps.deployment.outputs.page_url) }}
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Deploy to GitHub Pages
-        id: deploymentz
+        id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
