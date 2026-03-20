@@ -81,7 +81,7 @@ pub struct DoctorReport {
 
 /// Run all configured environment checks and print the report.
 pub async fn run(mut args: DoctorArgs) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // --json フラグが指定されている場合は format を Json に設定
+    // If the --json flag is specified, force the output format to JSON.
     if args.json {
         args.format = OutputFormat::Json;
     }
