@@ -16,7 +16,7 @@ agent-mobile CLI（Rust製モバイルE2Eテストツール）の新機能開発
 ## ディレクトリ構造
 
 ```
-.claude/skills/development-guide/
+.agents/skills/development-guide/
 ├── SKILL.md                          # メインスキル定義
 ├── scripts/                          # 開発支援スクリプト
 │   ├── setup-ios.sh                  # iOS環境自動セットアップ
@@ -152,7 +152,7 @@ cargo run -- doctor
 **内容:**
 - 3層テスト詳細（ユニット、統合、実機確認）
 - `tests/cli/common/mod.rs` ヘルパー関数リスト
-- 実機確認詳細手順（/mobile-e2eスキル使用）
+- 実機確認詳細手順（直接検証フロー）
 - TDDサイクル実践例
 
 #### 4.4. architecture.md
@@ -207,7 +207,6 @@ cargo test --verbose --bins
 cargo test --test cli <command> -- --test-threads=1
 
 # 6. 実機確認（必須!）
-/mobile-e2e ios
 agent-mobile <command> [args]
 agent-mobile screenshot /tmp/<command>_evidence.png
 
@@ -224,7 +223,7 @@ git commit -m "feat: add <command> command"
 
 **解決**:
 ```bash
-chmod +x .claude/skills/agent-mobile-dev/scripts/*.sh
+chmod +x .agents/skills/development-guide/scripts/*.sh
 ```
 
 ### 実機確認でコマンドが見つからない

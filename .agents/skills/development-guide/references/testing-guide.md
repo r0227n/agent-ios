@@ -20,7 +20,7 @@ agent-mobile CLI開発における3層テスト（ユニットテスト、統合
 
 **iOS:**
 ```bash
-./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh
+./.agents/skills/development-guide/scripts/setup-ios.sh
 ```
 
 **実行内容:**
@@ -31,7 +31,7 @@ agent-mobile CLI開発における3層テスト（ユニットテスト、統合
 
 **Android:**
 ```bash
-./.claude/skills/agent-mobile-dev/scripts/setup-android.sh
+./.agents/skills/development-guide/scripts/setup-android.sh
 ```
 
 **実行内容:**
@@ -373,22 +373,23 @@ cargo test --test cli test_my_feature_success -- --test-threads=1
 
 - **場所**: 実デバイス/シミュレータ
 - **目的**: 視覚的な動作確認、UI検証
-- **実行**: `/mobile-e2e ios` または `/mobile-e2e android`
+- **実行**: シミュレータ・エミュレータ・実機で `agent-mobile` を直接実行
 - **必須度**: **100%必須** - 確認なしでのコミットは禁止
 
 ### iOS確認手順
 
-#### 1. テスト環境起動
+#### 1. テスト環境準備
 
 ```bash
-/mobile-e2e ios
+xcrun simctl list devices | grep Booted
+agent-mobile device list
 ```
 
-**実行内容**:
-- 適切なシミュレータを起動（未起動の場合）
-- テストアプリをインストール（未インストールの場合）
-- XCUITest Runnerを起動（未起動の場合）
-- 環境情報を表示（UDID、シミュレータ名など）
+**確認内容**:
+- 適切なシミュレータが起動している
+- 必要ならテストアプリがインストール済みである
+- 必要なら XCUITest Runner が利用可能である
+- `agent-mobile` から対象デバイスを検出できる
 
 #### 2. コマンド実行（正常系）
 
@@ -438,16 +439,17 @@ agent-mobile tap 99999,99999 --udid <udid>
 
 ### Android確認手順
 
-#### 1. テスト環境起動
+#### 1. テスト環境準備
 
 ```bash
-/mobile-e2e android
+adb devices
+agent-mobile device list
 ```
 
-**実行内容**:
-- エミュレータを起動（未起動の場合）
-- テストアプリをインストール（未インストールの場合）
-- 環境情報を表示（シリアル番号など）
+**確認内容**:
+- エミュレータまたは実機が利用可能である
+- 必要ならテストアプリがインストール済みである
+- `agent-mobile` から対象デバイスを検出できる
 
 #### 2. コマンド実行
 
@@ -691,8 +693,6 @@ cargo test --test cli vibrate -- --test-threads=1
 
 ```bash
 # 9. 実機で動作確認（必須!）
-/mobile-e2e ios
-
 agent-mobile vibrate --udid <udid>
 # → シミュレータでバイブレーション動作を視覚確認
 
@@ -734,11 +734,8 @@ ls -la target/debug/agent-mobile  # 確認
 # シミュレータ一覧確認
 xcrun simctl list devices | grep Booted
 
-# シミュレータ起動
+# 必要ならシミュレータを起動
 xcrun simctl boot <udid>
-
-# または
-/mobile-e2e ios
 ```
 
 #### 症状: "Failed to connect to XCUITest Runner"
@@ -753,8 +750,8 @@ xcrun simctl list devices | grep Booted
 # agent-mobileでデバイスリストを確認
 agent-mobile device list
 
-# または
-/mobile-e2e ios
+# 必要なら XCUITest Runner を起動するコマンドを実行
+agent-mobile snapshot --udid <udid>
 ```
 
 ### 実機確認でコマンドが動作しない
@@ -792,7 +789,7 @@ RUST_BACKTRACE=1 agent-mobile my-command --udid <udid>
 **開発フロー**:
 1. **ユニットテスト**: `cargo test --verbose --bins`
 2. **統合テスト**: `cargo test --test cli -- --test-threads=1`
-3. **実機確認**: `/mobile-e2e ios` で視覚的に検証（必須!）
+3. **実機確認**: シミュレータ・エミュレータ・実機で視覚的に検証（必須!）
 4. **コミット**: 全テストパス + 実機確認完了後
 
 **実機確認は必須**: ビルド成功≠正しい動作

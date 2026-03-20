@@ -1,99 +1,98 @@
- ## 技術スタック
+# AGENTS.md
 
- - **Rust 2021**: メインアプリケーション
- - **tokio 1.49**: 非同期ランタイム
- - **clap 4.5**: CLI フレームワーク (derive)
- - **reqwest**: HTTP クライアント (XCUITest Runner 通信用)
- - **XCUITest Runner**: Swift HTTP サーバー (iOS 自動化)
+Instructions for AI coding agents working with this codebase.
 
- ## 開発ガイド
+## Package Manager and Workspace
 
-### 開発フロー
+This project is a Rust workspace. Use `cargo` for builds, tests, formatting, and linting.
 
-`agent-mobile <feature>` の変更時は、以下のサイクルで開発を進めます：
+- Main CLI binary: `agent-mobile`
+- Shared crates: `crates/core`, `crates/gateway`
+- Platform crates: `crates/platform-ios`, `crates/platform-android`
+- iOS runner: `crates/xcuitest-runner`
 
-```
-実装 → ビルド → ユニットテスト → 統合テスト → 実機動作確認 → コミット
-```
+Prefer workspace-aware commands unless there is a clear reason to scope to a single package.
 
-**重要**: 実機動作確認は必須ステップです。コードが正しくビルドできても、実際のシミュレータ/デバイスで期待通りに動作することを確認する必要があります。
+## Code Style
 
-#### 基本的な開発サイクル
+- Do not use emojis in code, output, or documentation.
+- CLI flags must use kebab-case. Follow the existing `clap` style such as `--session`, `--test-threads`, and `long-press`.
+- When adding agent-facing query or inspection features, support machine-readable output where it fits the existing UX. Prefer the current patterns: `--json` or `-f json`.
+- Error messages should state what failed and, when practical, what the user should check next.
+- Keep commands idempotent where possible. Re-running the same command should not create unsafe or surprising side effects.
+- Preserve the language of the file you are editing. Existing docs in this repo intentionally mix English and Japanese.
+
+## Documentation
+
+When adding or changing user-facing behavior such as commands, flags, output formats, session behavior, platform requirements, or examples, update all relevant documentation. At minimum, review these locations:
+
+1. `README.md` for the primary English user guide
+2. `docs/README.ja.md` for the Japanese user guide
+3. Relevant deep-dive docs such as `docs/ios-runner.ja.md`, `docs/android-console.md`, and `docs/ARCHITECTURE.md`
+4. The affected crate README files under `crates/`
+5. `clap` help text and examples in the relevant source modules under `src/`
+6. Inline doc comments near the changed code
+
+Do not assume a feature is documented just because the main README was updated. If the change affects AI-agent workflows, platform internals, or architecture assumptions, update the corresponding focused docs too.
+
+## Architecture
+
+This is a Rust workspace with a thin CLI entrypoint and platform-specific backends.
+
+- `src/main.rs` parses the top-level CLI and dispatches commands.
+- `src/command.rs` defines the top-level `clap` interface.
+- `src/core/` contains the main UI automation commands such as `tap`, `fill`, `find`, `wait`, `get`, `is`, `select`, `scroll`, and `swipe`.
+- `src/snapshot/` handles snapshot capture, ref generation, tree printing, and cache management.
+- `src/app.rs`, `src/device.rs`, `src/session/`, `src/doctor.rs`, `src/console.rs`, and `src/record.rs` implement the non-core command groups.
+- `crates/platform-ios` uses `simctl`, CoreSimulator integration, and the Swift XCUITest Runner HTTP server.
+- `crates/platform-android` uses ADB and UI Automator based flows for Android automation.
+- `crates/gateway` provides higher-level platform resolution and shared orchestration helpers.
+- `crates/xcuitest-runner` contains the Swift-side runner used by iOS automation.
+
+Before changing command behavior, confirm which layer owns the behavior. Do not put platform-specific logic in the CLI layer if it belongs in a platform crate.
+
+## Testing
+
+For code changes, use this development cycle:
 
 ```bash
-# 1. 機能実装
-# src/ 配下のファイルを編集
-
-# 2. ビルド検証
-cargo build --verbose
-
-# 3. ユニットテスト
-cargo test --verbose --bins
-
-# 4. 実機動作確認 (必須！)
-# → 次のセクション「実機動作確認（必須）」を参照
-
-# 5. 統合テスト (test-setup実行済みの場合)
+cargo build --workspace --verbose
+cargo test --workspace --verbose
 cargo test --test cli -- --test-threads=1
-
-# 6. コミット
-git add .
-git commit -m "feat: 変更内容の説明"
 ```
 
-**ポイント**:
-- **実機確認なしでのコミットは禁止**: ビルドが通っても、実際の動作を確認するまでコミットしないでください
-
-### 実機動作確認（必須）
-
-#### iOS の動作確認手順
+Also run the relevant quality checks when they apply:
 
 ```bash
-/mobile-e2e ios
+cargo fmt --all --check
+cargo clippy --workspace --all-targets
 ```
 
-#### Android の動作確認手順
+If you change a specific command, prefer running the focused integration tests in `tests/cli/` in addition to the broader test suite.
+
+## Device Verification
+
+Real device or simulator verification is required for command behavior changes. A successful build is not enough.
+
+### iOS
 
 ```bash
-# 1. テスト環境起動
-/mobile-e2e android
+agent-mobile <changed-command> [args...]
 ```
 
-#### 動作確認チェックリスト
-
-各機能変更後、以下を必ず確認してください：
-
-- [ ] コマンドが期待通りの動作をする
-- [ ] エラーメッセージが適切に表示される
-- [ ] UI操作の結果が視覚的に確認できる
-- [ ] スクリーンショットで証跡を保存した
-
-### ベストプラクティス
-
-#### テスト駆動開発 (TDD)
-
-新機能開発時は、以下の順序を推奨します：
+### Android
 
 ```bash
-# 1. テストケースを先に書く
-# tests/cli/your_feature_test.rs を作成
-
-# 2. 実装する
-# src/core/your_feature.rs を作成
-
-# 3. テストを実行して確認
-cargo test --test cli your_feature -- --test-threads=1
-
-# 4. 実機で動作確認
-agent-mobile <your-command>
+agent-mobile <changed-command> [args...]
 ```
 
+After a behavior change, verify all of the following:
 
-#### AIエージェント対応
+- The command behaves as expected on the real target
+- Error messages are still appropriate
+- The UI result is visually confirmed
+- A screenshot or equivalent artifact is captured as evidence
 
-Codex などの AIエージェントが効率的に使えるように、以下を心がけてください：
+Use the simulator, emulator, or real device workflow that matches the platform you changed. Document the exact verification command sequence in your work log or PR when it is not obvious from the affected feature.
 
-- **JSON出力対応**: `--json` フラグで JSON 形式の出力をサポート
-- **明確なエラーメッセージ**: エラー時に何が問題か、どう解決するかを明示
-- **ヘルプの充実**: `--help` で十分な情報を提供
-- **冪等性**: 同じコマンドを複数回実行しても安全
+Do not commit command behavior changes without real device or simulator validation.

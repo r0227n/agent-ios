@@ -13,9 +13,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Navigate to project root (.claude/skills/agent-mobile-dev/scripts -> ../..)
+# Navigate to project root (.agents/skills/development-guide/scripts -> ../..)
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-# Project root is 3 levels up from skill dir (.claude/skills/agent-mobile-dev -> ../../..)
+# Project root is 3 levels up from skill dir (.agents/skills/development-guide -> ../../..)
 PROJECT_DIR="$(cd "$SKILL_DIR/../../.." && pwd)"
 
 # Check arguments
@@ -107,4 +107,4 @@ echo "Next steps:"
 echo "  1. cargo build"
 echo "  2. Customize ${COMMAND_FILE} implementation"
 echo "  3. cargo test --test cli ${SNAKE_CASE}"
-echo "  4. /mobile-e2e ios  # Real device verification (REQUIRED!)"
+echo "  4. Verify on simulator/emulator/real device with agent-mobile (REQUIRED!)"

@@ -316,8 +316,8 @@ cargo test --package agent-mobile-platform-android --lib adb::logcat::tests
 
 **実機テスト** (E2E):
 ```bash
-# エミュレーター起動 + console 実行
-/mobile-e2e android
+# エミュレーターまたは実機を用意して console を実行
+agent-mobile console --udid <android-device-id>
 ```
 
 ### 関連ファイル

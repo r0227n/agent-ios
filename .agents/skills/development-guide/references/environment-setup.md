@@ -275,7 +275,7 @@ agent-mobile device list
 ### iOS自動セットアップ
 
 ```bash
-./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh
+./.agents/skills/development-guide/scripts/setup-ios.sh
 ```
 
 **実行内容:**
@@ -304,13 +304,13 @@ Status: Ready for testing
 Next steps:
   agent-mobile device list    # Verify device
   agent-mobile snapshot       # Get UI snapshot
-  /mobile-e2e ios             # Run E2E tests
+  agent-mobile <command>      # Run the changed command directly
 ```
 
 ### Android自動セットアップ
 
 ```bash
-./.claude/skills/agent-mobile-dev/scripts/setup-android.sh
+./.agents/skills/development-guide/scripts/setup-android.sh
 ```
 
 **実行内容:**
@@ -345,7 +345,7 @@ Status: Ready for testing
 Next steps:
   agent-mobile device list    # Verify device
   adb shell                   # Direct shell access
-  /mobile-e2e android         # Run E2E tests
+  agent-mobile <command>      # Run the changed command directly
 ```
 
 ## トラブルシューティング
@@ -494,7 +494,7 @@ Permission denied
 **iOS (simctl):**
 ```bash
 # セットアップスクリプトに実行権限付与
-chmod +x .claude/skills/agent-mobile-dev/scripts/setup-ios.sh
+chmod +x .agents/skills/development-guide/scripts/setup-ios.sh
 ```
 
 **Android (adb):**
@@ -531,13 +531,13 @@ Phase 6: コミット
 
 ```bash
 # iOS環境
-./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh
+./.agents/skills/development-guide/scripts/setup-ios.sh
 
 # Android環境
-./.claude/skills/agent-mobile-dev/scripts/setup-android.sh
+./.agents/skills/development-guide/scripts/setup-android.sh
 
 # または、run-tests.shが自動チェック
-./.claude/skills/agent-mobile-dev/scripts/run-tests.sh
+./.agents/skills/development-guide/scripts/run-tests.sh
 ```
 
 ### 継続的な環境メンテナンス
@@ -572,7 +572,7 @@ emulator -version
 **iOS開発:**
 ```bash
 # 1. 環境セットアップ
-./.claude/skills/agent-mobile-dev/scripts/setup-ios.sh
+./.agents/skills/development-guide/scripts/setup-ios.sh
 
 # 2. 確認
 agent-mobile device list
@@ -581,7 +581,7 @@ agent-mobile device list
 **Android開発:**
 ```bash
 # 1. 環境セットアップ
-./.claude/skills/agent-mobile-dev/scripts/setup-android.sh
+./.agents/skills/development-guide/scripts/setup-android.sh
 
 # 2. 確認
 agent-mobile device list
