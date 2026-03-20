@@ -43,7 +43,13 @@ jobs:
 
     - name: Boot iOS simulator for CLI tests
       run: |
-        UDID=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ && /(Shutdown|Booted)/ {print $2; exit}')
+        UDID=$(xcrun simctl list devices available --json | jq -r '
+          .devices
+          | to_entries[]
+          | .value[]
+          | select(.isAvailable == true and (.name | startswith("iPhone")))
+          | .udid
+          ' | head -n 1)
         if [ -z "$UDID" ]; then
           echo "No available iPhone simulator found" >&2
           exit 1
