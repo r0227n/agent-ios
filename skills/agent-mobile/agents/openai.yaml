@@ -1,0 +1,4 @@
+interface:
+  display_name: "agent-mobile CLI"
+  short_description: "Drive iOS/Android apps with agent-mobile"
+  default_prompt: "Use $agent-mobile to inspect a mobile UI and automate it with the local agent-mobile CLI."
