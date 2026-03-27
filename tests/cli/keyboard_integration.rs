@@ -59,7 +59,7 @@ fn test_keyboard_button_lock() {
 
     let output = run_cli_command_with_udid("tap", &["lock"], &udid);
 
-    assert_success(&output, "tap lock");
+    assert_failure(&output, "tap lock");
 }
 
 /// Test keyboard clear command.

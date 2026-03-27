@@ -11,6 +11,43 @@ use super::connection::AdbConnection;
 /// Default swipe duration in milliseconds.
 const DEFAULT_SWIPE_DURATION_MS: u64 = 300;
 
+fn round_coord(value: f64) -> String {
+    value.round().to_string()
+}
+
+fn parse_size_part(value: &str, dimension: &str) -> Result<u32> {
+    value
+        .parse()
+        .map_err(|_| AdbError::InvalidOutput(format!("Invalid {}: {}", dimension, value)))
+}
+
+fn parse_size_value(size: &str) -> Result<(u32, u32)> {
+    let (width, height) = size.split_once('x').ok_or_else(|| {
+        AdbError::InvalidOutput(format!("Could not parse screen size from value: {}", size))
+    })?;
+
+    Ok((
+        parse_size_part(width, "width")?,
+        parse_size_part(height, "height")?,
+    ))
+}
+
+fn parse_screen_size(stdout: &str) -> Result<(u32, u32)> {
+    for line in stdout.lines() {
+        if let Some(size) = line
+            .trim()
+            .strip_prefix("Physical size:")
+            .or_else(|| line.trim().strip_prefix("Override size:"))
+        {
+            return parse_size_value(size.trim());
+        }
+    }
+
+    Err(AdbError::InvalidOutput(
+        "Could not parse screen size from wm size output".to_string(),
+    ))
+}
+
 /// Execute an adb shell input command via native protocol.
 fn adb_input(serial: Option<&str>, args: &[&str]) -> Result<()> {
     let mut conn = AdbConnection::for_device(serial)?;
@@ -27,8 +64,8 @@ fn adb_input(serial: Option<&str>, args: &[&str]) -> Result<()> {
 /// * `x` - X coordinate
 /// * `y` - Y coordinate
 pub async fn tap(serial: Option<&str>, x: f64, y: f64) -> Result<()> {
-    let x_str = x.round().to_string();
-    let y_str = y.round().to_string();
+    let x_str = round_coord(x);
+    let y_str = round_coord(y);
     adb_input(serial, &["tap", &x_str, &y_str])
 }
 
@@ -41,8 +78,8 @@ pub async fn tap(serial: Option<&str>, x: f64, y: f64) -> Result<()> {
 /// * `duration_ms` - Press duration in milliseconds
 pub async fn long_press(serial: Option<&str>, x: f64, y: f64, duration_ms: u64) -> Result<()> {
     // Android implements long press as a swipe from point to same point with duration
-    let x_str = x.round().to_string();
-    let y_str = y.round().to_string();
+    let x_str = round_coord(x);
+    let y_str = round_coord(y);
     let duration_str = duration_ms.to_string();
     adb_input(
         serial,
@@ -67,10 +104,10 @@ pub async fn swipe(
     y2: f64,
     duration_ms: Option<u64>,
 ) -> Result<()> {
-    let x1_str = x1.round().to_string();
-    let y1_str = y1.round().to_string();
-    let x2_str = x2.round().to_string();
-    let y2_str = y2.round().to_string();
+    let x1_str = round_coord(x1);
+    let y1_str = round_coord(y1);
+    let x2_str = round_coord(x2);
+    let y2_str = round_coord(y2);
     let duration_str = duration_ms.unwrap_or(DEFAULT_SWIPE_DURATION_MS).to_string();
 
     adb_input(
@@ -175,29 +212,7 @@ pub mod keycodes {
 pub async fn get_screen_size(serial: Option<&str>) -> Result<(u32, u32)> {
     let mut conn = AdbConnection::for_device(serial)?;
     let stdout = conn.shell_command_args(&["wm", "size"])?;
-
-    // Output format: "Physical size: 1080x1920"
-    for line in stdout.lines() {
-        if line.contains("Physical size:") || line.contains("Override size:") {
-            if let Some(size_str) = line.split(':').nth(1) {
-                let size_str = size_str.trim();
-                let parts: Vec<&str> = size_str.split('x').collect();
-                if parts.len() == 2 {
-                    let width: u32 = parts[0].parse().map_err(|_| {
-                        AdbError::InvalidOutput(format!("Invalid width: {}", parts[0]))
-                    })?;
-                    let height: u32 = parts[1].parse().map_err(|_| {
-                        AdbError::InvalidOutput(format!("Invalid height: {}", parts[1]))
-                    })?;
-                    return Ok((width, height));
-                }
-            }
-        }
-    }
-
-    Err(AdbError::InvalidOutput(
-        "Could not parse screen size from wm size output".to_string(),
-    ))
+    parse_screen_size(&stdout)
 }
 
 #[cfg(test)]
@@ -209,5 +224,25 @@ mod tests {
         assert_eq!(keycodes::HOME, 3);
         assert_eq!(keycodes::BACK, 4);
         assert_eq!(keycodes::ENTER, 66);
+    }
+
+    #[test]
+    fn test_parse_screen_size_physical() {
+        assert_eq!(
+            parse_screen_size("Physical size: 1080x1920").unwrap(),
+            (1080, 1920)
+        );
+    }
+
+    #[test]
+    fn test_parse_screen_size_override() {
+        let stdout = "Physical size: 1080x1920\nOverride size: 720x1280";
+        assert_eq!(parse_screen_size(stdout).unwrap(), (1080, 1920));
+    }
+
+    #[test]
+    fn test_parse_screen_size_invalid_dimension() {
+        let result = parse_screen_size("Physical size: 1080xabc");
+        assert!(matches!(result, Err(AdbError::InvalidOutput(_))));
     }
 }

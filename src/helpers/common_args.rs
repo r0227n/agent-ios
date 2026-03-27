@@ -15,7 +15,7 @@ use super::format::OutputFormat;
 #[derive(Args, Debug, Clone)]
 pub struct DeviceArgs {
     /// Device UDID/serial. Auto-detected if not specified.
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     pub udid: Option<String>,
 }
 
@@ -46,7 +46,7 @@ pub struct FormatOutputArgs {
 #[derive(Args, Debug, Clone)]
 pub struct DeviceFormatArgs {
     /// Device UDID/serial. Auto-detected if not specified.
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     pub udid: Option<String>,
 
     /// Output format (text or json).

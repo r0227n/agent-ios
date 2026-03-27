@@ -5,6 +5,7 @@
 //! agent-mobile tap "Login"          # Tap by text
 //! agent-mobile tap 100,200          # Tap by coordinates
 //! agent-mobile tap home             # Hardware key
+//! agent-mobile tap center --duration 0.5
 //!
 //! # For long press, use the long-press command
 //! agent-mobile long-press @e1 --duration 2.0
@@ -22,6 +23,7 @@ use crate::helpers::client::{
 use crate::helpers::common_args::DeviceArgs;
 use crate::helpers::ios::{get_ios_screen_size, get_ios_screen_size_from_client};
 
+use super::long_press::{execute_ios_long_press, execute_long_press};
 use super::ref_resolver::{self, ElementTarget, ResolvedElement};
 
 /// Arguments for the tap command
@@ -30,6 +32,10 @@ pub struct TapArgs {
     /// Target: @eN ref, "text", x,y coordinates, or key (home, back, enter, etc.)
     pub target: String,
 
+    /// Press duration in seconds. Use for a short held tap without switching commands.
+    #[arg(long)]
+    pub duration: Option<f64>,
+
     /// Device selection options.
     #[command(flatten)]
     pub device: DeviceArgs,
@@ -37,6 +43,12 @@ pub struct TapArgs {
 
 /// Execute the tap command
 pub async fn run(args: TapArgs) -> CommandResult {
+    if let Some(duration) = args.duration {
+        if duration <= 0.0 {
+            return Err("duration must be greater than 0 seconds".into());
+        }
+    }
+
     let platform = match args.device.udid.as_deref() {
         Some(udid) => crate::device::detect_platform_from_udid(udid).await?,
         None => DeviceResolver::detect_platform().await?,
@@ -49,6 +61,7 @@ pub async fn run(args: TapArgs) -> CommandResult {
 
 async fn run_ios(args: TapArgs) -> CommandResult {
     let target = ElementTarget::parse(&args.target);
+    let duration = args.duration;
     let (resolved_udid, client, _) = prepare_xcuitest_with_policy(
         args.device.udid.as_deref(),
         AppContextPolicy::RestoreIfUnset,
@@ -60,18 +73,34 @@ async fn run_ios(args: TapArgs) -> CommandResult {
     }
 
     let (x, y) = resolve_ios_coords(&target, &resolved_udid, &client).await?;
-    execute_ios_tap(&client, x, y).await
+    if let Some(duration) = duration {
+        execute_ios_long_press(&client, x, y, duration).await
+    } else {
+        execute_ios_tap(&client, x, y).await
+    }
 }
 
 async fn run_android(args: TapArgs) -> CommandResult {
     let target = ElementTarget::parse(&args.target);
+    let duration = args.duration;
 
     if let ElementTarget::Key(key) = &target {
         return execute_key(Platform::Android, args.device.udid.as_deref(), key).await;
     }
 
     let (x, y) = resolve_coords(&target, Platform::Android, args.device.udid.as_deref()).await?;
-    execute_tap(Platform::Android, args.device.udid.as_deref(), x, y).await
+    if let Some(duration) = duration {
+        execute_long_press(
+            Platform::Android,
+            args.device.udid.as_deref(),
+            x,
+            y,
+            duration,
+        )
+        .await
+    } else {
+        execute_tap(Platform::Android, args.device.udid.as_deref(), x, y).await
+    }
 }
 
 /// Resolve target to coordinates
@@ -417,7 +446,7 @@ async fn execute_key(platform: Platform, udid: Option<&str>, key: &str) -> Comma
 pub(crate) async fn execute_ios_key(client: &XCUITestClient, key: &str) -> CommandResult {
     let key_lower = key.to_lowercase();
 
-    if matches!(key_lower.as_str(), "home" | "lock" | "power" | "siri") {
+    if key_lower == "home" {
         client.button_press(&key_lower).await?;
         return Ok(());
     }
@@ -434,7 +463,7 @@ pub(crate) async fn execute_ios_key(client: &XCUITestClient, key: &str) -> Comma
         "right" => "right",
         _ => {
             return Err(format!(
-                "Unknown key: {}. Valid keys: home, lock, siri, enter, tab, space, escape, delete, up, down, left, right",
+                "Unknown key: {}. Valid keys: home, enter, tab, space, escape, delete, up, down, left, right",
                 key
             )
             .into())

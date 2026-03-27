@@ -6,8 +6,11 @@ use std::time::{Duration, Instant};
 
 /// Get a booted iOS simulator UDID using simctl.
 ///
+/// If no simulator is currently booted, boot the first available iPhone
+/// simulator and wait until it is fully ready.
+///
 /// # Panics
-/// Panics if no booted simulator is available.
+/// Panics if no suitable simulator is available or if booting fails.
 pub fn get_available_udid() -> String {
     let devices = agent_mobile_platform_ios::simctl::list_simulators()
         .expect("Failed to list simulators - ensure Xcode is installed");
@@ -18,7 +21,37 @@ pub fn get_available_udid() -> String {
         }
     }
 
-    panic!("No booted iOS simulator available. Start a simulator first.");
+    let fallback = devices
+        .iter()
+        .find(|device| device.name.starts_with("iPhone"))
+        .or_else(|| devices.first())
+        .unwrap_or_else(|| {
+            panic!("No iOS simulator available. Ensure Xcode simulators are installed.")
+        });
+
+    agent_mobile_platform_ios::simctl::boot(&fallback.udid)
+        .unwrap_or_else(|err| panic!("Failed to boot simulator {}: {}", fallback.udid, err));
+
+    let boot_status = Command::new("xcrun")
+        .args(["simctl", "bootstatus", &fallback.udid, "-b"])
+        .output()
+        .unwrap_or_else(|err| {
+            panic!(
+                "Failed to run simctl bootstatus for {}: {}",
+                fallback.udid, err
+            )
+        });
+
+    if !boot_status.status.success() {
+        panic!(
+            "Simulator {} failed to reach booted state:\nstdout: {}\nstderr: {}",
+            fallback.udid,
+            String::from_utf8_lossy(&boot_status.stdout),
+            String::from_utf8_lossy(&boot_status.stderr)
+        );
+    }
+
+    fallback.udid.clone()
 }
 
 /// Get a test bundle ID for iOS.

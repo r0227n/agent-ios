@@ -129,7 +129,7 @@ agent-mobile device boot "iPhone 15 Pro"
 ### 3. アプリを起動する
 
 ```bash
-agent-mobile app launch com.apple.mobilesafari
+agent-mobile app launch com.apple.mobilesafari --fresh
 ```
 
 ### 4. 現在の UI を取得する
@@ -150,6 +150,7 @@ agent-mobile snapshot
 
 ```bash
 agent-mobile tap @e1
+agent-mobile tap center --duration 0.5
 agent-mobile fill @e2 "https://example.com"
 ```
 
@@ -157,6 +158,7 @@ agent-mobile fill @e2 "https://example.com"
 
 ```bash
 agent-mobile find text "Continue" tap
+agent-mobile find type Button --udid <DEVICE_UDID>
 agent-mobile find placeholder "Search or enter website name" fill "https://example.com"
 ```
 
@@ -248,7 +250,7 @@ agent-mobile doctor --json
 ## 例: ログインフロー
 
 ```bash
-agent-mobile app launch com.example.app
+agent-mobile app launch com.example.app --fresh
 agent-mobile snapshot
 
 agent-mobile fill @e1 "user@example.com"

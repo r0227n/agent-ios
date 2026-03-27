@@ -11,7 +11,12 @@ members = [
 name = "agent-mobile"
 version = "0.1.0"
 edition = "2021"
+description = "AI-friendly mobile automation CLI for iOS simulators and Android devices"
 license = "MIT"
+repository = "https://github.com/r0227n/agent-mobile"
+homepage = "https://github.com/r0227n/agent-mobile"
+documentation = "https://r0227n.github.io/agent-mobile/"
+readme = "README.md"
 
 [[bin]]
 name = "agent-mobile"
@@ -19,10 +24,10 @@ path = "src/main.rs"
 
 [dependencies]
 # Workspace crates
-agent-mobile-core = { path = "crates/core", features = ["cli"] }
-agent-mobile-platform-ios = { path = "crates/platform-ios" }
-agent-mobile-platform-android = { path = "crates/platform-android" }
-agent-mobile-gateway = { path = "crates/gateway" }
+agent-mobile-core = { version = "0.1.0", path = "crates/core", features = ["cli"] }
+agent-mobile-platform-ios = { version = "0.1.0", path = "crates/platform-ios" }
+agent-mobile-platform-android = { version = "0.1.0", path = "crates/platform-android" }
+agent-mobile-gateway = { version = "0.1.0", path = "crates/gateway" }
 
 # Async runtime
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "signal", "sync", "process"] }

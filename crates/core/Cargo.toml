@@ -3,6 +3,10 @@ name = "agent-mobile-core"
 version = "0.1.0"
 edition = "2021"
 description = "Core types and traits for agent-mobile"
+license = "MIT"
+repository = "https://github.com/r0227n/agent-mobile"
+homepage = "https://github.com/r0227n/agent-mobile"
+documentation = "https://r0227n.github.io/agent-mobile/"
 
 [features]
 default = []

@@ -8,35 +8,96 @@ use tracing::warn;
 use super::commands::{AdbError, Result};
 use super::connection::AdbConnection;
 
-/// Grant a runtime permission to an app.
-///
-/// Uses `pm grant <package> <permission>` via native ADB protocol.
-pub async fn grant_permission(serial: Option<&str>, package: &str, permission: &str) -> Result<()> {
-    let serial = serial.map(|s| s.to_string());
+const PERMISSION_FAILURE_PATTERNS: &[&str] = &["Exception", "Error", "Unknown"];
+const RESET_PERMISSION_WARNING_PATTERNS: &[&str] = &["Exception", "Error"];
+
+fn join_blocking_error(error: tokio::task::JoinError) -> AdbError {
+    AdbError::CommandFailed(format!("task join error: {}", error))
+}
+
+fn trimmed_output_matches_any(output: &str, patterns: &[&str]) -> bool {
+    let trimmed = output.trim();
+    !trimmed.is_empty() && patterns.iter().any(|pattern| trimmed.contains(pattern))
+}
+
+async fn with_connection<T, F>(serial: Option<&str>, f: F) -> Result<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&mut AdbConnection) -> Result<T> + Send + 'static,
+{
+    let serial = serial.map(str::to_owned);
+    tokio::task::spawn_blocking(move || {
+        let mut conn = AdbConnection::for_device(serial.as_deref())?;
+        f(&mut conn)
+    })
+    .await
+    .map_err(join_blocking_error)?
+}
+
+async fn run_permission_command(
+    serial: Option<&str>,
+    package: &str,
+    permission: &str,
+    pm_command: &'static str,
+    relation: &'static str,
+) -> Result<()> {
     let package = package.to_string();
     let permission = permission.to_string();
 
-    tokio::task::spawn_blocking(move || {
-        let mut conn = AdbConnection::for_device(serial.as_deref())?;
-        let output = conn.shell_command_args(&["pm", "grant", &package, &permission])?;
-
-        // pm grant outputs error messages on failure (successful grants produce empty output)
-        let trimmed = output.trim();
-        if !trimmed.is_empty()
-            && (trimmed.contains("Exception")
-                || trimmed.contains("Error")
-                || trimmed.contains("Unknown"))
-        {
+    with_connection(serial, move |conn| {
+        let output = conn.shell_command_args(&["pm", pm_command, &package, &permission])?;
+        if trimmed_output_matches_any(&output, PERMISSION_FAILURE_PATTERNS) {
             return Err(AdbError::CommandFailed(format!(
-                "Failed to grant permission '{}' to '{}': {}",
-                permission, package, trimmed
+                "Failed to {} permission '{}' {} '{}': {}",
+                pm_command,
+                permission,
+                relation,
+                package,
+                output.trim()
             )));
         }
 
         Ok(())
     })
     .await
-    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))?
+}
+
+fn parse_runtime_permissions(stdout: &str) -> Vec<(String, bool)> {
+    let mut permissions = Vec::new();
+    let mut in_runtime_permissions = false;
+
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        let is_permission_line = trimmed.starts_with("android.permission.");
+
+        if trimmed.starts_with("runtime permissions:") {
+            in_runtime_permissions = true;
+            continue;
+        }
+
+        if in_runtime_permissions
+            && !trimmed.is_empty()
+            && (trimmed.ends_with(':')
+                || (!is_permission_line && !line.starts_with(' ') && !line.starts_with('\t')))
+        {
+            break;
+        }
+
+        if in_runtime_permissions && is_permission_line {
+            if let Some((permission, details)) = trimmed.split_once(':') {
+                permissions.push((permission.to_string(), details.contains("granted=true")));
+            }
+        }
+    }
+
+    permissions
+}
+
+/// Grant a runtime permission to an app.
+///
+/// Uses `pm grant <package> <permission>` via native ADB protocol.
+pub async fn grant_permission(serial: Option<&str>, package: &str, permission: &str) -> Result<()> {
+    run_permission_command(serial, package, permission, "grant", "to").await
 }
 
 /// Revoke a runtime permission from an app.
@@ -47,31 +108,7 @@ pub async fn revoke_permission(
     package: &str,
     permission: &str,
 ) -> Result<()> {
-    let serial = serial.map(|s| s.to_string());
-    let package = package.to_string();
-    let permission = permission.to_string();
-
-    tokio::task::spawn_blocking(move || {
-        let mut conn = AdbConnection::for_device(serial.as_deref())?;
-        let output = conn.shell_command_args(&["pm", "revoke", &package, &permission])?;
-
-        // pm revoke outputs error messages on failure (successful revokes produce empty output)
-        let trimmed = output.trim();
-        if !trimmed.is_empty()
-            && (trimmed.contains("Exception")
-                || trimmed.contains("Error")
-                || trimmed.contains("Unknown"))
-        {
-            return Err(AdbError::CommandFailed(format!(
-                "Failed to revoke permission '{}' from '{}': {}",
-                permission, package, trimmed
-            )));
-        }
-
-        Ok(())
-    })
-    .await
-    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))?
+    run_permission_command(serial, package, permission, "revoke", "from").await
 }
 
 /// Reset all permissions for an app to their default state.
@@ -81,14 +118,12 @@ pub async fn revoke_permission(
 /// # Note
 /// This requires Android 6.0 (API 23) or higher.
 pub async fn reset_permissions(serial: Option<&str>, package: &str) -> Result<()> {
-    let serial = serial.map(|s| s.to_string());
     let package = package.to_string();
 
-    tokio::task::spawn_blocking(move || {
-        let mut conn = AdbConnection::for_device(serial.as_deref())?;
+    with_connection(serial, move |conn| {
         let output = conn.shell_command_args(&["pm", "reset-permissions", &package])?;
 
-        if output.contains("Exception") || output.contains("Error") {
+        if trimmed_output_matches_any(&output, RESET_PERMISSION_WARNING_PATTERNS) {
             // reset-permissions may not be available on all Android versions
             // Treat as non-critical error
             warn!(
@@ -101,54 +136,60 @@ pub async fn reset_permissions(serial: Option<&str>, package: &str) -> Result<()
         Ok(())
     })
     .await
-    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))?
 }
 
 /// List all runtime permissions for a package.
 ///
 /// Uses `dumpsys package <package>` via native ADB protocol and parses the permissions section.
 pub async fn list_permissions(serial: Option<&str>, package: &str) -> Result<Vec<(String, bool)>> {
-    let serial = serial.map(|s| s.to_string());
     let package = package.to_string();
 
-    let stdout = tokio::task::spawn_blocking(move || {
-        let mut conn = AdbConnection::for_device(serial.as_deref())?;
+    let stdout = with_connection(serial, move |conn| {
         conn.shell_command_args(&["dumpsys", "package", &package])
     })
-    .await
-    .map_err(|e| AdbError::CommandFailed(format!("task join error: {}", e)))??;
+    .await?;
 
-    let mut permissions = Vec::new();
-    let mut in_runtime_permissions = false;
+    Ok(parse_runtime_permissions(&stdout))
+}
 
-    for line in stdout.lines() {
-        let trimmed = line.trim();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        // Look for "runtime permissions:" section
-        if trimmed.starts_with("runtime permissions:") {
-            in_runtime_permissions = true;
-            continue;
-        }
-
-        // Exit section when we hit another top-level key
-        if in_runtime_permissions
-            && !trimmed.starts_with("android.permission.")
-            && !trimmed.is_empty()
-            && !line.starts_with(" ")
-            && !line.starts_with("\t")
-        {
-            break;
-        }
-
-        // Parse permission lines like "android.permission.CAMERA: granted=true"
-        if in_runtime_permissions && trimmed.starts_with("android.permission.") {
-            if let Some(colon_pos) = trimmed.find(':') {
-                let permission = trimmed[..colon_pos].to_string();
-                let granted = trimmed.contains("granted=true");
-                permissions.push((permission, granted));
-            }
-        }
+    #[test]
+    fn test_trimmed_output_matches_any() {
+        assert!(trimmed_output_matches_any(
+            "  Error: denied  ",
+            PERMISSION_FAILURE_PATTERNS
+        ));
+        assert!(!trimmed_output_matches_any(
+            "   ",
+            PERMISSION_FAILURE_PATTERNS
+        ));
+        assert!(!trimmed_output_matches_any(
+            "Success",
+            PERMISSION_FAILURE_PATTERNS
+        ));
     }
 
-    Ok(permissions)
+    #[test]
+    fn test_parse_runtime_permissions() {
+        let stdout = r#"
+            requested permissions:
+              android.permission.CAMERA
+            runtime permissions:
+              android.permission.CAMERA: granted=true, flags=[ USER_SENSITIVE_WHEN_GRANTED]
+              android.permission.RECORD_AUDIO: granted=false, flags=[ USER_SENSITIVE_WHEN_DENIED]
+            install permissions:
+              android.permission.INTERNET: granted=true
+        "#;
+
+        assert_eq!(
+            parse_runtime_permissions(stdout),
+            vec![
+                ("android.permission.CAMERA".to_string(), true),
+                ("android.permission.RECORD_AUDIO".to_string(), false),
+            ]
+        );
+    }
 }

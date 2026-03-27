@@ -41,8 +41,24 @@ jobs:
     - name: Run tests
       run: cargo test --workspace --lib --bins --verbose
 
-    - name: Check CLI integration tests compile
-      run: cargo test --test cli --no-run --verbose
+    - name: Boot iOS simulator for CLI tests
+      run: |
+        UDID=$(xcrun simctl list devices available --json | jq -r '
+          .devices
+          | to_entries[]
+          | .value[]
+          | select(.isAvailable == true and (.name | startswith("iPhone")))
+          | .udid
+          ' | head -n 1)
+        if [ -z "$UDID" ]; then
+          echo "No available iPhone simulator found" >&2
+          exit 1
+        fi
+        xcrun simctl boot "$UDID" || true
+        xcrun simctl bootstatus "$UDID" -b
+
+    - name: Run CLI integration tests
+      run: cargo test --test cli -- --test-threads=1
 
   lint:
     runs-on: macos-15-intel
