@@ -9,6 +9,11 @@ use super::commands::{AdbError, Result};
 use super::connection::AdbConnection;
 use serde::{Deserialize, Serialize};
 
+const ACTIVITY_LAUNCH_FAILURE_PATTERNS: &[&str] = &["Error", "Exception"];
+const CLEAR_DATA_FAILURE_PATTERNS: &[&str] = &["Failed", "Exception"];
+const INSTALL_REPLACE_FAILURE_PATTERNS: &[&str] = &["Failure"];
+const REINSTALL_TEMP_APK_PATH: &str = "/data/local/tmp/agent_mobile_install.apk";
+
 /// Installed app information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppInfo {
@@ -23,6 +28,77 @@ pub struct AppInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Install location or APK path reported by the device.
     pub path: Option<String>,
+}
+
+fn trimmed_output_matches_any(output: &str, patterns: &[&str]) -> bool {
+    let trimmed = output.trim();
+    !trimmed.is_empty() && patterns.iter().any(|pattern| trimmed.contains(pattern))
+}
+
+fn remove_remote_file(conn: &mut AdbConnection, remote_path: &str) {
+    let _ = conn.shell_command_args(&["rm", "-f", remote_path]);
+}
+
+fn install_replacing_existing(conn: &mut AdbConnection, apk_path: &str) -> Result<()> {
+    let file = std::fs::File::open(apk_path).map_err(AdbError::ExecutionError)?;
+    conn.push(file, REINSTALL_TEMP_APK_PATH)?;
+
+    let install_output = conn.shell_command_args(&["pm", "install", "-r", REINSTALL_TEMP_APK_PATH]);
+    remove_remote_file(conn, REINSTALL_TEMP_APK_PATH);
+
+    let install_output = install_output?;
+    if trimmed_output_matches_any(&install_output, INSTALL_REPLACE_FAILURE_PATTERNS) {
+        return Err(AdbError::CommandFailed(format!(
+            "install failed: {}",
+            install_output.trim()
+        )));
+    }
+
+    Ok(())
+}
+
+fn parse_package_list(stdout: &str) -> Vec<AppInfo> {
+    stdout
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix("package:").map(|pkg| AppInfo {
+                package_name: pkg.trim().to_string(),
+                version_name: None,
+                version_code: None,
+                path: None,
+            })
+        })
+        .collect()
+}
+
+fn parse_package_info(package_name: &str, stdout: &str) -> AppInfo {
+    let mut version_name = None;
+    let mut version_code = None;
+    let mut path = None;
+
+    for line in stdout.lines().map(str::trim) {
+        if let Some(value) = line.strip_prefix("versionName=") {
+            version_name = Some(value.to_string());
+            continue;
+        }
+
+        if let Some(value) = line.strip_prefix("versionCode=") {
+            let code_part = value.split_whitespace().next().unwrap_or("");
+            version_code = code_part.parse().ok();
+            continue;
+        }
+
+        if let Some(value) = line.strip_prefix("codePath=") {
+            path = Some(value.to_string());
+        }
+    }
+
+    AppInfo {
+        package_name: package_name.to_string(),
+        version_name,
+        version_code,
+        path,
+    }
 }
 
 /// Launch an app by package name.
@@ -59,7 +135,7 @@ pub async fn launch_activity(
     let mut conn = AdbConnection::for_device(serial)?;
     let component = format!("{}/{}", package_name, activity);
     let output = conn.shell_command_args(&["am", "start", "-n", &component])?;
-    if output.contains("Error") || output.contains("Exception") {
+    if trimmed_output_matches_any(&output, ACTIVITY_LAUNCH_FAILURE_PATTERNS) {
         return Err(AdbError::CommandFailed(format!(
             "Failed to launch activity '{}': {}",
             component,
@@ -81,27 +157,8 @@ pub async fn install(serial: Option<&str>, apk_path: &str, reinstall: bool) -> R
     let mut conn = AdbConnection::for_device(serial)?;
 
     if reinstall {
-        // For reinstall, use shell pm install with -r flag via push + pm install
-        // adb_client's install doesn't support -r flag, so use shell command approach
-        let temp_path = "/data/local/tmp/agent_mobile_install.apk";
-
-        // Push APK to device
-        let file = std::fs::File::open(apk_path).map_err(AdbError::ExecutionError)?;
-        conn.push(file, temp_path)?;
-
-        // Install from device temp path with -r flag
-        let output = conn.shell_command_args(&["pm", "install", "-r", temp_path])?;
-        if output.contains("Failure") {
-            // Cleanup
-            let _ = conn.shell_command_args(&["rm", "-f", temp_path]);
-            return Err(AdbError::CommandFailed(format!(
-                "install failed: {}",
-                output.trim()
-            )));
-        }
-
-        // Cleanup
-        let _ = conn.shell_command_args(&["rm", "-f", temp_path]);
+        // adb_client's install doesn't support -r, so push + install via pm.
+        install_replacing_existing(&mut conn, apk_path)?;
     } else {
         conn.install(apk_path)?;
     }
@@ -126,58 +183,21 @@ pub async fn list_packages(serial: Option<&str>, third_party_only: bool) -> Resu
         conn.shell_command_args(&["pm", "list", "packages"])?
     };
 
-    let apps: Vec<AppInfo> = stdout
-        .lines()
-        .filter_map(|line| {
-            line.strip_prefix("package:").map(|pkg| AppInfo {
-                package_name: pkg.trim().to_string(),
-                version_name: None,
-                version_code: None,
-                path: None,
-            })
-        })
-        .collect();
-
-    Ok(apps)
+    Ok(parse_package_list(&stdout))
 }
 
 /// Get detailed info about a specific package.
 pub async fn get_package_info(serial: Option<&str>, package_name: &str) -> Result<AppInfo> {
     let mut conn = AdbConnection::for_device(serial)?;
     let stdout = conn.shell_command_args(&["dumpsys", "package", package_name])?;
-
-    let mut version_name = None;
-    let mut version_code = None;
-    let mut path = None;
-
-    for line in stdout.lines() {
-        let line = line.trim();
-        if line.starts_with("versionName=") {
-            version_name = line.strip_prefix("versionName=").map(|s| s.to_string());
-        } else if line.starts_with("versionCode=") {
-            if let Some(code_str) = line.strip_prefix("versionCode=") {
-                // Format might be "versionCode=123 minSdk=..."
-                let code_part = code_str.split_whitespace().next().unwrap_or("");
-                version_code = code_part.parse().ok();
-            }
-        } else if line.starts_with("codePath=") {
-            path = line.strip_prefix("codePath=").map(|s| s.to_string());
-        }
-    }
-
-    Ok(AppInfo {
-        package_name: package_name.to_string(),
-        version_name,
-        version_code,
-        path,
-    })
+    Ok(parse_package_info(package_name, &stdout))
 }
 
 /// Clear app data.
 pub async fn clear_data(serial: Option<&str>, package_name: &str) -> Result<()> {
     let mut conn = AdbConnection::for_device(serial)?;
     let output = conn.shell_command_args(&["pm", "clear", package_name])?;
-    if output.contains("Failed") || output.contains("Exception") {
+    if trimmed_output_matches_any(&output, CLEAR_DATA_FAILURE_PATTERNS) {
         return Err(AdbError::CommandFailed(format!(
             "Failed to clear data for '{}': {}",
             package_name,
@@ -200,5 +220,43 @@ mod tests {
             path: None,
         };
         assert_eq!(info.package_name, "com.example.app");
+    }
+
+    #[test]
+    fn test_parse_package_list() {
+        let stdout = "package:com.example.one\npackage: com.example.two\nignored";
+        let packages = parse_package_list(stdout);
+
+        assert_eq!(packages.len(), 2);
+        assert_eq!(packages[0].package_name, "com.example.one");
+        assert_eq!(packages[1].package_name, "com.example.two");
+    }
+
+    #[test]
+    fn test_parse_package_info() {
+        let stdout = r#"
+            versionCode=123 minSdk=24 targetSdk=34
+            versionName=1.2.3
+            codePath=/data/app/~~abc/base.apk
+        "#;
+
+        let info = parse_package_info("com.example.app", stdout);
+
+        assert_eq!(info.package_name, "com.example.app");
+        assert_eq!(info.version_name.as_deref(), Some("1.2.3"));
+        assert_eq!(info.version_code, Some(123));
+        assert_eq!(info.path.as_deref(), Some("/data/app/~~abc/base.apk"));
+    }
+
+    #[test]
+    fn test_trimmed_output_matches_any() {
+        assert!(trimmed_output_matches_any(
+            "  Failure [INSTALL_FAILED]  ",
+            INSTALL_REPLACE_FAILURE_PATTERNS
+        ));
+        assert!(!trimmed_output_matches_any(
+            "Success",
+            INSTALL_REPLACE_FAILURE_PATTERNS
+        ));
     }
 }
